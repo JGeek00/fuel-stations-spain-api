@@ -1,8 +1,8 @@
 import axios from "axios"
-import { ServiceStationsResult } from "./models/service-stations-result";
 import { assertEquals } from "typia";
-import { FuelStation } from "./models/db/fuel-station";
-import { formatCurrentDate } from "./utils/datetime-formatter";
+import { ServiceStationsResult } from "@/models/service-stations-result";
+import { FuelStation } from "@/models/db/fuel-station";
+import { formatCurrentDate } from "@/utils/datetime-formatter";
 
 export const loadDataOnStart = () => {
   console.log(`Fetch data on start: ${formatCurrentDate()}`)
@@ -18,6 +18,7 @@ export const loadData = async () => {
     }
     await FuelStation.bulkCreate(parsedResult.ListaEESSPrecio?.map(station => {
       return {
+        id: station.IDEESS,
         postalCode: station["C.P."],
         address: station.Dirección,
         openingHours: station.Horario,
@@ -32,7 +33,6 @@ export const loadData = async () => {
         saleType: station["Tipo Venta"],
         percBioEthanol: station["% BioEtanol"],
         percMethylEster: station["% Éster metílico"],
-        IDEESS: station.IDEESS,
         municipalityId: station.IDMunicipio,
         provinceId: station.IDProvincia,
         regionId: station.IDCCAA,

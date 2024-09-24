@@ -1,9 +1,9 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import * as dotevnv from "dotenv"
 import cors from "cors"
 import helmet from "helmet"
-import database from './services/database';
-import Router from './routes/router'
+import database from '@/services/database';
+import Router from '@/routes/router'
 
 dotevnv.config()
 

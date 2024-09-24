@@ -1,6 +1,6 @@
 import { Sequelize } from "sequelize";
-import { FuelStation, FuelStationModel } from "../models/db/fuel-station";
-import { loadDataOnStart } from "../load-data";
+import { FuelStation, FuelStationModel } from "@/models/db/fuel-station";
+import { loadDataOnStart } from "@/services/load-data";
 
 class Database {
   instance;

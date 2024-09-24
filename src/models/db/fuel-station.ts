@@ -3,6 +3,10 @@ import { DataTypes, Model } from "sequelize";
 export class FuelStation extends Model {}
 
 export const FuelStationModel = {
+  id: {
+    type: DataTypes.STRING,
+    primaryKey: true,
+  },
   postalCode: DataTypes.STRING,
   address: DataTypes.STRING,
   openingHours: DataTypes.STRING,
@@ -17,7 +21,6 @@ export const FuelStationModel = {
   saleType: DataTypes.STRING,
   percBioEthanol: DataTypes.STRING,
   percMethylEster: DataTypes.STRING,
-  IDEESS: DataTypes.STRING,
   municipalityId: DataTypes.STRING,
   provinceId: DataTypes.STRING,
   regionId: DataTypes.STRING,

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { FuelStation } from "../models/db/fuel-station";
 import { query, validationResult } from "express-validator";
-import defaults from '../config/defaults.json'
+import { FuelStation } from "@/models/db/fuel-station";
+import defaults from '@/config/defaults.json'
 
 export const serviceStationsValidations = [
   query('limit').isInt().optional().withMessage('Limit parameter must be an int value'),
@@ -33,7 +33,7 @@ export const serviceStationsController = async (req: Request, res: Response) => 
     if (req.query.id) {
       where = {
         ...where,
-        IDEESS: req.query.id
+        id: req.query.id
       }
     }
 
