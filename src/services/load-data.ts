@@ -4,6 +4,7 @@ import { ServiceStationsResult } from "@/models/service-stations-result";
 import { FuelStation } from "@/models/db/fuel-station";
 import { formatCurrentDate } from "@/utils/datetime-formatter";
 import { LastUpdated } from "@/models/db/last-updated";
+import { parseStringToFloat } from "@/utils/parser";
 
 export const loadDataOnStart = () => {
   console.log(`Fetch data on start: ${formatCurrentDate()}`)
@@ -23,8 +24,8 @@ export const loadData = async () => {
         postalCode: station["C.P."],
         address: station.Dirección,
         openingHours: station.Horario,
-        latitude: station.Latitud ? parseFloat(station.Latitud.replace(",", ".")) : null,
-        longitude: station["Longitud (WGS84)"] ? parseFloat(station["Longitud (WGS84)"].replace(",", ".")) : null,
+        latitude: parseStringToFloat(station.Latitud),
+        longitude: parseStringToFloat(station["Longitud (WGS84)"]),
         locality: station.Localidad,
         margin: station.Margen,
         municipio: station.Municipio,
@@ -32,25 +33,25 @@ export const loadData = async () => {
         referral: station.Remisión,
         signage: station.Rótulo,
         saleType: station["Tipo Venta"],
-        percBioEthanol: station["% BioEtanol"],
-        percMethylEster: station["% Éster metílico"],
+        percBioEthanol: parseStringToFloat(station["% BioEtanol"]),
+        percMethylEster: parseStringToFloat(station["% Éster metílico"]),
         municipalityId: station.IDMunicipio,
         provinceId: station.IDProvincia,
         regionId: station.IDCCAA,
-        biodieselPrice: station["Precio Biodiesel"],
-        bioethanolPrice: station["Precio Bioetanol"],
-        CNGPrice: station["Precio Gas Natural Comprimido"],
-        LNGPrice: station["Precio Gas Natural Licuado"],
-        LPGPrice: station["Precio Gases licuados del petróleo"],
-        gasoilAPrice: station["Precio Gasoleo A"],
-        gasoilBPrice: station["Precio Gasoleo B"],
-        premiumGasoilPrice: station["Precio Gasoleo Premium"],
-        gasoline95E10Price: station["Precio Gasolina 95 E10"],
-        gasoline95E5Price: station["Precio Gasolina 95 E5"],
-        gasoline95E5PremiumPrice: station["Precio Gasolina 95 E5 Premium"],
-        gasoline98E10Price: station["Precio Gasolina 98 E10"],
-        gasoline98E5Price: station["Precio Gasolina 98 E5"],
-        hydrogenPrice: station["Precio Hidrogeno"],
+        biodieselPrice: parseStringToFloat(station["Precio Biodiesel"]),
+        bioethanolPrice: parseStringToFloat(station["Precio Bioetanol"]),
+        CNGPrice: parseStringToFloat(station["Precio Gas Natural Comprimido"]),
+        LNGPrice: parseStringToFloat(station["Precio Gas Natural Licuado"]),
+        LPGPrice: parseStringToFloat(station["Precio Gases licuados del petróleo"]),
+        gasoilAPrice: parseStringToFloat(station["Precio Gasoleo A"]),
+        gasoilBPrice: parseStringToFloat(station["Precio Gasoleo B"]),
+        premiumGasoilPrice: parseStringToFloat(station["Precio Gasoleo Premium"]),
+        gasoline95E10Price: parseStringToFloat(station["Precio Gasolina 95 E10"]),
+        gasoline95E5Price: parseStringToFloat(station["Precio Gasolina 95 E5"]),
+        gasoline95E5PremiumPrice: parseStringToFloat(station["Precio Gasolina 95 E5 Premium"]),
+        gasoline98E10Price: parseStringToFloat(station["Precio Gasolina 98 E10"]),
+        gasoline98E5Price: parseStringToFloat(station["Precio Gasolina 98 E5"]),
+        hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
       }
     }))
     await LastUpdated.create({
