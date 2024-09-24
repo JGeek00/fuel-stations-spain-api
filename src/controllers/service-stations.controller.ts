@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { query, validationResult } from "express-validator";
 import { Op } from "sequelize";
 import { FuelStation } from "@/models/db/fuel-station";
-import defaults from '@/config/defaults.json'
+import config from '@/config/config.json'
 import { calculateBoundingBox } from '@/utils/calculate-distance';
 import { LastUpdated } from "@/models/db/last-updated";
 
@@ -53,8 +53,16 @@ export const serviceStationsController = async (req: Request, res: Response) => 
 
     // Use limit and offset only when no specific stations are searched and when not searching by coordinates
     if (!req.query.id && !req.query.coordinates && !req.query.distance) {
-      limit = req.query.limit ? parseInt(req.query.limit as string) : defaults.query.limit
-      offset = req.query.offset ? parseInt(req.query.offset as string) : defaults.query.offset
+      
+      limit = req.query.limit ? parseInt(req.query.limit as string) : config.defaults.query.limit
+      offset = req.query.offset ? parseInt(req.query.offset as string) : config.defaults.query.offset
+
+      if (offset >= limit) {
+        res.status(400).send("Offset must be lower than limit")
+        return
+      }
+
+      limit = limit - offset > config.maximums.query.amount ? offset + config.maximums.query.amount : limit
     }
 
     let where = {}
@@ -63,9 +71,9 @@ export const serviceStationsController = async (req: Request, res: Response) => 
     if (req.query.coordinates) {
       const [latitude, longitude] = (req.query.coordinates as string).split(',');
 
-      let distance = req.query.distance ? parseInt(req.query.distance as string) : defaults.query.distance
-      distance = distance > 50 ? 50 : distance
-      distance = distance < 10 ? 10 : distance
+      let distance = req.query.distance ? parseInt(req.query.distance as string) : config.defaults.query.distance
+      distance = distance > config.maximums.query.distance ? config.maximums.query.distance : distance
+      distance = distance < config.minimums.query.distance ? config.minimums.query.distance : distance
 
       const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(parseFloat(latitude), parseFloat(longitude), distance)
       where = {

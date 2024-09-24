@@ -1,7 +1,0 @@
-{
-  "query": {
-    "limit": 30,
-    "offset": 0,
-    "distance": 30
-  }
-}
