@@ -1,0 +1,11 @@
+{
+  "cSpell.words": [
+    "dotevnv"
+  ],
+  "cSpell.ignorePaths": [
+    "/package.json",
+    "/package-lock.json",
+    "/.gitignore",
+    "/tsconfig.json"
+  ]
+}

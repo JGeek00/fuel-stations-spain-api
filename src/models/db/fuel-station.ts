@@ -1,0 +1,38 @@
+import { DataTypes, Model } from "sequelize";
+
+export class FuelStation extends Model {}
+
+export const FuelStationModel = {
+  postalCode: DataTypes.STRING,
+  address: DataTypes.STRING,
+  openingHours: DataTypes.STRING,
+  latitude: DataTypes.STRING,
+  longitude: DataTypes.STRING,
+  locality: DataTypes.STRING,
+  margin: DataTypes.STRING,
+  municipality: DataTypes.STRING,
+  province: DataTypes.STRING,
+  referral: DataTypes.STRING,
+  signage: DataTypes.STRING,
+  saleType: DataTypes.STRING,
+  percBioEthanol: DataTypes.STRING,
+  percMethylEster: DataTypes.STRING,
+  IDEESS: DataTypes.STRING,
+  municipalityId: DataTypes.STRING,
+  provinceId: DataTypes.STRING,
+  regionId: DataTypes.STRING,
+  biodieselPrice: DataTypes.STRING,
+  bioethanolPrice: DataTypes.STRING,
+  CNGPrice: DataTypes.STRING,
+  LNGPrice: DataTypes.STRING,
+  LPGPrice: DataTypes.STRING,
+  gasoilAPrice: DataTypes.STRING,
+  gasoilBPrice: DataTypes.STRING,
+  premiumGasoilPrice: DataTypes.STRING,
+  gasoline95E10Price: DataTypes.STRING,
+  gasoline95E5Price: DataTypes.STRING,
+  gasoline95E5PremiumPrice: DataTypes.STRING,
+  gasoline98E10Price: DataTypes.STRING,
+  gasoline98E5Price: DataTypes.STRING,
+  hydrogenPrice: DataTypes.STRING,
+}
