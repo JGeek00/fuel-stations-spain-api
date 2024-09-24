@@ -4,6 +4,7 @@ import { Op } from "sequelize";
 import { FuelStation } from "@/models/db/fuel-station";
 import defaults from '@/config/defaults.json'
 import { calculateBoundingBox } from '@/utils/calculate-distance';
+import { LastUpdated } from "@/models/db/last-updated";
 
 export const serviceStationsValidations = [
   query('limit').isInt().optional().withMessage('Limit parameter must be an int value'),
@@ -89,7 +90,13 @@ export const serviceStationsController = async (req: Request, res: Response) => 
       offset,
       where
     })
-    res.json(results)
+
+    const lastUpdated = await LastUpdated.findAll()
+
+    res.json({
+      lastUpdated: lastUpdated[0].getDataValue("lastUpdated"),
+      results
+    })
   } catch (error) {
     res.sendStatus(500)
   }

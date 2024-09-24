@@ -3,6 +3,7 @@ import { assertEquals } from "typia";
 import { ServiceStationsResult } from "@/models/service-stations-result";
 import { FuelStation } from "@/models/db/fuel-station";
 import { formatCurrentDate } from "@/utils/datetime-formatter";
+import { LastUpdated } from "@/models/db/last-updated";
 
 export const loadDataOnStart = () => {
   console.log(`Fetch data on start: ${formatCurrentDate()}`)
@@ -52,6 +53,9 @@ export const loadData = async () => {
         hydrogenPrice: station["Precio Hidrogeno"],
       }
     }))
+    await LastUpdated.create({
+      lastUpdated: new Date()
+    })
     console.log("✅ Data saved successfully")
   } catch (error) {
     console.error(error)
