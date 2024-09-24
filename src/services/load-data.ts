@@ -5,9 +5,18 @@ import { FuelStation } from "@/models/db/fuel-station";
 import { formatCurrentDate } from "@/utils/datetime-formatter";
 import { LastUpdated } from "@/models/db/last-updated";
 import { parseStringToFloat } from "@/utils/parser";
+import { startCronJob } from "@/utils/cron";
 
-export const loadDataOnStart = () => {
-  console.log(`Fetch data on start: ${formatCurrentDate()}`)
+export const loadDataOnStart = async () => {
+  console.log(`Fetch data on API start: ${formatCurrentDate()}`)
+
+  await loadData()
+
+  startCronJob()
+}
+
+export const loadDataProgrammed = () => {
+  console.log(`🕒 Starting programmed load: ${formatCurrentDate()}`)
   loadData()
 }
 
@@ -18,6 +27,12 @@ export const loadData = async () => {
     if (!parsedResult.ListaEESSPrecio) {
       throw new Error("ListaEESSPrecio is null")
     }
+
+    // Erase previous data
+    await FuelStation.truncate()
+    await LastUpdated.truncate()
+
+    // Save new data
     await FuelStation.bulkCreate(parsedResult.ListaEESSPrecio?.map(station => {
       return {
         id: station.IDEESS,
@@ -54,9 +69,11 @@ export const loadData = async () => {
         hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
       }
     }))
+
     await LastUpdated.create({
       lastUpdated: new Date()
     })
+
     console.log("✅ Data saved successfully")
   } catch (error) {
     console.error(error)
