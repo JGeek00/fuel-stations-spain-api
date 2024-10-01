@@ -9,6 +9,9 @@ import { LastUpdated } from "@/models/db/last-updated";
 export const serviceStationsValidations = [
   query('limit').isInt().optional().withMessage('Limit parameter must be an int value'),
   query('offset').isInt().optional().withMessage('Offset parameter must be an int value'),
+  query('regionId').isInt().optional().withMessage('RegionId parameter must be an int value'),
+  query('provinceId').isInt().optional().withMessage('ProvinceId parameter must be an int value'),
+  query('municipalityId').isInt().optional().withMessage('MunicipalityId parameter must be an int value'),
   query('id')
     .optional()
     .custom(value => {
@@ -67,6 +70,25 @@ export const serviceStationsController = async (req: Request, res: Response) => 
 
     let where = {}
 
+    if (req.query.regionId) {
+      where = {
+        ...where,
+        regionId: req.query.regionId
+      }
+    }
+    if (req.query.provinceId) {
+      where = {
+        ...where,
+        provinceId: req.query.provinceId
+      }
+    }
+    if (req.query.municipalityId) {
+      where = {
+        ...where,
+        municipalityId: req.query.municipalityId
+      }
+    }
+
     // If coordinates and distance are defined search by them
     if (req.query.coordinates) {
       const [latitude, longitude] = (req.query.coordinates as string).split(',');
@@ -93,7 +115,7 @@ export const serviceStationsController = async (req: Request, res: Response) => 
       }
     }
 
-    const results = await FuelStation.findAll({
+    const { rows: results, count } = await FuelStation.findAndCountAll({
       limit,
       offset,
       where
@@ -103,6 +125,7 @@ export const serviceStationsController = async (req: Request, res: Response) => 
 
     res.json({
       lastUpdated: lastUpdated[0].getDataValue("lastUpdated"),
+      count,
       results
     })
   } catch (error) {
