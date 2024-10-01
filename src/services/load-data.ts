@@ -97,11 +97,11 @@ const loadMunicipalities = async () => {
     })
 
     var data = JSON.stringify(result.data)
-    data = data.replace("IDMunicipio", "municipalityId")
-    data = data.replace("IDProvincia", "provinceId")
-    data = data.replace("IDCCAA", "regionId")
-    data = data.replace("Municipio", "municipality")
-    data = data.replace("CCAA", "region")
+    data = data.replaceAll("IDMunicipio", "municipalityId")
+    data = data.replaceAll("IDProvincia", "provinceId")
+    data = data.replaceAll("IDCCAA", "regionId")
+    data = data.replaceAll("Municipio", "municipality")
+    data = data.replaceAll("CCAA", "region")
     let parsed = JSON.parse(data)
 
     MunicipalitiesStore.data = parsed
