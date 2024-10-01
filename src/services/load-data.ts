@@ -6,6 +6,7 @@ import { formatCurrentDate } from "@/utils/datetime-formatter";
 import { LastUpdated } from "@/models/db/last-updated";
 import { parseStringToFloat } from "@/utils/parser";
 import { startCronJob } from "@/utils/cron";
+import MunicipalitiesStore from "@/data/municipalities-store";
 
 export const loadDataOnStart = async () => {
   console.log(`Fetch data on API start: ${formatCurrentDate()}`)
@@ -20,7 +21,14 @@ export const loadDataProgrammed = () => {
   loadData()
 }
 
-export const loadData = async () => {
+const loadData = async() => {
+  await Promise.all([
+    loadStations(),
+    loadMunicipalities()
+  ])
+}
+
+const loadStations = async () => {
   try {
     const result = await axios.get("https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/")
     const parsedResult = assertEquals<ServiceStationsResult>(result.data)
@@ -75,6 +83,30 @@ export const loadData = async () => {
     })
 
     console.log("✅ Data saved successfully")
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const loadMunicipalities = async () => {
+  try {
+    const result = await axios.get("https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/Listados/Municipios", {
+      headers: {
+        "Content-Type": "application/json"
+      }
+    })
+
+    var data = JSON.stringify(result.data)
+    data = data.replace("IDMunicipio", "municipalityId")
+    data = data.replace("IDProvincia", "provinceId")
+    data = data.replace("IDCCAA", "regionId")
+    data = data.replace("Municipio", "municipality")
+    data = data.replace("CCAA", "region")
+    let parsed = JSON.parse(data)
+
+    MunicipalitiesStore.data = parsed
+
+    console.log("✅ Municipalities saved successfully")
   } catch (error) {
     console.error(error)
   }
