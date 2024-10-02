@@ -9,8 +9,6 @@ import { LastUpdated } from "@/models/db/last-updated";
 export const serviceStationsValidations = [
   query('limit').isInt().optional().withMessage('Limit parameter must be an int value'),
   query('offset').isInt().optional().withMessage('Offset parameter must be an int value'),
-  query('regionId').isInt().optional().withMessage('RegionId parameter must be an int value'),
-  query('provinceId').isInt().optional().withMessage('ProvinceId parameter must be an int value'),
   query('municipalityId').isInt().optional().withMessage('MunicipalityId parameter must be an int value'),
   query('id')
     .optional()
@@ -55,7 +53,7 @@ export const serviceStationsController = async (req: Request, res: Response) => 
     let offset = undefined
 
     // Use limit and offset only when no specific stations are searched and when not searching by coordinates
-    if (!req.query.id && !req.query.coordinates && !req.query.distance) {
+    if (!req.query.id && !req.query.coordinates && !req.query.distance && !req.query.municipalityId) {
       
       limit = req.query.limit ? parseInt(req.query.limit as string) : config.defaults.query.limit
       offset = req.query.offset ? parseInt(req.query.offset as string) : config.defaults.query.offset
@@ -70,21 +68,8 @@ export const serviceStationsController = async (req: Request, res: Response) => 
 
     let where = {}
 
-    if (req.query.regionId) {
-      where = {
-        ...where,
-        regionId: req.query.regionId
-      }
-    }
-    if (req.query.provinceId) {
-      where = {
-        ...where,
-        provinceId: req.query.provinceId
-      }
-    }
     if (req.query.municipalityId) {
       where = {
-        ...where,
         municipalityId: req.query.municipalityId
       }
     }
