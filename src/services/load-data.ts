@@ -101,6 +101,7 @@ const loadMunicipalities = async () => {
     data = data.replaceAll("IDProvincia", "provinceId")
     data = data.replaceAll("IDCCAA", "regionId")
     data = data.replaceAll("Municipio", "municipality")
+    data = data.replaceAll("Provincia", "province")
     data = data.replaceAll("CCAA", "region")
     let parsed = JSON.parse(data)
 
