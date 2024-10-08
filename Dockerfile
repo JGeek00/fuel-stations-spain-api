@@ -1,4 +1,5 @@
 FROM node:20-alpine
+LABEL org.opencontainers.image.source="https://github.com/jgeek00/fuel-stations-spain-api"
 
 WORKDIR /app
 
