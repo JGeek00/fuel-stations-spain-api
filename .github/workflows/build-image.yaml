@@ -25,5 +25,5 @@ jobs:
 
       - name: "Build and push Docker image"
         run: |
-          docker build . --tag ghcr.io/JGeek00/fuel-stations-spain-api:latest
-          docker push ghcr.io/JGeek00/fuel-stations-spain-api:latest
+          docker build . --tag ghcr.io/jgeek00/fuel-stations-spain-api:latest
+          docker push ghcr.io/jgeek00/fuel-stations-spain-api:latest
