@@ -47,6 +47,10 @@ export const serviceStationsController = async (req: Request, res: Response) => 
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
+
+  if (req.query.distance && !req.query.coordinates) {
+    return res.status(400).send("If the distance parameter is defined, the coordinates parameter is also required");
+  }
   
   try {
     let limit = undefined
