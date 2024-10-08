@@ -11,6 +11,15 @@ This endpoint returns all the information about the service stations. This endpo
 - **Coordinates:** It will return the stations that are in a radius from the given coordinates. With the ``coordinates`` parameter you define the center of the circle (format example: ``coordinates=40.416826,-3.703675``), and with the ``distance`` parameter you define the radius of the circle. The API will return all the service stations that are inside that circle. The distance has to be inputted in Km and cannot be greater than 50.
 - **Defined list of service stations:** You can use the parameter ``id``, and pass one or multiple ids of service stations to get the information of them. Example: ``id=1234&id=2345&id=3456``.
 
+## Donations
+If you like the project and you want to contribute with the development, you can [become a sponsor on GitHub](https://github.com/sponsors/JGeek00), or you can donate using PayPal.
+
+<div align="center">
+  <a href="https://www.paypal.com/donate/?hosted_button_id=T63UK6AVL3MG8">
+    <img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" alt="Donate with PayPal" height="100" />
+  </a>
+</div>
+
 <br>
 <br>
 <br>
