@@ -1,8 +1,5 @@
 FROM node:20-alpine
 
-ENV TZ=Europe/Madrid \
-    DEBIAN_FRONTEND=noninteractive
-
 WORKDIR /app
 
 COPY src/ src/
