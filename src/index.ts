@@ -21,7 +21,7 @@ if (process.env.SENTRY_DSN && process.env.PRODUCTION == "true") {
     profilesSampleRate: 1.0,
   });
 
-  app.use(Sentry.expressErrorHandler);
+  Sentry.setupExpressErrorHandler(app);
 }
 
 app.use(express.json())
