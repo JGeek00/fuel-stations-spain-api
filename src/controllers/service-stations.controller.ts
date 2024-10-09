@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query, validationResult } from "express-validator";
 import { Op } from "sequelize";
+import * as Sentry from '@sentry/node'
 import { FuelStation } from "@/models/db/fuel-station";
 import config from '@/config/config.json'
 import { calculateBoundingBox } from '@/utils/calculate-distance';
@@ -42,6 +43,11 @@ export const serviceStationsValidations = [
 ];
 
 export const serviceStationsController = async (req: Request, res: Response) => {
+  if (process.env.DISABLE_SERVICE_STATIONS == "true") {
+    res.sendStatus(404).send("Endpoint not found")
+    return
+  }   
+
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
@@ -118,6 +124,7 @@ export const serviceStationsController = async (req: Request, res: Response) => 
       results
     })
   } catch (error) {
+    Sentry.captureException(error)
     res.sendStatus(500)
   }
 }
