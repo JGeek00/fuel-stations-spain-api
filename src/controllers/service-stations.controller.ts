@@ -44,7 +44,7 @@ export const serviceStationsValidations = [
 
 export const serviceStationsController = async (req: Request, res: Response) => {
   if (process.env.DISABLE_SERVICE_STATIONS == "true") {
-    res.sendStatus(404).send("Endpoint not found")
+    res.status(404).send("Endpoint not found")
     return
   }   
 

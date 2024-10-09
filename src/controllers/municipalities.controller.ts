@@ -4,7 +4,7 @@ import MunicipalitiesStore from '@/data/municipalities-store';
 
 export const municipalitiesController = async (req: Request, res: Response) => {
   if (process.env.DISABLE_MUNICIPALITIES == "true") {
-    res.sendStatus(404).send("Endpoint not found")
+    res.status(404).send("Endpoint not found")
     return
   }    
 
