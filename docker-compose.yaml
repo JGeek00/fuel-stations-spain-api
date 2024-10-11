@@ -15,7 +15,8 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - YOUR_HOST_DIR:/var/lib/postgresql/data  # change this
+      - PSQL_DATA_DIR:/var/lib/postgresql/data  # change this
+      - PSQL_HOME_DIR:/home  # change this
     environment:
       - POSTGRES_PASSWORD=postgres  # change this
     restart: unless-stopped
