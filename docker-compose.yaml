@@ -1,0 +1,21 @@
+version: "2.1"
+services:
+  fuel-stations-spain-api:
+    image: ghcr.io/jgeek00/fuel-stations-spain-api:latest
+    container_name: fuel-stations-spain-api
+    environment:
+      - TZ=Europe/Madrid
+      - PRODUCTION=true
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+  postgres:
+    image: postgres:16
+    container_name: fuel-stations-spain-database
+    ports:
+      - 5432:5432
+    volumes:
+      - YOUR_HOST_DIR:/var/lib/postgresql/data  # change this
+    environment:
+      - POSTGRES_PASSWORD=postgres  # change this
+    restart: unless-stopped
