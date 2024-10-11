@@ -1,7 +1,7 @@
 # Fuel Stations Spain API
 This project is a REST API that fetches the realtime prices from the government's public API, and offers them with more filtering options.
 
-Data source: [Spanish government public API](https://datos.gob.es/es/catalogo/e05068001-precio-de-carburantes-en-las-gasolineras-espanolas)
+Data source: [Spanish government public API](https://datos.gob.es/es/catalogo/e05068001-precio-de-carburantes-en-las-gasolineras-espanolas) | [Endpoints list](https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/help)
 
 ## Endpoints
 #### `GET /service-stations`
