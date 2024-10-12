@@ -8,7 +8,7 @@ import { FuelStation } from "@/models/db/fuel-station";
 import { formatCurrentDate } from "@/utils/datetime-formatter";
 import { LastUpdated } from "@/models/db/last-updated";
 import { parseStringToFloat } from "@/utils/parser";
-import { startCronJob } from "@/utils/cron";
+import { startRealtimeDataCron } from "@/utils/cron";
 import MunicipalitiesStore from "@/data/municipalities-store";
 import { HistoricFuelStation } from "@/models/db/historic-fuel-station";
 import { twoDigits } from "@/utils/numbers";
@@ -20,11 +20,11 @@ export const loadDataOnStart = async () => {
 
   await loadMemoryData()
 
-  startCronJob()
+  startRealtimeDataCron()
 }
 
-export const loadDataProgrammed = () => {
-  console.log(`🕒 Starting programmed load: ${formatCurrentDate()}`)
+export const loadRealtimeDataProgrammed = () => {
+  console.log(`🕒 Starting programmed load for realtime data: ${formatCurrentDate()}`)
   loadMemoryData()
 }
 
@@ -118,6 +118,11 @@ const loadMunicipalities = async () => {
   } catch (error) {
     console.error(error)
   }
+}
+
+export const loadPersistedDataProgrammed = () => {
+  console.log(`🕒 Starting programmed load for persistedData: ${formatCurrentDate()}`)
+  loadPersistedData()
 }
 
 export const loadPersistedData = async () => {

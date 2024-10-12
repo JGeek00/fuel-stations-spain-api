@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/node';
 import { validatePostgresDbData } from "@/utils/postgres-db";
 import { HistoricFuelStation, HistoricFuelStationModel } from "@/models/db/historic-fuel-station";
 import { loadPersistedData } from '@/services/load-data';
+import { startPersistentDataCron } from "@/utils/cron";
 
 class PersistedDatabase {
   instance;
@@ -52,7 +53,9 @@ class PersistedDatabase {
 
     console.log("✅ Persisted DB tables initialized")
 
-    loadPersistedData()
+    await loadPersistedData()
+
+    startPersistentDataCron()
   }
 }
 
