@@ -15,6 +15,18 @@ This endpoint returns all the information about the service stations. This endpo
 - **Coordinates:** It will return the stations that are in a radius from the given coordinates. With the ``coordinates`` parameter you define the center of the circle (format example: ``coordinates=40.416826,-3.703675``), and with the ``distance`` parameter you define the radius of the circle. The API will return all the service stations that are inside that circle. The distance has to be inputted in Km and cannot be greater than 50.
 - **Defined list of service stations:** You can use the parameter ``id``, and pass one or multiple ids of service stations to get the information of them. Example: ``id=1234&id=2345&id=3456``.
 
+#### `GET /service-stations-historic`
+All parameters are required.
+- **id:** The station id
+- **startDate:** The date where you want to start getting results, in format ``yyyy-mm-dd``
+- **endDate:** The date where you want to stop getting results, in format ``yyyy-mm-dd``
+
+The maximum difference between ``startDate`` and ``endDate`` cannot be greater than 1 year, and ``startDate`` must be an earlier date than ``endDate``.
+That will return a list of prices sorted ASC including also the station id and the date of that values.
+
+#### `GET /municipalities`
+Returns the complete list of municipalities in Spain.
+
 ## Donations
 If you like the project and you want to contribute with the development, you can [become a sponsor on GitHub](https://github.com/sponsors/JGeek00), or you can donate using PayPal.
 
