@@ -17,6 +17,7 @@
     "@types/express": "^4.17.21",
     "@types/helmet": "^4.0.0",
     "@types/node": "^22.6.1",
+    "@types/uuid": "^10.0.0",
     "ts-patch": "^3.2.1",
     "tsc-alias": "^1.8.10",
     "tsconfig-paths": "^4.2.0",
@@ -38,6 +39,7 @@
     "sequelize": "^6.37.3",
     "sqlite3": "^5.1.7",
     "ts-node": "^10.9.2",
-    "typia": "^6.10.2"
+    "typia": "^6.10.2",
+    "uuid": "^10.0.0"
   }
 }
