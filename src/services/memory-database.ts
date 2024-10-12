@@ -3,14 +3,14 @@ import { FuelStation, FuelStationModel } from "@/models/db/fuel-station";
 import { loadDataOnStart } from "@/services/load-data";
 import { LastUpdated, LastUpdatedModel } from "@/models/db/last-updated";
 
-class Database {
+class MemoryDatabase {
   instance;
 
   constructor() {
     this.instance = new Sequelize('sqlite::memory:', {
       logging: false
     })
-    console.log("✅ DB initialized")
+    console.log("✅ Memory DB initialized")
 
     this.initTables()
   }
@@ -30,10 +30,10 @@ class Database {
 
     await this.instance.sync({ force: true });
 
-    console.log("✅ DB tables initialized")
+    console.log("✅ Memory DB tables initialized")
 
     loadDataOnStart()
   }
 }
 
-export default new Database()
+export default new MemoryDatabase()

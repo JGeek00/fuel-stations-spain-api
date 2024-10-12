@@ -1,13 +1,15 @@
-import express from 'express';
 import * as dotevnv from "dotenv"
+
+dotevnv.config()
+
+import express from 'express';
 import cors from "cors"
 import helmet from "helmet"
 import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
-import database from '@/services/database';
 import Router from '@/routes/router'
-
-dotevnv.config()
+import memoryDatabase from '@/services/memory-database';
+import persistedDatabase from './services/persisted-database';
 
 const app = express();
 
@@ -35,6 +37,9 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
-  // Initialize the database
-  database.instance;
+  // Initialize the memory database
+  memoryDatabase.instance;
+
+  // Initialize the persisted database
+  persistedDatabase.instance;
 });
