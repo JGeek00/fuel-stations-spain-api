@@ -131,7 +131,10 @@ export const loadPersistedData = async () => {
       limit: 1
     })
   
-    if (!lastDateDb) return
+    if (!lastDateDb) {
+      console.error("❌ Persistent DB has no data. You must import manually the data first.")
+      return
+    }
   
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
     const today = DateTime.now().setZone(timezone)
