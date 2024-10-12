@@ -4,7 +4,7 @@ This project is a REST API that fetches the realtime prices from the government'
 Data source: [Spanish government public API](https://datos.gob.es/es/catalogo/e05068001-precio-de-carburantes-en-las-gasolineras-espanolas) | [Endpoints list](https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/help)
 
 ## Import historic data
-This API doesn't import the historic data from the public API on start, like it's done with the current data. Instead, you have to fetch that data previously, and then import it to the PostgreSQL database.
+The API fetches the historic data between the last date on the database and the current date when the API is started, and every day at 01:00 AM, however, the database must have some preloaded data in order to fetch that remaining data.
 I have created a [tool](https://github.com/JGeek00/historic-fuel-stations-fetcher) to fetch the historic data from the public API and then import it to the persistent database. Follow the instructions on that repository to fetch the data and import to the database.
 
 ## Endpoints
