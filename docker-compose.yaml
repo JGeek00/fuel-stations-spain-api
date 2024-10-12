@@ -3,9 +3,16 @@ services:
   fuel-stations-spain-api:
     image: ghcr.io/jgeek00/fuel-stations-spain-api:latest
     container_name: fuel-stations-spain-api
+    depends_on:
+      - postgres
     environment:
-      - TZ=Europe/Madrid
+      - TZ=Europe/Madrid  # set your timezone
       - PRODUCTION=true
+      - POSTGRES_HOST=localhost  # check this
+      - POSTGRES_PORT=5432  # check this
+      - POSTGRES_USER=postgres  # check this
+      - POSTGRES_PASSWORD=db_password   # set this
+      - POSTGRES_DATABASE=db_name   # set this
     ports:
       - 3000:3000
     restart: unless-stopped
