@@ -8,14 +8,17 @@ services:
     environment:
       - TZ=Europe/Madrid  # set your timezone
       - PRODUCTION=true
-      - POSTGRES_HOST=localhost  # check this
-      - POSTGRES_PORT=5432  # check this
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
       - POSTGRES_USER=postgres  # check this
       - POSTGRES_PASSWORD=db_password   # set this
       - POSTGRES_DATABASE=db_name   # set this
     ports:
       - 3000:3000
     restart: unless-stopped
+    networks:
+      - fuel-stations-spain-net
+
   postgres:
     image: postgres:16
     container_name: fuel-stations-spain-database
@@ -26,3 +29,9 @@ services:
     environment:
       - POSTGRES_PASSWORD=postgres  # change this
     restart: unless-stopped
+    networks:
+      - fuel-stations-spain-net
+
+networks:
+  fuel-stations-spain-net:
+    driver: bridge
