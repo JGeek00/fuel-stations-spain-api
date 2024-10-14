@@ -8,6 +8,7 @@ export const HistoricFuelStationModel = {
     primaryKey: true,
   },
   station_id: DataTypes.STRING,
+  station_signage: DataTypes.STRING,
   biodiesel_price: DataTypes.DOUBLE,
   bioethanol_price: DataTypes.DOUBLE,
   cng_price: DataTypes.DOUBLE,
@@ -22,5 +23,5 @@ export const HistoricFuelStationModel = {
   gasoline_98_e10_price: DataTypes.DOUBLE,
   gasoline_98_e5_price: DataTypes.DOUBLE,
   hydrogen_price: DataTypes.DOUBLE,
-  date: DataTypes.DATE,
+  date: DataTypes.DATEONLY,
 }
