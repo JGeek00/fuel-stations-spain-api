@@ -120,7 +120,7 @@ export const historicPricesController = async (req: Request, res: Response) => {
         gasoilBPrice: values.gasoilBPrice,
         premiumGasoilPrice: values.premiumGasoilPrice,
         gasoline95E10Price: values.gasoline95E10Price,
-        gasoline95E5Price: values.gasoline98E5Price,
+        gasoline95E5Price: values.gasoline95E5Price,
         gasoline95E5PremiumPrice: values.gasoline95E5PremiumPrice,
         gasoline98E10Price: values.gasoline98E10Price,
         gasoline98E5Price: values.gasoline98E5Price,
