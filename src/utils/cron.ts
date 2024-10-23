@@ -6,10 +6,10 @@ export const startRealtimeDataCron = () => {
   // Every minute: 0 * * * * *
 
   CronJob.from({
-    cronTime: '1,31 * * * *',
+    cronTime: process.env.REALTIME_DATA_CRON ?? '*/30 * * * *',
     onTick: loadRealtimeDataProgrammed,
     start: true,
-    timeZone: 'Europe/Madrid',
+    timeZone: process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 }
 
@@ -20,6 +20,6 @@ export const startPersistentDataCron = () => {
     cronTime: '0 1 * * *',
     onTick: loadPersistedDataProgrammed,
     start: true,
-    timeZone: 'Europe/Madrid',
+    timeZone: process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 }
