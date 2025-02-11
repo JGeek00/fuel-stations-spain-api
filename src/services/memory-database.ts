@@ -1,6 +1,6 @@
 import { Sequelize } from "sequelize";
 import { FuelStation, FuelStationModel } from "@/models/db/fuel-station";
-import { loadDataOnStart } from "@/services/load-data";
+import { loadDataOnStart } from "@/services/data-loader/load-stations";
 import { LastUpdated, LastUpdatedModel } from "@/models/db/last-updated";
 
 class MemoryDatabase {

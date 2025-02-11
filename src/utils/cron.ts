@@ -1,5 +1,5 @@
 import { CronJob } from "cron";
-import { loadPersistedDataProgrammed, loadRealtimeDataProgrammed } from "@/services/load-data";
+import { loadPersistedDataProgrammed, loadRealtimeDataProgrammed } from "@/services/data-loader/load-stations";
 
 export const startRealtimeDataCron = () => {
   // Trigger process on minute 1 and 31 of every hour: 1,31 * * * *
