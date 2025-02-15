@@ -1,6 +1,6 @@
 {
   "name": "fuel-stations-spain-api",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "REST API that provides realtime information about fuel prices in Spain",
   "main": "index.js",
   "scripts": {
