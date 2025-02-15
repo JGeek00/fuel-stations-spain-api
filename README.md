@@ -30,6 +30,9 @@ Optional parameters:
 #### `GET /municipalities`
 Returns the complete list of municipalities in Spain.
 
+#### `GET /healthcheck`
+Returns STATUS 200 if the realtime database works, and STATUS 500 if the request to the realtime database fails or the database is empty.
+
 ## Donations
 If you like the project and you want to contribute with the development, you can [become a sponsor on GitHub](https://github.com/sponsors/JGeek00), or you can donate using PayPal.
 
