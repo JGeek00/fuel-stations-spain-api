@@ -11,7 +11,7 @@ router.get('/historic-prices', historicPricesValidations, historicPricesControll
 router.get('/municipalities', municipalitiesController)
 router.get('/healthcheck', healthcheckController)
 
-router.get('*', (req, res) => {
+router.use((req, res) => {
   res.status(404).send("Endpoint not found")
 })
 

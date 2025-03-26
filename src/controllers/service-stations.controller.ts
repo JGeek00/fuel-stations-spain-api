@@ -42,7 +42,7 @@ export const serviceStationsValidations = [
   query('distance').isInt().optional().withMessage("Distance must be a number (min 10 Km, max 50 Km)")
 ];
 
-export const serviceStationsController = async (req: Request, res: Response) => {
+export const serviceStationsController = async (req: Request, res: Response): Promise<void> => {
   if (process.env.DISABLE_SERVICE_STATIONS == "true") {
     res.status(404).send("Endpoint not found")
     return
@@ -51,11 +51,13 @@ export const serviceStationsController = async (req: Request, res: Response) => 
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ errors: errors.array() });
+    return 
   }
 
   if (req.query.distance && !req.query.coordinates) {
-    return res.status(400).send("If the distance parameter is defined, the coordinates parameter is also required");
+    res.status(400).send("If the distance parameter is defined, the coordinates parameter is also required");
+    return 
   }
   
   try {

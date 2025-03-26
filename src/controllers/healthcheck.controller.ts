@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { FuelStation } from "@/models/db/fuel-station";
 
-export const healthcheckController = async (req: Request, res: Response) => {
+export const healthcheckController = async (req: Request, res: Response): Promise<void> => {
   try {
     const { count: realtimeStations } = await FuelStation.findAndCountAll({ limit: 10 })
 

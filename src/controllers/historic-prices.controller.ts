@@ -23,7 +23,7 @@ export const historicPricesValidations = [
   query('includeCurrentPrices').optional().isBoolean().withMessage('includeCurrentPrices must be a boolean')
 ];
 
-export const historicPricesController = async (req: Request, res: Response) => {
+export const historicPricesController = async (req: Request, res: Response): Promise<void> => {
   if (process.env.DISABLE_SERVICE_STATIONS_HISTORIC == "true") {
     res.status(404).send("Endpoint not found")
     return
