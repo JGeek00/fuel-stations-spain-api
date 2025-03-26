@@ -3,6 +3,7 @@ import { DateTime, Interval } from "luxon"
 import { assertEquals } from "typia"
 import { v4 as uuidv4 } from 'uuid';
 import * as Sentry from '@sentry/node'
+import { Op } from "sequelize";
 import { HistoricFuelStation } from "@/models/db/historic-fuel-station"
 import { FormattedStation } from "@/models/formatted-station"
 import { ServiceStationsResult } from "@/models/service-stations-result"
@@ -122,9 +123,29 @@ export const loadPersistedData = async () => {
         date: station.date
       }
     }))
-    console.log("✅ Historic data saved successfully")    
+    console.log("✅ Historic data saved successfully")   
+    
+    await deleteOldData()
   } catch (error) {
     Sentry.captureException(error)
     console.error(error)
   }
+}
+
+const deleteOldData = async () => {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const today = DateTime.now().setZone(timezone)
+  const yearAgo = today.minus({ year: 1, day: 1 })
+
+  console.log(`🗑️ Deleting old data (before ${yearAgo.year}/${yearAgo.month}/${yearAgo.day})`)
+
+  await HistoricFuelStation.destroy({
+    where: {
+      date: {
+        [Op.lt]: yearAgo.toSQLDate()
+      }
+    }
+  })
+  
+  console.log("✅ Old data deleted successfully")   
 }
