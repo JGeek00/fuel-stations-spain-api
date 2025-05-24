@@ -1,5 +1,5 @@
 import axios from "axios"
-import { assertEquals } from "typia"
+import { assert } from "typia"
 import { FuelStation } from "@/models/db/fuel-station"
 import { LastUpdated } from "@/models/db/last-updated"
 import { ServiceStationsResult } from "@/models/service-stations-result"
@@ -8,7 +8,7 @@ import { parseStringToFloat } from "@/utils/parser"
 export const loadStations = async () => {
   try {
     const result = await axios.get("https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/")
-    const parsedResult = assertEquals<ServiceStationsResult>(result.data)
+    const parsedResult = assert<ServiceStationsResult>(result.data)
     if (!parsedResult.ListaEESSPrecio) {
       throw new Error("ListaEESSPrecio is null")
     }
@@ -73,6 +73,7 @@ export const loadStations = async () => {
           gasoline98E10Price: parseStringToFloat(station["Precio Gasolina 98 E10"]),
           gasoline98E5Price: parseStringToFloat(station["Precio Gasolina 98 E5"]),
           hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
+          adbluePrice: parseStringToFloat(station["Precio Adblue"]),
         }
       }))
 

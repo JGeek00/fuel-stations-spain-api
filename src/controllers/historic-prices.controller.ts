@@ -102,6 +102,7 @@ export const historicPricesController = async (req: Request, res: Response): Pro
         gasoline98E10Price: values.gasoline_98_e10_price,
         gasoline98E5Price: values.gasoline_98_e5_price,
         hydrogenPrice: values.hydrogen_price,
+        adbluePrice: values.adblue_price,
         date: values.date,
       } as HistoricPriceReturn
     })
@@ -125,12 +126,14 @@ export const historicPricesController = async (req: Request, res: Response): Pro
         gasoline98E10Price: values.gasoline98E10Price,
         gasoline98E5Price: values.gasoline98E5Price,
         hydrogenPrice: values.hydrogenPrice,
+        adbluePrice: values.adblue_price,
         date: DateTime.now().toSQLDate()
       })
     }
 
     res.json(formattedHistoric)
   } catch (error) {
+    console.log(error)
     Sentry.captureException(error)
     res.sendStatus(500)
   }

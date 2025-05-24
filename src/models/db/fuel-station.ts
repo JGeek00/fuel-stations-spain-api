@@ -38,4 +38,5 @@ export const FuelStationModel = {
   gasoline98E10Price: DataTypes.FLOAT,
   gasoline98E5Price: DataTypes.FLOAT,
   hydrogenPrice: DataTypes.FLOAT,
+  adbluePrice: DataTypes.FLOAT,
 }

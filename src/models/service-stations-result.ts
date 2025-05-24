@@ -28,6 +28,7 @@ export interface ListaEESSPrecio {
   "Precio Gasolina 98 E10"?: string;
   "Precio Gasolina 98 E5"?: string;
   "Precio Hidrogeno"?: string;
+  "Precio Adblue"?: string;
   Provincia?: string;
   Remisión?: string;
   Rótulo?: string;

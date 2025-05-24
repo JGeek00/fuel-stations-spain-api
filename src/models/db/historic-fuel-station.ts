@@ -23,5 +23,6 @@ export const HistoricFuelStationModel = {
   gasoline_98_e10_price: DataTypes.DOUBLE,
   gasoline_98_e5_price: DataTypes.DOUBLE,
   hydrogen_price: DataTypes.DOUBLE,
+  adblue_price: DataTypes.DOUBLE,
   date: DataTypes.DATEONLY,
 }

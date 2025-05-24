@@ -14,5 +14,6 @@ export interface FormattedStation {
   gasoline98E10Price: number | null,
   gasoline98E5Price: number | null,
   hydrogenPrice: number | null,
+  adbluePrice: number | null,
   date: string | null,
 }

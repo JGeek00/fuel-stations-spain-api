@@ -1,6 +1,6 @@
 import axios from "axios"
 import { DateTime, Interval } from "luxon"
-import { assertEquals } from "typia"
+import { assert } from "typia"
 import { v4 as uuidv4 } from 'uuid';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
@@ -63,7 +63,7 @@ export const loadPersistedData = async () => {
       console.log(`✅ Group ${groupKey} fetched successfully`)
 
       for (const key in results) {
-        const parsedResult = assertEquals<ServiceStationsResult>(results[key].data)
+        const parsedResult = assert<ServiceStationsResult>(results[key].data)
         if (!parsedResult.ListaEESSPrecio || !parsedResult.Fecha) {
           throw new Error("ListaEESSPrecio or Fecha is null")
         }
@@ -86,6 +86,7 @@ export const loadPersistedData = async () => {
             gasoline98E10Price: parseStringToFloat(station["Precio Gasolina 98 E10"]),
             gasoline98E5Price: parseStringToFloat(station["Precio Gasolina 98 E5"]),
             hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
+            adbluePrice: parseStringToFloat(station["Precio Adblue"]),
             date: d.toSQLDate()
           }
         })

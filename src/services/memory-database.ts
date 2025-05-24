@@ -28,7 +28,7 @@ class MemoryDatabase {
       timestamps: false,
     })
 
-    await this.instance.sync({ force: true });
+    await this.instance.sync({ alter: true });
 
     console.log("✅ Memory DB tables initialized")
 

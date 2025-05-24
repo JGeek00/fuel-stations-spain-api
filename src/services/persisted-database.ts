@@ -49,7 +49,7 @@ class PersistedDatabase {
       timestamps: false,
     });
 
-    await this.instance!.sync({ force: false });
+    await this.instance!.sync({ alter: true });
 
     console.log("✅ Persisted DB tables initialized")
 
