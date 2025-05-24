@@ -1,6 +1,6 @@
 {
   "name": "fuel-stations-spain-api",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "REST API that provides realtime information about fuel prices in Spain",
   "main": "index.js",
   "scripts": {
@@ -12,32 +12,32 @@
   "author": "JGeek00",
   "license": "ISC",
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.1",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2",
     "@types/helmet": "^4.0.0",
-    "@types/node": "^22.13.13",
+    "@types/node": "^22.15.21",
     "@types/uuid": "^10.0.0",
     "ts-patch": "^3.3.0",
-    "tsc-alias": "^1.8.11",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@sentry/node": "^9.9.0",
-    "@sentry/profiling-node": "^9.9.0",
-    "axios": "^1.8.4",
+    "@sentry/node": "^9.22.0",
+    "@sentry/profiling-node": "^9.22.0",
+    "axios": "^1.9.0",
     "cors": "^2.8.5",
-    "cron": "^4.1.0",
-    "dotenv": "^16.4.7",
-    "express": "^5.0.1",
+    "cron": "^4.3.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
-    "luxon": "^3.6.0",
-    "pg": "^8.14.1",
-    "sequelize": "^6.37.6",
+    "luxon": "^3.6.1",
+    "pg": "^8.16.0",
+    "sequelize": "^6.37.7",
     "sqlite3": "^5.1.7",
     "ts-node": "^10.9.2",
-    "typia": "^8.0.3",
+    "typia": "^9.3.1",
     "uuid": "^11.1.0"
   }
 }
