@@ -11,9 +11,9 @@ import Router from '@/routes/router'
 import memoryDatabase from '@/services/memory-database';
 import persistedDatabase from './services/persisted-database';
 
-const app = express();
+const enableSentry = process.env.SENTRY_DSN && process.env.PRODUCTION == "true";
 
-if (process.env.SENTRY_DSN && process.env.PRODUCTION == "true") {
+if (enableSentry) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     integrations: [
@@ -22,7 +22,11 @@ if (process.env.SENTRY_DSN && process.env.PRODUCTION == "true") {
     tracesSampleRate: 1.0,
     profilesSampleRate: 1.0,
   });
+}
 
+const app = express();
+
+if (enableSentry) {
   Sentry.setupExpressErrorHandler(app);
 }
 
