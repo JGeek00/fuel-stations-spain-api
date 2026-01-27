@@ -7,7 +7,9 @@ class MemoryDatabase {
   instance;
 
   constructor() {
-    this.instance = new Sequelize('sqlite::memory:', {
+    this.instance = new Sequelize({
+      dialect: 'sqlite',
+      storage: ':memory:',
       logging: false
     })
     console.log("✅ Memory DB initialized")
