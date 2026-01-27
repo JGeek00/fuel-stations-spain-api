@@ -4,10 +4,10 @@ import { loadDataOnStart } from "@/services/data-loader/load-stations";
 import { LastUpdated, LastUpdatedModel } from "@/models/db/last-updated";
 
 class MemoryDatabase {
-  instance;
+  private _instance;
 
   constructor() {
-    this.instance = new Sequelize({
+    this._instance = new Sequelize({
       dialect: 'sqlite',
       storage: ':memory:',
       logging: false
@@ -19,18 +19,18 @@ class MemoryDatabase {
 
   async initTables() {
     FuelStation.init(FuelStationModel, {
-      sequelize: this.instance,
+      sequelize: this._instance,
       modelName: 'FuelStation',
       timestamps: false,
     });
 
     LastUpdated.init(LastUpdatedModel, {
-      sequelize: this.instance,
+      sequelize: this._instance,
       modelName: 'LastUpdated',
       timestamps: false,
     })
 
-    await this.instance.sync({ alter: true });
+    await this._instance.sync({ alter: true });
 
     console.log("✅ Memory DB tables initialized")
 
@@ -38,4 +38,4 @@ class MemoryDatabase {
   }
 }
 
-export default new MemoryDatabase()
+export default MemoryDatabase;

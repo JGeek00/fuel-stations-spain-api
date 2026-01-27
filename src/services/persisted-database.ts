@@ -6,7 +6,7 @@ import { loadPersistedData } from '@/services/data-loader/load-persisted-data';
 import { startPersistentDataCron } from "@/utils/cron";
 
 class PersistedDatabase {
-  instance;
+  private _instance: Sequelize | null = null;
 
   constructor() {
     const getDbPort = () => {
@@ -18,7 +18,7 @@ class PersistedDatabase {
     }
 
     if (validatePostgresDbData()) {
-      this.instance = new Sequelize(process.env.POSTGRES_DATABASE!, process.env.POSTGRES_USER!, process.env.POSTGRES_PASSWORD!, {
+      this._instance = new Sequelize(process.env.POSTGRES_DATABASE!, process.env.POSTGRES_USER!, process.env.POSTGRES_PASSWORD!, {
         host: process.env.POSTGRES_HOST,
         port:  getDbPort(),
         dialect: 'postgres',
@@ -42,6 +42,13 @@ class PersistedDatabase {
     }
   }
 
+  get instance() {
+    if (!this._instance) {
+      throw new Error('PersistedDatabase not initialized. Call PersistedDatabase.init() first.');
+    }
+    return this._instance;
+  }
+
   async initTables() {
     HistoricFuelStation.init(HistoricFuelStationModel, {
       sequelize: this.instance!,
@@ -59,4 +66,4 @@ class PersistedDatabase {
   }
 }
 
-export default new PersistedDatabase()
+export default PersistedDatabase

@@ -3,7 +3,6 @@ import { query } from "express-validator";
 import { DateTime, Interval } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
-import persistedDatabase from "@/services/persisted-database";
 import { HistoricFuelStation } from "@/models/db/historic-fuel-station";
 import { FuelStation } from "@/models/db/fuel-station";
 import { HistoricPriceReturn } from "@/models/historic-price-return";
@@ -27,10 +26,14 @@ export const historicPricesController = async (req: Request, res: Response): Pro
   if (process.env.DISABLE_SERVICE_STATIONS_HISTORIC == "true") {
     res.status(404).send("Endpoint not found")
     return
-  }    
+  }
 
-  if (!persistedDatabase.instance) {
-    res.status(500).send("Endpoint not available")
+  try {
+    if (!HistoricFuelStation.sequelize) throw new Error("Database not initialized")
+    await HistoricFuelStation.sequelize.authenticate();
+  } catch (error) {
+    Sentry.captureException(error);
+    res.status(500).send("Historic data is not available.");
     return
   }
 
@@ -131,10 +134,10 @@ export const historicPricesController = async (req: Request, res: Response): Pro
       })
     }
 
-    res.json(formattedHistoric)
+    res.json(formattedHistoric);
   } catch (error) {
-    console.log(error)
-    Sentry.captureException(error)
-    res.sendStatus(500)
+    console.error(error);
+    Sentry.captureException(error);
+    res.sendStatus(500);
   }
 }
