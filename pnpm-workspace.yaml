@@ -1,0 +1,7 @@
+allowBuilds:
+  '@sentry-internal/node-cpu-profiler': true
+  sqlite3: true
+blockExoticSubdeps: true
+minimumReleaseAge: 1440
+saveExact: true
+trustPolicy: "no-downgrade"

@@ -2,42 +2,68 @@
   "name": "fuel-stations-spain-api",
   "version": "1.10.2",
   "description": "REST API that provides realtime information about fuel prices in Spain",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JGeek00/fuel-stations-spain-api.git"
+  },
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node -r tsconfig-paths/register src/index.ts",
-    "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
-    "prepare": "ts-patch install"
+    "dev": "nodemon",
+    "build:dev": "tsc && tsc-alias",
+    "bump-version:major": "node scripts/bump-version.js major",
+    "bump-version:major:beta": "node scripts/bump-version.js major beta",
+    "bump-version:minor": "node scripts/bump-version.js minor",
+    "bump-version:minor:beta": "node scripts/bump-version.js minor beta",
+    "bump-version:bugfix": "node scripts/bump-version.js bugfix",
+    "bump-version:bugfix:beta": "node scripts/bump-version.js bugfix beta",
+    "bump-version:beta": "node scripts/bump-version.js beta",
+    "build:prod": "pnpm run build:prod:compile && pnpm run build:prod:obfuscate",
+    "build:prod:compile": "tsc --sourceMap false --declaration false --declarationMap false && tsc-alias",
+    "build:prod:obfuscate": "node scripts/obfuscate.js"
   },
   "author": "JGeek00",
-  "license": "ISC",
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/helmet": "^4.0.0",
-    "@types/node": "^22.15.21",
-    "@types/uuid": "^10.0.0",
-    "ts-patch": "^3.3.0",
-    "tsc-alias": "^1.8.16",
-    "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.8.3"
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/helmet": "4.0.0",
+    "@types/luxon": "3.7.1",
+    "@types/node": "25.5.0",
+    "@types/uuid": "11.0.0",
+    "javascript-obfuscator": "5.4.1",
+    "nodemon": "3.1.14",
+    "ts-patch": "3.3.0",
+    "tsc-alias": "1.8.16",
+    "tsconfig-paths": "4.2.0",
+    "typescript": "5.9.3"
   },
   "dependencies": {
-    "@sentry/node": "^10.37.0",
-    "@sentry/profiling-node": "^10.37.0",
-    "axios": "^1.13.4",
-    "cors": "^2.8.6",
-    "cron": "^4.4.0",
-    "dotenv": "^16.6.1",
-    "express": "^5.2.1",
-    "express-validator": "^7.3.1",
-    "helmet": "^8.1.0",
-    "luxon": "^3.7.2",
-    "pg": "^8.17.2",
-    "sequelize": "^6.37.7",
-    "sqlite3": "^5.1.7",
-    "ts-node": "^10.9.2",
-    "typia": "^11.0.3",
-    "uuid": "^11.1.0"
+    "@sentry/node": "10.47.0",
+    "@sentry/profiling-node": "10.47.0",
+    "axios": "1.14.0",
+    "cors": "2.8.6",
+    "cron": "4.4.0",
+    "dotenv": "17.4.0",
+    "express": "5.2.1",
+    "express-validator": "7.3.2",
+    "helmet": "8.1.0",
+    "luxon": "3.7.2",
+    "pg": "8.20.0",
+    "sequelize": "6.37.8",
+    "sqlite3": "6.0.1",
+    "ts-node": "10.9.2",
+    "typia": "11.0.3",
+    "uuid": "13.0.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "onFail": "error"
+    }
   }
 }
