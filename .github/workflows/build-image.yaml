@@ -3,7 +3,8 @@ name: Deploy Image to GHCR
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
   workflow_dispatch:
 
 jobs:
@@ -23,7 +24,60 @@ jobs:
           username: ${{github.actor}}
           password: ${{secrets.GH_TOKEN}}
 
+      - name: "Validate version format"
+        if: github.ref_type == 'tag'
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+            echo "Valid version format: $TAG"
+          else
+            echo "ERROR: Invalid version format: $TAG"
+            echo "Expected formats: vX.X.X (stable) or vX.X.X-beta.X (beta)"
+            exit 1
+          fi
+
+      - name: "Determine release type"
+        id: release_type
+        if: github.ref_type == 'tag'
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ -beta\. ]]; then
+            echo "IS_BETA=true" >> $GITHUB_OUTPUT
+            echo "CHANNEL_TAG=beta" >> $GITHUB_OUTPUT
+          else
+            echo "IS_BETA=false" >> $GITHUB_OUTPUT
+            echo "CHANNEL_TAG=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Extract version from package.json"
+        id: version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: "Verify changelog exists"
+        if: github.ref_type == 'tag'
+        run: |
+          CHANGELOG_FILE="changelog/${{ github.ref_name }}.md"
+          if [ ! -f "$CHANGELOG_FILE" ]; then
+            echo "ERROR: Changelog file not found: $CHANGELOG_FILE"
+            echo "Please create the changelog file before creating a release."
+            exit 1
+          fi
+          echo "Changelog file found: $CHANGELOG_FILE"
+          echo "CHANGELOG_PATH=$CHANGELOG_FILE" >> $GITHUB_ENV
+
       - name: "Build and push Docker image"
         run: |
-          docker build . --tag ghcr.io/jgeek00/fuel-stations-spain-api:latest
-          docker push ghcr.io/jgeek00/fuel-stations-spain-api:latest
+          CHANNEL_TAG="${{ steps.release_type.outputs.CHANNEL_TAG || 'latest' }}"
+          docker build . --tag ghcr.io/jgeek00/fuel-stations-spain-api:${CHANNEL_TAG} --tag ghcr.io/jgeek00/fuel-stations-spain-api:${{ steps.version.outputs.VERSION }}
+          docker push ghcr.io/jgeek00/fuel-stations-spain-api:${CHANNEL_TAG}
+          docker push ghcr.io/jgeek00/fuel-stations-spain-api:${{ steps.version.outputs.VERSION }}
+
+      - name: "Create GitHub Release"
+        uses: softprops/action-gh-release@v1
+        if: github.ref_type == 'tag'
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: ${{ env.CHANGELOG_PATH }}
+          prerelease: ${{ steps.release_type.outputs.IS_BETA == 'true' }}
+          token: ${{ secrets.GH_TOKEN }}
