@@ -16,4 +16,5 @@ export const loadSentry = () => {
 
     return Sentry;
   }
+  return null;
 }

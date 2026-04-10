@@ -1,7 +1,7 @@
 import axios from "axios"
 import { DateTime, Interval } from "luxon"
 import { assert } from "typia"
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from "crypto";
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
 import { HistoricFuelStation } from "@/models/db/historic-fuel-station"
@@ -105,7 +105,7 @@ export const loadPersistedData = async () => {
     console.log("⬇️ Saving data into the persistent database")    
     await HistoricFuelStation.bulkCreate(stations.map(station => {
       return {
-        id: uuidv4(),
+        id: randomUUID(),
         station_id: station.stationId,
         biodiesel_price: station.biodieselPrice,
         bioethanol_price: station.bioethanolPrice,

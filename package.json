@@ -21,7 +21,8 @@
     "bump-version:beta": "node scripts/bump-version.js beta",
     "build:prod": "pnpm run build:prod:compile && pnpm run build:prod:obfuscate",
     "build:prod:compile": "tsc --sourceMap false --declaration false --declarationMap false && tsc-alias",
-    "build:prod:obfuscate": "node scripts/obfuscate.js"
+    "build:prod:obfuscate": "node scripts/obfuscate.js",
+    "prepare": "ts-patch install"
   },
   "author": "JGeek00",
   "devDependencies": {
@@ -30,18 +31,17 @@
     "@types/helmet": "4.0.0",
     "@types/luxon": "3.7.1",
     "@types/node": "25.5.0",
-    "@types/uuid": "11.0.0",
     "javascript-obfuscator": "5.4.1",
     "nodemon": "3.1.14",
     "ts-patch": "3.3.0",
     "tsc-alias": "1.8.16",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.9.3"
+    "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@sentry/node": "10.47.0",
-    "@sentry/profiling-node": "10.47.0",
-    "axios": "1.14.0",
+    "@sentry/node": "10.48.0",
+    "@sentry/profiling-node": "10.48.0",
+    "axios": "1.15.0",
     "cors": "2.8.6",
     "cron": "4.4.0",
     "dotenv": "17.4.0",
@@ -53,8 +53,7 @@
     "sequelize": "6.37.8",
     "sqlite3": "6.0.1",
     "ts-node": "10.9.2",
-    "typia": "11.0.3",
-    "uuid": "13.0.0"
+    "typia": "11.0.3"
   },
   "devEngines": {
     "runtime": {
