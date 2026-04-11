@@ -11,15 +11,15 @@ COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
 COPY tsconfig.json ./
 
+# Copy source code
+COPY src ./src
+COPY scripts ./scripts
+
 # Install pnpm
 RUN npm install -g pnpm@latest-10
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
-
-# Copy source code
-COPY src ./src
-COPY scripts ./scripts
 
 # Build application
 RUN pnpm run build:prod
@@ -39,6 +39,9 @@ RUN npm install -g pnpm@latest-10
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
+
+# Copy prepare script from builder
+COPY --from=builder /app/scripts/prepare.js ./scripts/prepare.js
 
 # Install production dependencies only
 COPY package*.json ./

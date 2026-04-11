@@ -22,7 +22,7 @@
     "build:prod": "pnpm run build:prod:compile && pnpm run build:prod:obfuscate",
     "build:prod:compile": "tsc --sourceMap false --declaration false --declarationMap false && tsc-alias",
     "build:prod:obfuscate": "node scripts/obfuscate.js",
-    "prepare": "ts-patch install"
+    "prepare": "node scripts/prepare.js"
   },
   "author": "JGeek00",
   "devDependencies": {
