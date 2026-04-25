@@ -1,6 +1,10 @@
 import { DataTypes, Model } from "sequelize";
 
-export class LastUpdated extends Model {}
+export interface LastUpdatedAttributes {
+  lastUpdated: Date;
+}
+
+export class LastUpdated extends Model<LastUpdatedAttributes> {}
 
 export const LastUpdatedModel = {
   lastUpdated: {

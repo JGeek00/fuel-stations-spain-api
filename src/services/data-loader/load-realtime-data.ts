@@ -1,9 +1,9 @@
 import axios from "axios"
 import { assert } from "typia"
-import { FuelStation } from "@/models/db/fuel-station"
-import { LastUpdated } from "@/models/db/last-updated"
-import { ServiceStationsResult } from "@/models/service-stations-result"
-import { parseStringToFloat } from "@/utils/parser"
+import { FuelStation } from "@/models/fuel-station"
+import { LastUpdated } from "@/models/last-updated"
+import { ServiceStationsResult } from "@/interfaces/service-stations-result"
+import { formatStations } from "@/utils/format-stations"
 
 export const loadStations = async () => {
   try {
@@ -39,43 +39,7 @@ export const loadStations = async () => {
 
     try {
       // Save new data
-      await FuelStation.bulkCreate(parsedResult.ListaEESSPrecio.map(station => {
-        return {
-          id: station.IDEESS,
-          postalCode: station["C.P."],
-          address: station.Dirección,
-          openingHours: station.Horario,
-          latitude: parseStringToFloat(station.Latitud),
-          longitude: parseStringToFloat(station["Longitud (WGS84)"]),
-          locality: station.Localidad,
-          margin: station.Margen,
-          municipio: station.Municipio,
-          provincia: station.Provincia,
-          referral: station.Remisión,
-          signage: station.Rótulo,
-          saleType: station["Tipo Venta"],
-          percBioEthanol: parseStringToFloat(station["% BioEtanol"]),
-          percMethylEster: parseStringToFloat(station["% Éster metílico"]),
-          municipalityId: station.IDMunicipio ? parseInt(station.IDMunicipio) : null,
-          provinceId: station.IDProvincia ? parseInt(station.IDProvincia) : null,
-          regionId: station.IDCCAA ? parseInt(station.IDCCAA) : null,
-          biodieselPrice: parseStringToFloat(station["Precio Biodiesel"]),
-          bioethanolPrice: parseStringToFloat(station["Precio Bioetanol"]),
-          CNGPrice: parseStringToFloat(station["Precio Gas Natural Comprimido"]),
-          LNGPrice: parseStringToFloat(station["Precio Gas Natural Licuado"]),
-          LPGPrice: parseStringToFloat(station["Precio Gases licuados del petróleo"]),
-          gasoilAPrice: parseStringToFloat(station["Precio Gasoleo A"]),
-          gasoilBPrice: parseStringToFloat(station["Precio Gasoleo B"]),
-          premiumGasoilPrice: parseStringToFloat(station["Precio Gasoleo Premium"]),
-          gasoline95E10Price: parseStringToFloat(station["Precio Gasolina 95 E10"]),
-          gasoline95E5Price: parseStringToFloat(station["Precio Gasolina 95 E5"]),
-          gasoline95E5PremiumPrice: parseStringToFloat(station["Precio Gasolina 95 E5 Premium"]),
-          gasoline98E10Price: parseStringToFloat(station["Precio Gasolina 98 E10"]),
-          gasoline98E5Price: parseStringToFloat(station["Precio Gasolina 98 E5"]),
-          hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
-          adbluePrice: parseStringToFloat(station["Precio Adblue"]),
-        }
-      }))
+      await FuelStation.bulkCreate(formatStations(parsedResult.ListaEESSPrecio))
 
       await LastUpdated.create({
         lastUpdated: new Date()
@@ -84,9 +48,16 @@ export const loadStations = async () => {
       console.log("✅ Realtime data saved successfully")
 
     } catch (error) {
-      // Save previous data
-      await FuelStation.bulkCreate(previousStations as any)
-      await LastUpdated.create(previousLastUpdated[0] as any)
+      // Save previous data (convert model instances to plain objects)
+      if (previousStations && previousStations.length > 0) {
+        const previousStationsData = previousStations.map(s => s.get({ plain: true }))
+        await FuelStation.bulkCreate(previousStationsData)
+      }
+
+      if (previousLastUpdated && previousLastUpdated.length > 0) {
+        const lastUpdatedData = previousLastUpdated[0].get({ plain: true })
+        await LastUpdated.create(lastUpdatedData)
+      }
 
       console.log("⚠️ Restored previous data")
     }

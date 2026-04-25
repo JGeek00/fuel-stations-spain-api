@@ -3,9 +3,9 @@ import { query } from "express-validator";
 import { DateTime, Interval } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
-import { HistoricFuelStation } from "@/models/db/historic-fuel-station";
-import { FuelStation } from "@/models/db/fuel-station";
-import { HistoricPriceReturn } from "@/models/historic-price-return";
+import { HistoricFuelStation } from "@/models/historic-fuel-station";
+import { FuelStation } from "@/models/fuel-station";
+import { HistoricPriceReturn } from "@/interfaces/historic-price-return";
 
 export const historicPricesValidations = [
   query('id')
@@ -63,10 +63,11 @@ export const historicPricesController = async (req: Request, res: Response): Pro
     return
   }
 
-  try {
+    try {
+    const stationId = Array.isArray(req.query.id) ? req.query.id[0] : (req.query.id as string)
     const historicResult = await HistoricFuelStation.findAll({
       where: {
-        station_id: req.query.id,
+        station_id: stationId,
         date: {
           [Op.between]: [startDate.toSQLDate(), endDate.toSQLDate()]
         }
@@ -81,7 +82,7 @@ export const historicPricesController = async (req: Request, res: Response): Pro
     if (req.query.includeCurrentPrices && req.query.includeCurrentPrices != 'false') {
       currentPrices = await FuelStation.findOne({
         where: {
-          id: req.query.id
+          id: stationId
         }
       })
     }
@@ -129,7 +130,7 @@ export const historicPricesController = async (req: Request, res: Response): Pro
         gasoline98E10Price: values.gasoline98E10Price,
         gasoline98E5Price: values.gasoline98E5Price,
         hydrogenPrice: values.hydrogenPrice,
-        adbluePrice: values.adblue_price,
+        adbluePrice: values.adbluePrice,
         date: DateTime.now().toSQLDate()
       })
     }

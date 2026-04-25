@@ -1,4 +1,4 @@
-import { Municipality } from "@/models/municipality.model";
+import { Municipality } from "@/interfaces/municipality.model";
 
 class MunicipalitiesStore {
   data;

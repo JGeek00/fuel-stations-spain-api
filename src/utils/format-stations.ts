@@ -1,0 +1,50 @@
+import { ServiceStationsResult } from "@/interfaces/service-stations-result";
+import { parseStringToFloat } from "./parser";
+import { FuelStationAttributes } from "@/models/fuel-station";
+
+export const formatStations = (stations: ServiceStationsResult["ListaEESSPrecio"]): FuelStationAttributes[] => {
+  if (!stations) return []
+  return stations.map(station => ({
+    id: station.IDEESS,
+    postalCode: station["C.P."],
+    address: station.Dirección,
+    openingHours: station.Horario,
+    latitude: parseStringToFloat(station.Latitud),
+    longitude: parseStringToFloat(station["Longitud (WGS84)"]),
+    locality: station.Localidad,
+    margin: station.Margen,
+    municipality: station.Municipio,
+    province: station.Provincia,
+    referral: station.Remisión,
+    signage: station.Rótulo,
+    saleType: station["Tipo Venta"],
+    percBioEthanol: station["% BioEtanol"],
+    percMethylEster: station["% Éster metílico"],
+    municipalityId: station.IDMunicipio ? parseInt(station.IDMunicipio) : null,
+    provinceId: station.IDProvincia ? parseInt(station.IDProvincia) : null,
+    regionId: station.IDCCAA ? parseInt(station.IDCCAA) : null,
+    adbluePrice: parseStringToFloat(station["Precio Adblue"]),
+    ammoniaPrice: parseStringToFloat(station["Precio Amoniaco"]),
+    biodieselPrice: parseStringToFloat(station["Precio Biodiesel"]),
+    bioethanolPrice: parseStringToFloat(station["Precio Bioetanol"]),
+    compressedBiogasPrice: parseStringToFloat(station["Precio Biogas Natural Comprimido"]),
+    liquefiedBiogasPrice: parseStringToFloat(station["Precio Biogas Natural Licuado"]),
+    renewableDieselPrice: parseStringToFloat(station["Precio Diésel Renovable"]),
+    CNGPrice: parseStringToFloat(station["Precio Gas Natural Comprimido"]),
+    LNGPrice: parseStringToFloat(station["Precio Gas Natural Licuado"]),
+    LPGPrice: parseStringToFloat(station["Precio Gases licuados del petróleo"]),
+    gasoilAPrice: parseStringToFloat(station["Precio Gasoleo A"]),
+    gasoilBPrice: parseStringToFloat(station["Precio Gasoleo B"]),
+    premiumGasoilPrice: parseStringToFloat(station["Precio Gasoleo Premium"]),
+    gasoline95E10Price: parseStringToFloat(station["Precio Gasolina 95 E10"]),
+    gasoline95E25Price: parseStringToFloat(station["Precio Gasolina 95 E25"]),
+    gasoline95E5Price: parseStringToFloat(station["Precio Gasolina 95 E5"]),
+    gasoline95E5PremiumPrice: parseStringToFloat(station["Precio Gasolina 95 E5 Premium"]),
+    gasoline95E85Price: parseStringToFloat(station["Precio Gasolina 95 E85"]),
+    gasoline98E10Price: parseStringToFloat(station["Precio Gasolina 98 E10"]),
+    gasoline98E5Price: parseStringToFloat(station["Precio Gasolina 98 E5"]),
+    renewableGasolinePrice: parseStringToFloat(station["Precio Gasolina Renovable"]),
+    hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
+    methanolPrice: parseStringToFloat(station["Precio Metanol"]),
+  }))
+}

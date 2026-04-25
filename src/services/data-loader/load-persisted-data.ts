@@ -4,9 +4,9 @@ import { assert } from "typia"
 import { randomUUID } from "crypto";
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
-import { HistoricFuelStation } from "@/models/db/historic-fuel-station"
-import { FormattedStation } from "@/models/formatted-station"
-import { ServiceStationsResult } from "@/models/service-stations-result"
+import { HistoricFuelStation } from "@/models/historic-fuel-station"
+import { FormattedStation } from "@/interfaces/formatted-station"
+import { ServiceStationsResult } from "@/interfaces/service-stations-result"
 import { twoDigits } from "@/utils/numbers"
 import { parseStringToFloat } from "@/utils/parser"
 import { sleep } from "@/utils/sleep"
