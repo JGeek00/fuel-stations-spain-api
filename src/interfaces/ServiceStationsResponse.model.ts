@@ -1,4 +1,4 @@
-export interface ServiceStationsResult {
+export interface ServiceStationsResponse {
   Fecha: string;
   ListaEESSPrecio: ListaEESSPrecio[];
   Nota: string;

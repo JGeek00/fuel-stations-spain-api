@@ -7,9 +7,9 @@
     "type": "git",
     "url": "https://github.com/JGeek00/fuel-stations-spain-api.git"
   },
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node dist/server.js",
     "dev": "nodemon",
     "build:dev": "tsc && tsc-alias",
     "bump-version:major": "node scripts/bump-version.js major",

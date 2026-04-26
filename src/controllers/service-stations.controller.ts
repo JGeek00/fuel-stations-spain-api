@@ -2,10 +2,10 @@ import { Request, Response } from "express";
 import { query, validationResult } from "express-validator";
 import { Op } from "sequelize";
 import * as Sentry from '@sentry/node'
-import { FuelStation } from "@/models/fuel-station";
+import { FuelStation } from "@/models/FuelStation";
 import config from '@/config/config.json'
 import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { LastUpdated } from "@/models/last-updated";
+import { LastUpdated } from "@/models/LastUpdated";
 
 export const serviceStationsValidations = [
   query('limit').isInt().optional().withMessage('Limit parameter must be an int value'),

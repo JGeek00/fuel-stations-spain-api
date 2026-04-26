@@ -1,8 +1,8 @@
-import { ServiceStationsResult } from "@/interfaces/service-stations-result";
+import { ServiceStationsResponse } from "@/interfaces/ServiceStationsResponse.model";
 import { parseStringToFloat } from "./parser";
-import { FuelStationAttributes } from "@/models/fuel-station";
+import { FuelStationAttributes } from "@/models/FuelStation";
 
-export const formatStations = (stations: ServiceStationsResult["ListaEESSPrecio"]): FuelStationAttributes[] => {
+export const formatStations = (stations: ServiceStationsResponse["ListaEESSPrecio"]): FuelStationAttributes[] => {
   if (!stations) return []
   return stations.map(station => ({
     id: station.IDEESS,

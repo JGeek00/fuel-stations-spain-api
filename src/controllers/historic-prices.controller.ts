@@ -3,9 +3,9 @@ import { query } from "express-validator";
 import { DateTime, Interval } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
-import { HistoricFuelStation } from "@/models/historic-fuel-station";
-import { FuelStation } from "@/models/fuel-station";
-import { HistoricPriceReturn } from "@/interfaces/historic-price-return";
+import { HistoricFuelStation } from "@/models/HistoricFuelStation";
+import { FuelStation } from "@/models/FuelStation";
+import { HistoricPriceReturn } from "@/interfaces/HistoricPriceReturn.model";
 
 export const historicPricesValidations = [
   query('id')

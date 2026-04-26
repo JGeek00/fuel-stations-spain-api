@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { FuelStation } from "@/models/fuel-station";
+import { FuelStation } from "@/models/FuelStation";
 
 export const healthcheckController = async (req: Request, res: Response): Promise<void> => {
   try {
