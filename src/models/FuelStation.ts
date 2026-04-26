@@ -1,6 +1,6 @@
 import { DataTypes, Model } from "sequelize";
 
-export interface FuelStationAttributes {
+export interface FuelStationAttributes extends FuelStationPrices {
   id: string | null;
   postalCode: string | null;
   address: string | null;
@@ -19,16 +19,18 @@ export interface FuelStationAttributes {
   municipalityId: number | null;
   provinceId: number | null;
   regionId: number | null;
-  adbluePrice: number | null;
+}
+
+export interface FuelStationPrices {
   ammoniaPrice: number | null;
   biodieselPrice: number | null;
   bioethanolPrice: number | null;
   compressedBiogasPrice: number | null;
   liquefiedBiogasPrice: number | null;
   renewableDieselPrice: number | null;
-  CNGPrice: number | null;
-  LNGPrice: number | null;
-  LPGPrice: number | null;
+  cngPrice: number | null;
+  lngPrice: number | null;
+  lpgPrice: number | null;
   gasoilAPrice: number | null;
   gasoilBPrice: number | null;
   premiumGasoilPrice: number | null;
@@ -42,6 +44,7 @@ export interface FuelStationAttributes {
   renewableGasolinePrice: number | null;
   hydrogenPrice: number | null;
   methanolPrice: number | null;
+  adbluePrice: number | null;
 }
 
 export class FuelStation extends Model<FuelStationAttributes> {}
@@ -75,9 +78,9 @@ export const FuelStationModel = {
   compressedBiogasPrice: DataTypes.FLOAT,
   liquefiedBiogasPrice: DataTypes.FLOAT,
   renewableDieselPrice: DataTypes.FLOAT,
-  CNGPrice: DataTypes.FLOAT,
-  LNGPrice: DataTypes.FLOAT,
-  LPGPrice: DataTypes.FLOAT,
+  cngPrice: DataTypes.FLOAT,
+  lngPrice: DataTypes.FLOAT,
+  lpgPrice: DataTypes.FLOAT,
   gasoilAPrice: DataTypes.FLOAT,
   gasoilBPrice: DataTypes.FLOAT,
   premiumGasoilPrice: DataTypes.FLOAT,

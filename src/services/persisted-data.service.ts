@@ -5,10 +5,11 @@ import { randomUUID } from "crypto"
 import { CronJob } from "cron/dist/job";
 import { HistoricFuelStation } from "@/models/HistoricFuelStation"
 import { DataProviderApiService } from "@/services/data-provider-api.service"
-import { FormattedStation } from "@/interfaces/FormattedStation.model"
-import { parseStringToFloat } from "@/utils/parser"
 import { sleep } from "@/utils/sleep"
 import { twoDigits } from "@/utils/numbers";
+import { formatStations } from "@/utils/format-stations";
+import { HistoricPrice } from "@/interfaces/HistoricPrice.model";
+import { keysToSnake } from "@/utils/case-keys";
 
 class PersistedDataService {
   loadStationsHistoric = async () => {
@@ -49,7 +50,7 @@ class PersistedDataService {
 
       console.log(`🗓️ ${datesToFetch.length} dates will be fetched (${grouped.length}) groups`)
 
-      let stations: Array<FormattedStation> = []
+      let stations: Array<HistoricPrice> = []
 
       for (const groupKey in grouped) {
         const group = grouped[groupKey]
@@ -72,28 +73,15 @@ class PersistedDataService {
             throw new Error("ListaEESSPrecio or Fecha is null")
           }
 
-          const parsedStations = parsedResult.ListaEESSPrecio.map(station => {
-            const d = DateTime.fromFormat(parsedResult.Fecha!, "dd/MM/yyyy h:mm:ss").setZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
-            return <FormattedStation>{
-              stationId: station.IDEESS ?? null,
-              biodieselPrice: parseStringToFloat(station["Precio Biodiesel"]),
-              bioethanolPrice: parseStringToFloat(station["Precio Bioetanol"]),
-              CNGPrice: parseStringToFloat(station["Precio Gas Natural Comprimido"]),
-              LNGPrice: parseStringToFloat(station["Precio Gas Natural Licuado"]),
-              LPGPrice: parseStringToFloat(station["Precio Gases licuados del petróleo"]),
-              gasoilAPrice: parseStringToFloat(station["Precio Gasoleo A"]),
-              gasoilBPrice: parseStringToFloat(station["Precio Gasoleo B"]),
-              premiumGasoilPrice: parseStringToFloat(station["Precio Gasoleo Premium"]),
-              gasoline95E10Price: parseStringToFloat(station["Precio Gasolina 95 E10"]),
-              gasoline95E5Price: parseStringToFloat(station["Precio Gasolina 95 E5"]),
-              gasoline95E5PremiumPrice: parseStringToFloat(station["Precio Gasolina 95 E5 Premium"]),
-              gasoline98E10Price: parseStringToFloat(station["Precio Gasolina 98 E10"]),
-              gasoline98E5Price: parseStringToFloat(station["Precio Gasolina 98 E5"]),
-              hydrogenPrice: parseStringToFloat(station["Precio Hidrogeno"]),
-              adbluePrice: parseStringToFloat(station["Precio Adblue"]),
-              date: d.toSQLDate()
+          const parsedStations = formatStations(parsedResult.ListaEESSPrecio).map(station => {
+            return <HistoricPrice>{
+              ...station,
+              stationId: station.id,
+              stationSignage: station.signage,
+              date: DateTime.fromFormat(parsedResult.Fecha!, "dd/MM/yyyy h:mm:ss").setZone(Intl.DateTimeFormat().resolvedOptions().timeZone).toSQLDate()
             }
           })
+
           stations = [
             ...stations,
             ...parsedStations
@@ -110,22 +98,7 @@ class PersistedDataService {
       await HistoricFuelStation.bulkCreate(stations.map(station => {
         return {
           id: randomUUID(),
-          station_id: station.stationId,
-          biodiesel_price: station.biodieselPrice,
-          bioethanol_price: station.bioethanolPrice,
-          cng_price: station.CNGPrice,
-          lng_price: station.LNGPrice,
-          lpg_price: station.LPGPrice,
-          gasoil_a_price: station.gasoilAPrice,
-          gasoil_b_price: station.gasoilBPrice,
-          premium_gasoil_price: station.premiumGasoilPrice,
-          gasoline_95_e10_price: station.gasoline95E10Price,
-          gasoline_95_e5_price: station.gasoline95E5Price,
-          gasoline_95_e5_premium_price: station.gasoline95E5PremiumPrice,
-          gasoline_98_e10_price: station.gasoline98E10Price,
-          gasoline_98_e5_price: station.gasoline98E5Price,
-          hydrogen_price: station.hydrogenPrice,
-          date: station.date
+          ...keysToSnake(station)
         }
       }))
       console.log("✅ Historic data saved successfully")

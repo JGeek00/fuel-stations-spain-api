@@ -5,7 +5,8 @@ import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
 import { HistoricFuelStation } from "@/models/HistoricFuelStation";
 import { FuelStation } from "@/models/FuelStation";
-import { HistoricPriceReturn } from "@/interfaces/HistoricPriceReturn.model";
+import { HistoricPrice } from "@/interfaces/HistoricPrice.model";
+import { keysToCamel } from "@/utils/case-keys";
 
 export const historicPricesValidations = [
   query('id')
@@ -88,49 +89,16 @@ export const historicPricesController = async (req: Request, res: Response): Pro
     }
 
     const formattedHistoric = historicResult.map(e => {
-      const values = e.get()
-      return {
-        stationId: values.station_id,
-        stationSignage: values.station_signage,
-        biodieselPrice: values.biodiesel_price,
-        bioethanolPrice: values.bioethanol_price,
-        CNGPrice: values.cng_price,
-        LNGPrice: values.lng_price,
-        LPGPrice: values.lpg_price,
-        gasoilAPrice: values.gasoil_a_price,
-        gasoilBPrice: values.gasoil_b_price,
-        premiumGasoilPrice: values.premium_gasoil_price,
-        gasoline95E10Price: values.gasoline_95_e10_price,
-        gasoline95E5Price: values.gasoline_95_e5_price,
-        gasoline95E5PremiumPrice: values.gasoline_95_e5_premium_price,
-        gasoline98E10Price: values.gasoline_98_e10_price,
-        gasoline98E5Price: values.gasoline_98_e5_price,
-        hydrogenPrice: values.hydrogen_price,
-        adbluePrice: values.adblue_price,
-        date: values.date,
-      } as HistoricPriceReturn
+      const values = keysToCamel(e.get())
+      return <HistoricPrice>values
     })
 
     if (currentPrices) {
-      const values = currentPrices.get()
-      formattedHistoric.push({
-        stationId: values.id,
-        stationSignage: values.signage,
-        biodieselPrice: values.biodieselPrice,
-        bioethanolPrice: values.bioethanolPrice,
-        CNGPrice: values.CNGPrice,
-        LNGPrice: values.LNGPrice,
-        LPGPrice: values.LPGPrice,
-        gasoilAPrice: values.gasoilAPrice,
-        gasoilBPrice: values.gasoilBPrice,
-        premiumGasoilPrice: values.premiumGasoilPrice,
-        gasoline95E10Price: values.gasoline95E10Price,
-        gasoline95E5Price: values.gasoline95E5Price,
-        gasoline95E5PremiumPrice: values.gasoline95E5PremiumPrice,
-        gasoline98E10Price: values.gasoline98E10Price,
-        gasoline98E5Price: values.gasoline98E5Price,
-        hydrogenPrice: values.hydrogenPrice,
-        adbluePrice: values.adbluePrice,
+      const values = keysToCamel(currentPrices.get())
+      formattedHistoric.push(<HistoricPrice>{
+        ...values,
+        stationId: (values.id ?? values.stationId) ?? null,
+        stationSignage: (values.signage ?? values.stationSignage) ?? null,
         date: DateTime.now().toSQLDate()
       })
     }
