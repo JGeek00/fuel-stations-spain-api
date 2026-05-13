@@ -118,4 +118,5 @@ export enum Remisión {
 export enum TipoVenta {
   P = "P",
   R = "R",
+  A = "A"
 }

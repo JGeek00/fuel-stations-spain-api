@@ -19,7 +19,7 @@ export function getStationInfoTool(server: McpServer, _databaseService: Database
         const { stationId } = args;
 
         const station = await FuelStation.findOne({
-          where: { id: stationId },
+          where: { stationId: stationId },
         });
 
         if (!station) {

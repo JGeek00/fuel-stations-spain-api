@@ -83,7 +83,7 @@ export const historicPricesController = async (req: Request, res: Response): Pro
     if (req.query.includeCurrentPrices && req.query.includeCurrentPrices != 'false') {
       currentPrices = await FuelStation.findOne({
         where: {
-          id: stationId
+          stationId: stationId
         }
       })
     }

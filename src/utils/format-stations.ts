@@ -5,7 +5,7 @@ import { FuelStationAttributes } from "@/models/FuelStation";
 export const formatStations = (stations: ServiceStationsResponse["ListaEESSPrecio"]): FuelStationAttributes[] => {
   if (!stations) return []
   return stations.map(station => ({
-    id: station.IDEESS,
+    stationId: station.IDEESS,
     postalCode: station["C.P."],
     address: station.Dirección,
     openingHours: station.Horario,

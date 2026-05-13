@@ -76,7 +76,7 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
 
         let currentPrices: Record<string, unknown> | null = null;
         if (includeCurrentPrices) {
-          const station = await FuelStation.findOne({ where: { id: stationId } });
+          const station = await FuelStation.findOne({ where: { stationId: stationId } });
           if (station) {
             const values = keysToCamel(station.get({ plain: true }));
             currentPrices = {

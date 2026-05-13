@@ -76,7 +76,7 @@ class PersistedDataService {
           const parsedStations = formatStations(parsedResult.ListaEESSPrecio).map(station => {
             return <HistoricPrice>{
               ...station,
-              stationId: station.id,
+              stationId: station.stationId,
               stationSignage: station.signage,
               date: DateTime.fromFormat(parsedResult.Fecha!, "dd/MM/yyyy h:mm:ss").setZone(Intl.DateTimeFormat().resolvedOptions().timeZone).toSQLDate()
             }

@@ -1,7 +1,7 @@
 import { DataTypes, Model } from "sequelize";
 
 export interface FuelStationAttributes extends FuelStationPrices {
-  id: string | null;
+  stationId: string | null;
   postalCode: string | null;
   address: string | null;
   openingHours: string | null;
@@ -51,9 +51,10 @@ export class FuelStation extends Model<FuelStationAttributes> {}
 
 export const FuelStationModel = {
   id: {
-    type: DataTypes.STRING,
+    type: DataTypes.UUID,
     primaryKey: true,
   },
+  stationId: DataTypes.STRING,
   postalCode: DataTypes.STRING,
   address: DataTypes.STRING,
   openingHours: DataTypes.STRING,
