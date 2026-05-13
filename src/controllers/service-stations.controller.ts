@@ -130,7 +130,7 @@ export const serviceStationsController = async (req: Request, res: Response): Pr
     res.json({
       lastUpdated: lastUpdated[0].getDataValue("lastUpdated"),
       count,
-      mappedResults
+      results: mappedResults,
     })
   } catch (error) {
     Sentry.captureException(error)
