@@ -1,4 +1,5 @@
 import { CronJob } from "cron";
+import { randomUUID } from "crypto";
 import { FuelStation } from "@/models/FuelStation";
 import { DataProviderApiService } from "./data-provider-api.service";
 import { LastUpdated } from "@/models/LastUpdated";
@@ -40,7 +41,7 @@ class RealtimeDataService {
 
       try {
         // Save new data
-        await FuelStation.bulkCreate(formatStations(result.ListaEESSPrecio))
+        await FuelStation.bulkCreate(formatStations(result.ListaEESSPrecio).map(e => ({ ...e, id: randomUUID() })))
 
         await LastUpdated.create({
           lastUpdated: new Date()

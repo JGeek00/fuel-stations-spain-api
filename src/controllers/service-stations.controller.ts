@@ -118,12 +118,19 @@ export const serviceStationsController = async (req: Request, res: Response): Pr
       where
     })
 
+    // Set return stationId value as id
+    const mappedResults = results.map(r => ({
+      ...r.dataValues,
+      stationId: undefined,
+      id: r.dataValues.stationId
+    }))
+
     const lastUpdated = await LastUpdated.findAll()
 
     res.json({
       lastUpdated: lastUpdated[0].getDataValue("lastUpdated"),
       count,
-      results
+      mappedResults
     })
   } catch (error) {
     Sentry.captureException(error)
