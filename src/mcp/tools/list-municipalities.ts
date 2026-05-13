@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import MunicipalitiesStore from '@/data/municipalities-store';
-import type { Municipality } from '@/interfaces/Municipality.model';
+import type { Municipality } from '../../interfaces/Municipality.model';
 
 export function listMunicipalitiesTool(server: McpServer, municipalitiesStore: typeof MunicipalitiesStore): void {
   server.registerTool(
