@@ -5,6 +5,7 @@ import packageJson from '../package.json';
 import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
 import { loadSentry } from '@/services/sentry.service';
+import { createMcpServerInstance } from '@/mcp';
 
 const step = (label: string, status: '✓' | '⚠' | '✗', detail?: string): void => {
   const paddedLabel = label.padEnd(36, '.');
@@ -45,8 +46,11 @@ export const startServer = async (): Promise<void> => {
       step('Persisted DB', '⚠', 'disabled');
     }
 
+    const mcpServerFactory = () => createMcpServerInstance(databaseService);
+    step('MCP Server', '✓');
+
     // Create and start Express app
-    const app = initExpress();
+    const app = initExpress(mcpServerFactory);
 
     const port = Number(process.env.PORT ?? 3000);
     const server = app.listen(port, () => {

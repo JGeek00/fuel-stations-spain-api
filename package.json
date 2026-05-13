@@ -22,7 +22,8 @@
     "build:prod": "pnpm run build:prod:compile && pnpm run build:prod:obfuscate",
     "build:prod:compile": "tsc --sourceMap false --declaration false --declarationMap false && tsc-alias",
     "build:prod:obfuscate": "node scripts/obfuscate.js",
-    "prepare": "node scripts/prepare.js"
+    "prepare": "node scripts/prepare.js",
+    "mcp:info": "echo 'MCP server available at http://localhost:${PORT:-3000}/mcp when the API is running'"
   },
   "author": "JGeek00",
   "devDependencies": {
@@ -39,6 +40,7 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
     "@sentry/node": "10.48.0",
     "@sentry/profiling-node": "10.48.0",
     "axios": "1.15.0",
@@ -53,7 +55,8 @@
     "sequelize": "6.37.8",
     "sqlite3": "6.0.1",
     "ts-node": "10.9.2",
-    "typia": "11.0.3"
+    "typia": "11.0.3",
+    "zod": "4.4.3"
   },
   "devEngines": {
     "runtime": {

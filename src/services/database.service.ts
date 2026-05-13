@@ -7,7 +7,7 @@ import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/Historic
 import { realtimeDataService } from '@/services/realtime-data.service';
 import { persistedDataService } from '@/services/persisted-data.service';
 
-class DatabaseService {
+export class DatabaseService {
   private _memoryDbInstance: Sequelize | null = null;
   private _persistedDbInstance: Sequelize | null = null;
 
