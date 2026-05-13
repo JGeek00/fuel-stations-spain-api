@@ -5,7 +5,7 @@ import packageJson from '../package.json';
 import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
 import { loadSentry } from '@/services/sentry.service';
-import { createMcpServerInstance } from '@/mcp';
+import { McpServerManager } from '@/mcp/manager';
 
 const step = (label: string, status: '✓' | '⚠' | '✗', detail?: string): void => {
   const paddedLabel = label.padEnd(36, '.');
@@ -46,16 +46,16 @@ export const startServer = async (): Promise<void> => {
       step('Persisted DB', '⚠', 'disabled');
     }
 
-    const mcpServerFactory = (() => {
+    const mcpManager = (() => {
       if (process.env.ENABLE_MCP != "false") {
         step('MCP Server', '✓');
-        return () => createMcpServerInstance(databaseService);
+        return new McpServerManager(databaseService);
       }
-      step('MCP server', '⚠', 'disabled');
+      step('MCP Server', '⚠', 'disabled');
       return undefined;
     })();
 
-    const app = initExpress(mcpServerFactory);
+    const app = initExpress(mcpManager);
 
     const port = Number(process.env.PORT ?? 3000);
     const server = app.listen(port, () => {
@@ -68,26 +68,27 @@ export const startServer = async (): Promise<void> => {
       console.log('');
     });
 
+    const gracefulShutdown = async (signal: string) => {
+      console.log(`\n  Shutting down gracefully (${signal})...`);
+      if (mcpManager) {
+        await mcpManager.shutdown();
+      }
+      server.close(() => process.exit(signal === 'SIGTERM' || signal === 'SIGINT' ? 0 : 1));
+    };
+
     // Graceful handling for unhandled rejections and exceptions
     process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
       console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      server.close(() => process.exit(1));
+      gracefulShutdown('unhandledRejection');
     });
 
     process.on('uncaughtException', (error: Error) => {
       console.error('Uncaught Exception:', error);
-      server.close(() => process.exit(1));
+      gracefulShutdown('uncaughtException');
     });
 
-    process.on('SIGTERM', () => {
-      console.log('\n  Shutting down gracefully (SIGTERM)...');
-      server.close(() => process.exit(0));
-    });
-
-    process.on('SIGINT', () => {
-      console.log('\n  Shutting down gracefully (SIGINT)...');
-      server.close(() => process.exit(0));
-    });
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('✗ Failed to start server:', error);
     process.exit(1);

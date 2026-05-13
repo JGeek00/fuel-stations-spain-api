@@ -8,7 +8,7 @@ import packageJson from '../../package.json';
 /**
  * Registers all tools and resources on an existing McpServer instance.
  */
-export function registerAll(server: McpServer, databaseService: DatabaseService): void {
+function registerAll(server: McpServer, databaseService: DatabaseService): void {
   // Tools
   queryFuelStationsTool(server, databaseService);
   searchByLocationTool(server, databaseService);

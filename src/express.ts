@@ -1,65 +1,13 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import Router from '@/routes/router';
+import ApiRouter from '@/routes/api.routes';
+import McpRouter from '@/routes/mcp.routes';
 import { sentryEnabled } from '@/services/sentry.service';
-import { createMcpRouter } from '@/mcp/integration';
+import { McpServerManager } from '@/mcp/manager';
 
-/**
- * Middleware for MCP endpoint security (DNS rebinding protection).
- * Validates Origin and Host headers per MCP specification.
- *
- * Per spec 2025-11-25:
- * - Servers MUST validate the Origin header to prevent DNS rebinding attacks
- * - If Origin is present and invalid, respond with 403 Forbidden
- * - Servers SHOULD bind only to localhost when running locally
- */
-function mcpSecurityMiddleware(req: Request, _res: Response, next: NextFunction): void {
-  const allowedOrigins = parseCsvEnv(process.env.MCP_ALLOWED_ORIGINS);
-  const allowedHosts = parseCsvEnv(process.env.MCP_ALLOWED_HOSTS);
-
-  // If both are empty/undefined, protection is disabled
-  if (allowedOrigins.length === 0 && allowedHosts.length === 0) {
-    next();
-    return;
-  }
-
-  const origin = req.headers.origin as string | undefined;
-  const host = req.headers.host as string | undefined;
-
-  // Validate Origin if configured
-  if (allowedOrigins.length > 0 && origin) {
-    if (!allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) {
-      _res.status(403).json({
-        error: -32000,
-        message: `Invalid Origin header: ${origin}`
-      });
-      return;
-    }
-  }
-
-  // Validate Host if configured
-  if (allowedHosts.length > 0 && host) {
-    if (!allowedHosts.includes('*') && !allowedHosts.includes(host)) {
-      _res.status(403).json({
-        error: -32000,
-        message: `Invalid Host header: ${host}`
-      });
-      return;
-    }
-  }
-
-  next();
-}
-
-function parseCsvEnv(value: string | undefined): string[] {
-  if (!value || value.trim() === '') return [];
-  return value.split(',').map(s => s.trim()).filter(Boolean);
-}
-
-export const initExpress = (mcpServerFactory?: () => McpServer): Application => {
+export const initExpress = (mcpManager?: McpServerManager): Application => {
   const app = express();
 
   if (sentryEnabled) {
@@ -71,14 +19,11 @@ export const initExpress = (mcpServerFactory?: () => McpServer): Application => 
   app.use(cors());
   app.use(helmet());
 
-  if (mcpServerFactory) {
-    const { handlePost, handleGet, handleDelete } = createMcpRouter(mcpServerFactory);
-    app.post('/mcp', mcpSecurityMiddleware, handlePost);
-    app.get('/mcp', mcpSecurityMiddleware, handleGet);
-    app.delete('/mcp', mcpSecurityMiddleware, handleDelete);
+  if (mcpManager) {
+    app.use('/', McpRouter(mcpManager));
   }
 
-  app.use('/', Router);
+  app.use('/', ApiRouter);
 
   return app;
 };
