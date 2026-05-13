@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { mcpSecurityMiddleware } from "@/middlewares";
+import { mcpCorsMiddleware, mcpSecurityMiddleware } from "@/middlewares";
 import { createMcpRouter, McpServerManager } from "@/mcp";
 
 export default (manager: McpServerManager) => {
@@ -7,6 +7,7 @@ export default (manager: McpServerManager) => {
 
   const { handlePost, handleGet, handleDelete } = createMcpRouter(manager);
 
+  router.use('/mcp', mcpCorsMiddleware);
   router.post('/mcp', mcpSecurityMiddleware, handlePost);
   router.get('/mcp', mcpSecurityMiddleware, handleGet);
   router.delete('/mcp', mcpSecurityMiddleware, handleDelete);

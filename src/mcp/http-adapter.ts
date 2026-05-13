@@ -9,9 +9,10 @@ import { parseSessionId } from '@/utils/mcp';
  * the McpServerManager. This layer only handles HTTP request/response wiring.
  *
  * Protocol:
- * - POST   /mcp — JSON-RPC requests. Creates session if no mcp-session-id.
- * - GET    /mcp — SSE stream for server-to-client notifications.
- * - DELETE /mcp — Close session.
+ * - POST    /mcp — JSON-RPC requests. Creates session if no mcp-session-id.
+ * - GET     /mcp — SSE stream for server-to-client notifications.
+ * - DELETE  /mcp — Close session.
+ * - OPTIONS /mcp — CORS preflight (handled by mcpCorsMiddleware).
  *
  * Session validation and DNS rebinding protection are handled by the manager
  * and the MCP SDK transport layer:
