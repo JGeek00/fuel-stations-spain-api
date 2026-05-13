@@ -2,22 +2,7 @@ import type { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-
-/**
- * Validates a session ID header value. Returns the ID if valid, undefined otherwise.
- */
-function parseSessionId(raw: string | undefined): string | undefined {
-  if (!raw || raw === 'null' || raw === 'undefined') return undefined;
-  return raw;
-}
-
-/**
- * Parses a comma-separated environment variable into a string array.
- */
-function parseCsvEnv(value: string | undefined): string[] {
-  if (!value || value.trim() === '') return [];
-  return value.split(',').map(s => s.trim()).filter(Boolean);
-}
+import { parseCsvEnv, parseSessionId } from '@/utils/mcp';
 
 /**
  * Creates Express route handlers for the MCP Streamable HTTP transport.
@@ -32,7 +17,6 @@ function parseCsvEnv(value: string | undefined): string[] {
  * - DELETE /mcp — Close session.
  *
  * Session validation and DNS rebinding protection are delegated to the MCP SDK
- * which handles them per spec 2025-11-25:
  * - Invalid/expired sessions → 404 Not Found
  * - Missing session on non-init requests → 400 Bad Request
  * - MCP-Protocol-Version header → validated automatically
@@ -54,26 +38,25 @@ export function createMcpRouter(serverFactory: () => McpServer) {
     } : {}),
   };
 
-  const handlePost = async (req: Request, res: Response) => {
+ const handlePost = async (req: Request, res: Response) => {
     const sessionId = parseSessionId(req.headers['mcp-session-id'] as string | undefined);
 
-    if (sessionId && transports.has(sessionId)) {
-      // Existing session
-    } else if (!sessionId) {
-      // New session — create transport and McpServer
+    // New session: create transport + McpServer
+    if (!sessionId) {
       const transport = new StreamableHTTPServerTransport(transportOptions);
       const mcpServer = serverFactory();
       await mcpServer.server.connect(transport);
 
-      await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res, req.body);
+      await transport.handleRequest(req as Parameters<typeof transport.handleRequest>[0], res, req.body);
 
-      // sessionId is populated after the first handleRequest
       if (transport.sessionId) {
         transports.set(transport.sessionId, transport);
       }
       return;
-    } else {
-      // Stale session ID — 404 Not Found per spec 2025-11-25
+    }
+
+    // Existing session: validate id exists in map
+    if (!transports.has(sessionId)) {
       res.status(404).json({
         jsonrpc: '2.0',
         error: { code: -32600, message: 'Session not found. Reinitialize to start a new session.' },
@@ -82,13 +65,9 @@ export function createMcpRouter(serverFactory: () => McpServer) {
       return;
     }
 
+    // Session found, reuse transport
     const transport = transports.get(sessionId)!;
-    await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res, req.body);
-
-    // Ensure session is stored (in case it was missed after first request)
-    if (transport.sessionId && !transports.has(transport.sessionId)) {
-      transports.set(transport.sessionId, transport);
-    }
+    await transport.handleRequest(req as Parameters<typeof transport.handleRequest>[0], res, req.body);
   };
 
   const handleGet = async (req: Request, res: Response) => {
@@ -101,7 +80,6 @@ export function createMcpRouter(serverFactory: () => McpServer) {
 
     const transport = transports.get(sessionId);
     if (!transport) {
-      // Stale session ID — 404 Not Found per spec 2025-11-25
       res.status(404).json({
         jsonrpc: '2.0',
         error: { code: -32600, message: 'Session not found. Reinitialize to start a new session.' },
@@ -110,7 +88,7 @@ export function createMcpRouter(serverFactory: () => McpServer) {
       return;
     }
 
-    await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res);
+    await transport.handleRequest(req as Parameters<typeof transport.handleRequest>[0], res);
   };
 
   const handleDelete = async (req: Request, res: Response) => {

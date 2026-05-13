@@ -46,10 +46,15 @@ export const startServer = async (): Promise<void> => {
       step('Persisted DB', '⚠', 'disabled');
     }
 
-    const mcpServerFactory = () => createMcpServerInstance(databaseService);
-    step('MCP Server', '✓');
+    const mcpServerFactory = (() => {
+      if (process.env.ENABLE_MCP != "false") {
+        step('MCP Server', '✓');
+        return () => createMcpServerInstance(databaseService);
+      }
+      step('MCP server', '⚠', 'disabled');
+      return undefined;
+    })();
 
-    // Create and start Express app
     const app = initExpress(mcpServerFactory);
 
     const port = Number(process.env.PORT ?? 3000);

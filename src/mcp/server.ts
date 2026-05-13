@@ -30,9 +30,6 @@ export function registerAll(server: McpServer, databaseService: DatabaseService)
 /**
  * Factory that creates a new, independent McpServer instance with all tools
  * and resources registered.
- *
- * IMPORTANT: The MCP SDK only allows ONE transport per McpServer instance.
- * Each client session MUST get its own McpServer — call this factory per session.
  */
 export function createMcpServerInstance(databaseService: DatabaseService): McpServer {
   const server = new McpServer({
