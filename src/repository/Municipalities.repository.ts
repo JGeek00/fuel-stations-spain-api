@@ -1,6 +1,6 @@
 import { Municipality } from "@/models/entities/Municipality.model";
 
-class MunicipalitiesStore {
+class MunicipalitiesRepository {
   data;
 
   constructor() {
@@ -8,4 +8,4 @@ class MunicipalitiesStore {
   }
 }
 
-export default new MunicipalitiesStore()
+export default new MunicipalitiesRepository()

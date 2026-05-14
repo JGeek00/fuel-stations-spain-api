@@ -1,4 +1,4 @@
-import { ServiceStationsDto } from "@/repository/dto/ServiceStations.dto";
+import { ServiceStationsDto } from "@/dto/ServiceStations.dto";
 import { FuelStation } from "@/models/entities/FuelStation.model";
 import { parseStringToFloat } from "@/utils/parser";
 

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import MunicipalitiesStore from '@/data/municipalities-store';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 
-export function registerMunicipalitiesResource(server: McpServer, municipalitiesStore: typeof MunicipalitiesStore): void {
+export function registerMunicipalitiesResource(server: McpServer, municipalitiesStore: typeof MunicipalitiesRepository): void {
   server.registerResource(
     'municipalities-list',
     'fuelstations://municipalities/all',

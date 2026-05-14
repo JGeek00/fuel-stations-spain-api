@@ -7,7 +7,7 @@ import { HistoricFuelStation } from "@/models/db/HistoricFuelStation"
 import { DataProviderApiService } from "@/services/data-provider-api.service"
 import { sleep } from "@/utils/sleep"
 import { twoDigits } from "@/utils/numbers";
-import { FuelStationsMapper } from "@/repository/mapper/FuelStations.mapper";
+import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 
 

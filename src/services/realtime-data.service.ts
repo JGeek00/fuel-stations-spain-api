@@ -2,8 +2,8 @@ import { CronJob } from "cron";
 import { randomUUID } from "crypto";
 import { DataProviderApiService } from "./data-provider-api.service";
 import { LastUpdated } from "@/models/db/LastUpdated";
-import { FuelStationsMapper } from "@/repository/mapper/FuelStations.mapper";
-import MunicipalitiesStore from "@/data/municipalities-store";
+import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
+import MunicipalitiesRepository from "@/repository/Municipalities.repository";
 import { FuelStationsTable } from "@/models/db/FuelStations";
 
 class RealtimeDataService {
@@ -86,7 +86,7 @@ class RealtimeDataService {
       data = data.replaceAll("CCAA", "region")
       let parsed = JSON.parse(data)
 
-      MunicipalitiesStore.data = parsed
+      MunicipalitiesRepository.data = parsed
 
       console.log("✅ Municipalities saved successfully")
     } catch (error) {

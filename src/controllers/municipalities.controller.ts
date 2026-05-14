@@ -4,7 +4,7 @@ import {
   createInternalServerError,
   sendApiError,
 } from '@/utils/error-handler';
-import MunicipalitiesStore from '@/data/municipalities-store';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 
 export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {
@@ -12,7 +12,7 @@ export const municipalitiesController = async (req: Request, res: Response<GetMu
       throw createInternalServerError('Endpoint not found');
     }
 
-    const data = MunicipalitiesStore.data
+    const data = MunicipalitiesRepository.data
     res.send({
       municipalities: data
     })

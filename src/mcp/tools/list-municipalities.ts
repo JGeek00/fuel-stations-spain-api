@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import MunicipalitiesStore from '@/data/municipalities-store';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { Municipality } from '@/models/entities/Municipality.model';
 
-export function listMunicipalitiesTool(server: McpServer, municipalitiesStore: typeof MunicipalitiesStore): void {
+export function listMunicipalitiesTool(server: McpServer, municipalitiesRepository: typeof MunicipalitiesRepository): void {
   server.registerTool(
     'list_municipalities',
     {
@@ -19,7 +19,7 @@ export function listMunicipalitiesTool(server: McpServer, municipalitiesStore: t
     async (args) => {
       try {
         const { province, region, search } = args;
-        let data: Municipality[] = municipalitiesStore.data || [];
+        let data: Municipality[] = municipalitiesRepository.data || [];
 
         if (province) {
           data = data.filter((m) => m.province.toLowerCase().includes(province.toLowerCase()));

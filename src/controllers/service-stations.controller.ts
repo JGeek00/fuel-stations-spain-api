@@ -102,7 +102,6 @@ export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuel
     })
   } catch (error) {
     if (error && typeof error === 'object' && 'error' in error) {
-      // Normalized ApiError — send directly
       const apiError = error as { error: { message: string; code: string; details?: unknown } };
       const status = apiError.error.code === 'VALIDATION_ERROR' || apiError.error.code === 'BAD_REQUEST'
         ? 400
@@ -111,7 +110,6 @@ export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuel
           : 500;
       sendApiError(res, apiError, status);
     } else {
-      // Unexpected error — capture and forward to global handler
       Sentry.captureException(error);
       next(createInternalServerError('Internal server error', error instanceof Error ? error : undefined));
     }
