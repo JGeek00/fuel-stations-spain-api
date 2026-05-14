@@ -1,0 +1,46 @@
+export interface FuelStation extends FuelStationPrices {
+  stationId: string | null;
+  postalCode: string | null;
+  address: string | null;
+  openingHours: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locality: string | null;
+  margin: string | null;
+  municipality: string | null;
+  province: string | null;
+  referral: string | null;
+  signage: string | null;
+  saleType: string | null;
+  percBioEthanol: string | null;
+  percMethylEster: string | null;
+  municipalityId: number | null;
+  provinceId: number | null;
+  regionId: number | null;
+}
+
+export interface FuelStationPrices {
+  ammoniaPrice: number | null;
+  biodieselPrice: number | null;
+  bioethanolPrice: number | null;
+  compressedBiogasPrice: number | null;
+  liquefiedBiogasPrice: number | null;
+  renewableDieselPrice: number | null;
+  cngPrice: number | null;
+  lngPrice: number | null;
+  lpgPrice: number | null;
+  gasoilAPrice: number | null;
+  gasoilBPrice: number | null;
+  premiumGasoilPrice: number | null;
+  gasoline95E10Price: number | null;
+  gasoline95E25Price: number | null;
+  gasoline95E5Price: number | null;
+  gasoline95E5PremiumPrice: number | null;
+  gasoline95E85Price: number | null;
+  gasoline98E10Price: number | null;
+  gasoline98E5Price: number | null;
+  renewableGasolinePrice: number | null;
+  hydrogenPrice: number | null;
+  methanolPrice: number | null;
+  adbluePrice: number | null;
+}

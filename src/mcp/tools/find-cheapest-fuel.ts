@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { Op } from 'sequelize';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
-import type { FuelStationAttributes } from '@/models/FuelStation';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { FuelStation } from '@/models/entities/FuelStation.model';
 
 const FUEL_FIELD_NAMES = [
   'gasoilAPrice',
@@ -62,7 +62,7 @@ export function findCheapestFuelTool(server: McpServer, _databaseService: Databa
           where.longitude = { [Op.between]: [minLon, maxLon] };
         }
 
-        const attributes: (keyof FuelStationAttributes)[] = [
+        const attributes: (keyof FuelStation)[] = [
           'id',
           'referral',
           'signage',
@@ -72,9 +72,9 @@ export function findCheapestFuelTool(server: McpServer, _databaseService: Databa
           'latitude',
           'longitude',
           fuelType as FuelField,
-        ] as unknown as (keyof FuelStationAttributes)[];
+        ] as (keyof FuelStation)[];
 
-        const stations = await FuelStation.findAll({
+        const stations = await FuelStationsTable.findAll({
           where,
           attributes,
           order: [[fuelType, 'ASC']],

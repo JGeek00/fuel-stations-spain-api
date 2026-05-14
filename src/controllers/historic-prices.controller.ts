@@ -1,76 +1,64 @@
-import { Request, Response } from "express";
-import { query } from "express-validator";
+import { NextFunction, Request, Response } from "express";
 import { DateTime, Interval } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
-import { HistoricFuelStation } from "@/models/HistoricFuelStation";
-import { FuelStation } from "@/models/FuelStation";
-import { HistoricPrice } from "@/interfaces/HistoricPrice.model";
+import { HistoricFuelStation } from "@/models/db/HistoricFuelStation";
+import { FuelStationsTable } from "@/models/db/FuelStations";
+import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
+import { GetHistoricPricesQueryParams } from "@/models/in/GetHistoricPricesQueryParams.model";
+import { GetHistoricPricesResponse } from "@/models/out/GetHistoricPricesResponse.model";
 import { keysToCamel } from "@/utils/case-keys";
+import {
+  createValidationError,
+  createBadRequestError,
+  createInternalServerError,
+  sendApiError,
+} from '@/utils/error-handler';
 
-export const historicPricesValidations = [
-  query('id')
-    .exists().withMessage('The id parameter is required')
-    .bail()
-    .custom((_, { req }) => {
-      if (Array.isArray(req.query?.id)) {
-        throw new Error('Only one id parameter is allowed');
-      }
-      return true;
-    }),
-  query('startDate').exists().isDate({ format: "yyyy-mm-dd" }).withMessage('The startDate parameter is required and must be a date with format yyyy-mm-dd'),
-  query('endDate').exists().isDate({ format: "yyyy-mm-dd" }).withMessage('The endDate parameter is required and must be a date yyyy-mm-dd'),
-  query('includeCurrentPrices').optional().isBoolean().withMessage('includeCurrentPrices must be a boolean')
-];
-
-export const historicPricesController = async (req: Request, res: Response): Promise<void> => {
-  if (process.env.DISABLE_SERVICE_STATIONS_HISTORIC == "true") {
-    res.status(404).send("Endpoint not found")
-    return
-  }
-
+export const historicPricesController = async (req: Request<{}, {}, {}, GetHistoricPricesQueryParams>, res: Response<GetHistoricPricesResponse>, next: NextFunction): Promise<void> => {
   try {
-    if (!HistoricFuelStation.sequelize) throw new Error("Database not initialized")
+    if (process.env.DISABLE_SERVICE_STATIONS_HISTORIC == "true") {
+      throw createBadRequestError('Endpoint not found');
+    }
+
+    if (!HistoricFuelStation.sequelize) {
+      throw createInternalServerError('Database not initialized');
+    }
+
     await HistoricFuelStation.sequelize.authenticate();
-  } catch (error) {
-    Sentry.captureException(error);
-    res.status(500).send("Historic data is not available.");
-    return
-  }
 
-  try {
-    DateTime.fromSQL(req.query.startDate as string)
-  } catch (error) {
-    res.status(400).send("Invalid format for startDate. Must be yyyy-mm-dd.")
-    return
-  }
-
-  try {
-    DateTime.fromSQL(req.query.endDate as string)
-  } catch (error) {
-    res.status(400).send("Invalid format for endDate. Must be yyyy-mm-dd.")
-    return
-  }
-
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const startDate = DateTime.fromSQL(req.query.startDate as string).setZone(timezone)
-  const endDate = DateTime.fromSQL(req.query.endDate as string).setZone(timezone)
-  if (isNaN(Interval.fromDateTimes(startDate, endDate).length('days'))) {
-    res.status(400).send("startDate must be an earlier date than endDate")
-    return
-  }
-  if (Interval.fromDateTimes(startDate, endDate).length('years') > 1) {
-    res.status(400).send("The maximum difference between the dates cannot be greater than 1 year")
-    return
-  }
-
+    let startDate: DateTime;
     try {
+      startDate = DateTime.fromSQL(req.query.startDate as string);
+    } catch {
+      throw createValidationError('Invalid format for startDate. Must be yyyy-mm-dd.');
+    }
+
+    let endDate: DateTime;
+    try {
+      endDate = DateTime.fromSQL(req.query.endDate as string);
+    } catch {
+      throw createValidationError('Invalid format for endDate. Must be yyyy-mm-dd.');
+    }
+
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const start = startDate.setZone(timezone)
+    const end = endDate.setZone(timezone)
+
+    if (isNaN(Interval.fromDateTimes(start, end).length('days'))) {
+      throw createBadRequestError('startDate must be an earlier date than endDate');
+    }
+
+    if (Interval.fromDateTimes(start, end).length('years') > 1) {
+      throw createBadRequestError('The maximum difference between the dates cannot be greater than 1 year');
+    }
+
     const stationId = Array.isArray(req.query.id) ? req.query.id[0] : (req.query.id as string)
     const historicResult = await HistoricFuelStation.findAll({
       where: {
         station_id: stationId,
         date: {
-          [Op.between]: [startDate.toSQLDate(), endDate.toSQLDate()]
+          [Op.between]: [start.toSQLDate() as string, end.toSQLDate() as string]
         }
       },
       order: [
@@ -79,9 +67,10 @@ export const historicPricesController = async (req: Request, res: Response): Pro
       attributes: { exclude: ['id'] }
     })
 
-    let currentPrices: FuelStation | null = null;
-    if (req.query.includeCurrentPrices && req.query.includeCurrentPrices != 'false') {
-      currentPrices = await FuelStation.findOne({
+    let currentPrices: FuelStationsTable | null = null;
+    const includeCurrentPrices = !!req.query.includeCurrentPrices;
+    if (includeCurrentPrices) {
+      currentPrices = await FuelStationsTable.findOne({
         where: {
           stationId: stationId
         }
@@ -105,8 +94,17 @@ export const historicPricesController = async (req: Request, res: Response): Pro
 
     res.json(formattedHistoric);
   } catch (error) {
-    console.error(error);
-    Sentry.captureException(error);
-    res.sendStatus(500);
+    if (error && typeof error === 'object' && 'error' in error) {
+      const apiError = error as { error: { message: string; code: string; details?: unknown } };
+      const status = apiError.error.code === 'VALIDATION_ERROR' || apiError.error.code === 'BAD_REQUEST'
+        ? 400
+        : apiError.error.code === 'NOT_FOUND'
+          ? 404
+          : 500;
+      sendApiError(res, apiError, status);
+    } else {
+      Sentry.captureException(error);
+      next(createInternalServerError('Internal server error', error instanceof Error ? error : undefined));
+    }
   }
 }

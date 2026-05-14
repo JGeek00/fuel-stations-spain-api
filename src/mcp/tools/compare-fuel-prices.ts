@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
-import type { FuelStationAttributes } from '@/models/FuelStation';
+import { FuelStation } from '@/models/entities/FuelStation.model';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 const FUEL_FIELD_NAMES = [
   'gasoilAPrice',
@@ -55,7 +55,7 @@ export function compareFuelPricesTool(server: McpServer, _databaseService: Datab
         if (municipalityId) where.municipalityId = municipalityId;
 
         // Only select relevant fields to reduce payload
-        const attributes: (keyof FuelStationAttributes)[] = [
+        const attributes: (keyof FuelStation)[] = [
           'id',
           'referral',
           'signage',
@@ -65,9 +65,9 @@ export function compareFuelPricesTool(server: McpServer, _databaseService: Datab
           'latitude',
           'longitude',
           fuelType as FuelField,
-        ] as unknown as (keyof FuelStationAttributes)[];
+        ] as unknown as (keyof FuelStation)[];
 
-        const stations = await FuelStation.findAll({
+        const stations = await FuelStationsTable.findAll({
           where,
           attributes,
           order: [[fuelType, 'ASC']],

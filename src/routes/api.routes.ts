@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import { serviceStationsController, serviceStationsValidations } from '@/controllers/service-stations.controller';
+import { serviceStationsController } from '@/controllers/service-stations.controller';
 import { municipalitiesController } from '@/controllers/municipalities.controller';
-import { historicPricesController, historicPricesValidations } from '@/controllers/historic-prices.controller';
+import { historicPricesController } from '@/controllers/historic-prices.controller';
 import { healthcheckController } from '@/controllers/healthcheck.controller';
+import { serviceStationsValidations } from '@/validations/service-stations.validation';
+import { historicPricesValidations } from '@/validations/historic-prices.validation';
 
 const router: Router = Router();
 
@@ -12,7 +14,12 @@ router.get('/municipalities', municipalitiesController)
 router.get('/healthcheck', healthcheckController)
 
 router.use((req, res) => {
-  res.status(404).send("Endpoint not found")
-})
+  res.status(404).json({
+    error: {
+      message: 'Endpoint not found',
+      code: 'NOT_FOUND',
+    },
+  });
+});
 
 export default router;

@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { Op } from 'sequelize';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 const MIN_DISTANCE = 10;
 const MAX_DISTANCE = 50;
@@ -28,7 +28,7 @@ export function searchByLocationTool(server: McpServer, _databaseService: Databa
 
         const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(latitude, longitude, distance);
 
-        const stations = await FuelStation.findAll({
+        const stations = await FuelStationsTable.findAll({
           where: {
             latitude: { [Op.between]: [minLat, maxLat] },
             longitude: { [Op.between]: [minLon, maxLon] },

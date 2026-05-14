@@ -6,6 +6,7 @@ import ApiRouter from '@/routes/api.routes';
 import McpRouter from '@/routes/mcp.routes';
 import { sentryEnabled } from '@/services/sentry.service';
 import { McpServerManager } from '@/mcp/manager';
+import { errorHandlerMiddleware } from '@/middlewares/error-handler.middleware';
 
 export const initExpress = (mcpManager?: McpServerManager): Application => {
   const app = express();
@@ -24,6 +25,9 @@ export const initExpress = (mcpManager?: McpServerManager): Application => {
   }
 
   app.use('/', ApiRouter);
+
+  // Global error handler — must be after all routes
+  app.use(errorHandlerMiddleware);
 
   return app;
 };

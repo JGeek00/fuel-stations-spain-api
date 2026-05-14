@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 export function getStationInfoTool(server: McpServer, _databaseService: DatabaseService): void {
   server.registerTool(
@@ -18,7 +18,7 @@ export function getStationInfoTool(server: McpServer, _databaseService: Database
       try {
         const { stationId } = args;
 
-        const station = await FuelStation.findOne({
+        const station = await FuelStationsTable.findOne({
           where: { stationId: stationId },
         });
 

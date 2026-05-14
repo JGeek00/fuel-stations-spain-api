@@ -1,9 +1,9 @@
 import { Sequelize } from 'sequelize';
 import * as Sentry from '@sentry/node';
-import { LastUpdated, LastUpdatedModel } from '@/models/LastUpdated';
-import { FuelStation, FuelStationModel } from '@/models/FuelStation';
+import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
+import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
 import { validatePostgresDbData } from '@/utils/postgres-db';
-import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/HistoricFuelStation';
+import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
 import { realtimeDataService } from '@/services/realtime-data.service';
 import { persistedDataService } from '@/services/persisted-data.service';
 
@@ -33,7 +33,7 @@ export class DatabaseService {
     })
     console.log("✅ Memory DB initialized")
 
-    FuelStation.init(FuelStationModel, {
+    FuelStationsTable.init(FuelStationModel, {
       sequelize: this._memoryDbInstance,
       modelName: 'FuelStation',
       timestamps: false,

@@ -3,9 +3,9 @@ import { Op } from 'sequelize';
 import { DateTime } from 'luxon';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { HistoricFuelStation } from '@/models/HistoricFuelStation';
-import { FuelStation } from '@/models/FuelStation';
+import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { keysToCamel } from '@/utils/case-keys';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 export function queryHistoricPricesTool(server: McpServer, databaseService: DatabaseService): void {
   server.registerTool(
@@ -66,7 +66,7 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
         const historicResult = await HistoricFuelStation.findAll({
           where: {
             station_id: stationId,
-            date: { [Op.between]: [start.toSQLDate(), end.toSQLDate()] },
+            date: { [Op.between]: [start.toSQLDate() as string, end.toSQLDate() as string] },
           },
           order: [['date', 'ASC']],
           attributes: { exclude: ['id'] },
@@ -76,7 +76,7 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
 
         let currentPrices: Record<string, unknown> | null = null;
         if (includeCurrentPrices) {
-          const station = await FuelStation.findOne({ where: { stationId: stationId } });
+          const station = await FuelStationsTable.findOne({ where: { stationId: stationId } });
           if (station) {
             const values = keysToCamel(station.get({ plain: true }));
             currentPrices = {

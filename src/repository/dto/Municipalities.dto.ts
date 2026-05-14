@@ -1,4 +1,4 @@
-export interface MunicipalitiesResponse {
+export interface MunicipalitiesDto {
   IDMunicipio: string;
   IDProvincia: string;
   IDCCAA: string;
@@ -7,7 +7,7 @@ export interface MunicipalitiesResponse {
   CCAA: Ccaa;
 }
 
-export enum Ccaa {
+enum Ccaa {
   Andalucia = "Andalucia",
   Aragón = "Aragón",
   Asturias = "Asturias",

@@ -1,20 +1,32 @@
-import { Request, Response } from "express";
-import * as Sentry from '@sentry/node';
+import { NextFunction, Request, Response } from "express";
+import { GetMunicipalitiesResponse } from "@/models/out/GetMunicipalitiesResponse.model";
+import {
+  createInternalServerError,
+  sendApiError,
+} from '@/utils/error-handler';
 import MunicipalitiesStore from '@/data/municipalities-store';
 
-export const municipalitiesController = async (req: Request, res: Response): Promise<void> => {
-  if (process.env.DISABLE_MUNICIPALITIES == "true") {
-    res.status(404).send("Endpoint not found")
-    return
-  }    
-
+export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {
-    let data = MunicipalitiesStore.data
+    if (process.env.DISABLE_MUNICIPALITIES == "true") {
+      throw createInternalServerError('Endpoint not found');
+    }
+
+    const data = MunicipalitiesStore.data
     res.send({
-      "municipalities": data
+      municipalities: data
     })
   } catch (error) {
-    Sentry.captureException(error)
-    res.sendStatus(500)
+    if (error && typeof error === 'object' && 'error' in error) {
+      const apiError = error as { error: { message: string; code: string; details?: unknown }; code?: string };
+      const status = apiError.error.code === 'NOT_FOUND'
+        ? 404
+        : apiError.error.code === 'INTERNAL_ERROR'
+          ? 500
+          : 500;
+      sendApiError(res, apiError, status);
+    } else {
+      next(createInternalServerError('Internal server error', error instanceof Error ? error : undefined));
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
-import { LastUpdated } from '@/models/LastUpdated';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 export function getDatabaseStatusTool(server: McpServer, databaseService: DatabaseService): void {
   server.registerTool(
@@ -13,7 +13,7 @@ export function getDatabaseStatusTool(server: McpServer, databaseService: Databa
     },
     async () => {
       try {
-        const stationCount = await FuelStation.count();
+        const stationCount = await FuelStationsTable.count();
         const lastUpdated = await LastUpdated.findOne();
 
         let postgresConnected = false;

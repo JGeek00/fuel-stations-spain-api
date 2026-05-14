@@ -3,12 +3,12 @@ import * as Sentry from '@sentry/node';
 import { Op } from "sequelize"
 import { randomUUID } from "crypto"
 import { CronJob } from "cron/dist/job";
-import { HistoricFuelStation } from "@/models/HistoricFuelStation"
+import { HistoricFuelStation } from "@/models/db/HistoricFuelStation"
 import { DataProviderApiService } from "@/services/data-provider-api.service"
 import { sleep } from "@/utils/sleep"
 import { twoDigits } from "@/utils/numbers";
-import { formatStations } from "@/utils/format-stations";
-import { HistoricPrice } from "@/interfaces/HistoricPrice.model";
+import { FuelStationsMapper } from "@/repository/mapper/FuelStations.mapper";
+import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 import { keysToSnake } from "@/utils/case-keys";
 
 class PersistedDataService {
@@ -30,7 +30,7 @@ class PersistedDataService {
 
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
       const today = DateTime.now().setZone(timezone)
-      const firstDate = DateTime.fromSQL(lastDateDb.toJSON().date).setZone(timezone)
+      const firstDate = DateTime.fromSQL(lastDateDb.toJSON().date!).setZone(timezone)
       const interval = Interval.fromDateTimes(firstDate, today.minus({ days: 1 })).length('days')   // exclude current day
       const datesToFetch = []
       for (let i = 1; i < interval; i++) {
@@ -73,7 +73,7 @@ class PersistedDataService {
             throw new Error("ListaEESSPrecio or Fecha is null")
           }
 
-          const parsedStations = formatStations(parsedResult.ListaEESSPrecio).map(station => {
+          const parsedStations = FuelStationsMapper.map(parsedResult.ListaEESSPrecio).map(station => {
             return <HistoricPrice>{
               ...station,
               stationId: station.stationId,
@@ -120,7 +120,7 @@ class PersistedDataService {
     await HistoricFuelStation.destroy({
       where: {
         date: {
-          [Op.lt]: yearAgo.toSQLDate()
+          [Op.lt]: yearAgo.toSQLDate() as string
         }
       }
     })

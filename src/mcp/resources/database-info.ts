@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
-import { LastUpdated } from '@/models/LastUpdated';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 export function registerDatabaseInfoResource(server: McpServer, databaseService: DatabaseService): void {
   server.registerResource(
@@ -12,7 +12,7 @@ export function registerDatabaseInfoResource(server: McpServer, databaseService:
       mimeType: 'application/json',
     },
     async () => {
-      const stationCount = await FuelStation.count();
+      const stationCount = await FuelStationsTable.count();
       const lastUpdated = await LastUpdated.findOne();
 
       let postgresConnected = false;

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/FuelStation';
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 const MAX_LIMIT = 200;
 
@@ -31,7 +31,7 @@ export function queryFuelStationsTool(server: McpServer, _databaseService: Datab
         if (provinceId) where.provinceId = provinceId;
         if (regionId) where.regionId = regionId;
 
-        const { rows: stations, count } = await FuelStation.findAndCountAll({
+        const { rows: stations, count } = await FuelStationsTable.findAndCountAll({
           where,
           limit: limit ?? 30,
           offset: offset ?? 0,

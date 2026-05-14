@@ -1,10 +1,10 @@
 import { CronJob } from "cron";
 import { randomUUID } from "crypto";
-import { FuelStation } from "@/models/FuelStation";
 import { DataProviderApiService } from "./data-provider-api.service";
-import { LastUpdated } from "@/models/LastUpdated";
-import { formatStations } from "@/utils/format-stations";
+import { LastUpdated } from "@/models/db/LastUpdated";
+import { FuelStationsMapper } from "@/repository/mapper/FuelStations.mapper";
 import MunicipalitiesStore from "@/data/municipalities-store";
+import { FuelStationsTable } from "@/models/db/FuelStations";
 
 class RealtimeDataService {
   loadStations = async () => {
@@ -32,16 +32,16 @@ class RealtimeDataService {
       }
 
       // Save previous state in case new insert fails
-      const previousStations = await FuelStation.findAll()
+      const previousStations = await FuelStationsTable.findAll()
       const previousLastUpdated = await LastUpdated.findAll()
 
       // Erase previous data
-      await FuelStation.truncate()
+      await FuelStationsTable.truncate()
       await LastUpdated.truncate()
 
       try {
         // Save new data
-        await FuelStation.bulkCreate(formatStations(result.ListaEESSPrecio).map(e => ({ ...e, id: randomUUID() })))
+        await FuelStationsTable.bulkCreate(FuelStationsMapper.map(result.ListaEESSPrecio).map(e => ({ ...e, id: randomUUID() })))
 
         await LastUpdated.create({
           lastUpdated: new Date()
@@ -53,7 +53,7 @@ class RealtimeDataService {
         // Save previous data (convert model instances to plain objects)
         if (previousStations && previousStations.length > 0) {
           const previousStationsData = previousStations.map(s => s.get({ plain: true }))
-          await FuelStation.bulkCreate(previousStationsData)
+          await FuelStationsTable.bulkCreate(previousStationsData)
         }
 
         if (previousLastUpdated && previousLastUpdated.length > 0) {

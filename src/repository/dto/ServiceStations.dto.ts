@@ -1,11 +1,11 @@
-export interface ServiceStationsResponse {
+export interface ServiceStationsDto {
   Fecha: string;
   ListaEESSPrecio: ListaEESSPrecio[];
   Nota: string;
   ResultadoConsulta: string;
 }
 
-export interface ListaEESSPrecio {
+interface ListaEESSPrecio {
   "C.P.": string;
   Dirección: string;
   Horario: string;
@@ -49,13 +49,13 @@ export interface ListaEESSPrecio {
   IDCCAA: string;
 }
 
-export enum Margen {
+enum Margen {
   D = "D",
   I = "I",
   N = "N",
 }
 
-export enum Provincia {
+enum Provincia {
   Albacete = "ALBACETE",
   Alicante = "ALICANTE",
   Almería = "ALMERÍA",
@@ -110,12 +110,12 @@ export enum Provincia {
   Ávila = "ÁVILA",
 }
 
-export enum Remisión {
+enum Remisión {
   Dm = "dm",
   Om = "OM",
 }
 
-export enum TipoVenta {
+enum TipoVenta {
   P = "P",
   R = "R",
   A = "A"

@@ -1,9 +1,9 @@
-import { Request, Response } from "express";
-import { FuelStation } from "@/models/FuelStation";
+import { NextFunction, Request, Response } from "express";
+import { FuelStationsTable } from "@/models/db/FuelStations";
 
-export const healthcheckController = async (req: Request, res: Response): Promise<void> => {
+export const healthcheckController = async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
   try {
-    const { count: realtimeStations } = await FuelStation.findAndCountAll({ limit: 10 })
+    const { count: realtimeStations } = await FuelStationsTable.findAndCountAll({ limit: 10 })
 
     if (realtimeStations > 0) {
       res.status(200).send()
@@ -11,7 +11,7 @@ export const healthcheckController = async (req: Request, res: Response): Promis
     else {
       res.status(500).send()
     }
-  } catch (error) {
+  } catch {
     res.status(500).send()
   }
-} 
+}
