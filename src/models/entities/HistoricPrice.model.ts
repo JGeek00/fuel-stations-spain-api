@@ -7,33 +7,33 @@ export interface HistoricPrice extends FuelStationPrices {
   date: string | null;
 }
 
-// Database model — snake_case, matches DB column names
+// Database model — camelCase, matches DB column names
 export interface HistoricPriceAttributes {
   id: string;
-  station_id: string;
-  station_signage: string;
-  adblue_price: number | null;
-  ammonia_price: number | null;
-  biodiesel_price: number | null;
-  bioethanol_price: number | null;
-  compressed_biogas_price: number | null;
-  liquefied_biogas_price: number | null;
-  renewable_diesel_price: number | null;
-  cng_price: number | null;
-  lng_price: number | null;
-  lpg_price: number | null;
-  gasoil_a_price: number | null;
-  gasoil_b_price: number | null;
-  premium_gasoil_price: number | null;
-  gasoline_95_e10_price: number | null;
-  gasoline_95_e25_price: number | null;
-  gasoline_95_e5_price: number | null;
-  gasoline_95_e5_premium_price: number | null;
-  gasoline_95_e85_price: number | null;
-  gasoline_98_e10_price: number | null;
-  gasoline_98_e5_price: number | null;
-  renewable_gasoline_price: number | null;
-  hydrogen_price: number | null;
-  methanol_price: number | null;
+  stationId: string | null;
+  stationSignage: string | null;
+  adbluePrice: number | null;
+  ammoniaPrice: number | null;
+  biodieselPrice: number | null;
+  bioethanolPrice: number | null;
+  compressedBiogasPrice: number | null;
+  liquefiedBiogasPrice: number | null;
+  renewableDieselPrice: number | null;
+  cngPrice: number | null;
+  lngPrice: number | null;
+  lpgPrice: number | null;
+  gasoilAPrice: number | null;
+  gasoilBPrice: number | null;
+  premiumGasoilPrice: number | null;
+  gasoline95E10Price: number | null;
+  gasoline95E25Price: number | null;
+  gasoline95E5Price: number | null;
+  gasoline95E5PremiumPrice: number | null;
+  gasoline95E85Price: number | null;
+  gasoline98E10Price: number | null;
+  gasoline98E5Price: number | null;
+  renewableGasolinePrice: number | null;
+  hydrogenPrice: number | null;
+  methanolPrice: number | null;
   date: string | null;
 }

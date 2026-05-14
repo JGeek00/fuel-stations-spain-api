@@ -56,7 +56,7 @@ export const historicPricesController = async (req: Request<{}, {}, {}, GetHisto
     const stationId = Array.isArray(req.query.id) ? req.query.id[0] : (req.query.id as string)
     const historicResult = await HistoricFuelStation.findAll({
       where: {
-        station_id: stationId,
+        stationId: stationId,
         date: {
           [Op.between]: [start.toSQLDate() as string, end.toSQLDate() as string]
         }

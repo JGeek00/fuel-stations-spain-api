@@ -42,6 +42,7 @@ export const startServer = async (): Promise<void> => {
     try {
       databaseService.persistedDbInstance;
       step('Persisted DB', '✓', 'postgres');
+      step('Migrations', '✓');
     } catch {
       step('Persisted DB', '⚠', 'disabled');
     }

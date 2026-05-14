@@ -65,7 +65,7 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
 
         const historicResult = await HistoricFuelStation.findAll({
           where: {
-            station_id: stationId,
+            stationId: stationId,
             date: { [Op.between]: [start.toSQLDate() as string, end.toSQLDate() as string] },
           },
           order: [['date', 'ASC']],

@@ -4,6 +4,8 @@ import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
 import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
 import { validatePostgresDbData } from '@/utils/postgres-db';
 import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
+import { Migrations, MigrationsModel } from '@/models/db/Migrations';
+import { migrationService } from '@/services/migration.service';
 import { realtimeDataService } from '@/services/realtime-data.service';
 import { persistedDataService } from '@/services/persisted-data.service';
 
@@ -75,6 +77,17 @@ export class DatabaseService {
 
         console.log('✅ Persisted DB initialized');
 
+        // Initialize and create Migrations tracking table
+        Migrations.init(MigrationsModel, {
+          sequelize: this._persistedDbInstance,
+          modelName: 'Migrations',
+          timestamps: false,
+        });
+        await Migrations.sync({ force: false });
+
+        // Run pending migrations
+        await migrationService.run(this._persistedDbInstance);
+
         HistoricFuelStation.init(HistoricFuelStationModel, {
           sequelize: this._persistedDbInstance,
           modelName: 'historic_data',
@@ -88,6 +101,7 @@ export class DatabaseService {
 
         console.log('✅ Persisted DB tables initialized');
       } catch (error) {
+        console.log(error)
         Sentry.captureException(error);
         console.error('❌ Unable to connect to the persisted database');
         this._persistedDbInstance = null;

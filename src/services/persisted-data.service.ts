@@ -9,7 +9,7 @@ import { sleep } from "@/utils/sleep"
 import { twoDigits } from "@/utils/numbers";
 import { FuelStationsMapper } from "@/repository/mapper/FuelStations.mapper";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
-import { keysToSnake } from "@/utils/case-keys";
+
 
 class PersistedDataService {
   loadStationsHistoric = async () => {
@@ -95,12 +95,12 @@ class PersistedDataService {
       }
 
       console.log("⬇️ Saving data into the persistent database")
-      await HistoricFuelStation.bulkCreate(stations.map(station => {
-        return {
-          id: randomUUID(),
-          ...keysToSnake(station)
-        }
-      }))
+     await HistoricFuelStation.bulkCreate(stations.map(station => {
+          return {
+            id: randomUUID(),
+            ...station
+          }
+        }))
       console.log("✅ Historic data saved successfully")
 
       await this.deleteOldData()
