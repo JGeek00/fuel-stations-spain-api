@@ -1,7 +1,7 @@
 import { DataTypes, Model } from "sequelize";
-import { HistoricPriceAttributes } from "../entities/HistoricPrice.model";
+import { HistoricPrice } from "@/models/entities";
 
-export class HistoricFuelStation extends Model<HistoricPriceAttributes> {}
+export class HistoricFuelStation extends Model<HistoricPrice> {}
 
 export const HistoricFuelStationModel = {
   id: {
