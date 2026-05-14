@@ -3,10 +3,6 @@ import { Migrations, MigrationsAttributes } from '@/models/db/Migrations';
 import { MIGRATIONS } from '@/migrations';
 
 export class MigrationService {
-  /**
-   * Ejecuta las migraciones pendientes en orden.
-   * Cada migración se ejecuta dentro de una transacción atómica.
-   */
   async run(sequelize: Sequelize): Promise<void> {
     const applied = await this.getApplied(sequelize);
     const pending = MIGRATIONS.filter((m) => !applied.includes(m.version));
@@ -35,9 +31,6 @@ export class MigrationService {
     console.log(`  📋 ${pending.length} migration(s) applied`);
   }
 
-  /**
-   * Desaplica las últimas N migraciones (en orden inverso).
-   */
   async rollback(sequelize: Sequelize, count: number = 1): Promise<void> {
     const applied = await this.getApplied(sequelize);
     const toRollback = applied.slice(-count).reverse();
@@ -63,9 +56,6 @@ export class MigrationService {
     }
   }
 
-  /**
-   * Devuelve el estado de todas las migraciones (aplicadas / pendientes).
-   */
   async status(sequelize: Sequelize): Promise<Array<{ version: string; name: string; applied: boolean }>> {
     const applied = await this.getApplied(sequelize);
     return MIGRATIONS.map((m) => ({
@@ -75,9 +65,13 @@ export class MigrationService {
     }));
   }
 
-  /**
-   * Devuelve la versión de la última migración aplicada.
-   */
+  async isDbEmpty(sequelize: Sequelize): Promise<boolean> {
+    const [rows] = await sequelize.query(
+      "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public') AS has_tables"
+    );
+    return !(rows as { has_tables: boolean }[])[0].has_tables;
+  }
+
   async getLastAppliedVersion(sequelize: Sequelize): Promise<string | null> {
     const applied = await this.getApplied(sequelize);
     return applied.length > 0 ? applied[applied.length - 1] : null;
