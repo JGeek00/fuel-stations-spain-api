@@ -8,7 +8,7 @@ export const HistoricFuelStationModel = {
     type: DataTypes.UUID,
     primaryKey: true,
   },
-  stationId: DataTypes.STRING,
+  stationId: { type: DataTypes.STRING, unique: 'idx_historic_station_date' },
   stationSignage: DataTypes.STRING,
   adbluePrice: DataTypes.DOUBLE,
   ammoniaPrice: DataTypes.DOUBLE,
@@ -33,5 +33,5 @@ export const HistoricFuelStationModel = {
   renewableGasolinePrice: DataTypes.DOUBLE,
   hydrogenPrice: DataTypes.DOUBLE,
   methanolPrice: DataTypes.DOUBLE,
-  date: DataTypes.DATEONLY,
+  date: { type: DataTypes.DATEONLY, unique: 'idx_historic_station_date' },
 };
