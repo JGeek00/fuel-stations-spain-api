@@ -23,7 +23,8 @@
     "build:prod:compile": "tsc --sourceMap false --declaration false --declarationMap false && tsc-alias",
     "build:prod:obfuscate": "node scripts/obfuscate.js",
     "prepare": "node scripts/prepare.js",
-    "mcp:info": "echo 'MCP server available at http://localhost:${PORT:-3000}/mcp when the API is running'"
+    "mcp:info": "echo 'MCP server available at http://localhost:${PORT:-3000}/mcp when the API is running'",
+    "generate:mcp-docs": "node scripts/generate-mcp-docs.js"
   },
   "author": "JGeek00",
   "devDependencies": {

@@ -1,0 +1,286 @@
+{
+  "openMCP": "1.0.0",
+  "generator": "generate-mcp-docs.js",
+  "generatedAt": "2026-05-15T00:26:44.667Z",
+  "server": {
+    "name": "fuel-stations-spain-mcp",
+    "version": "1.12.4",
+    "instructions": "MCP server for Fuel Stations Spain API. Query real-time fuel prices, historical data, and municipality information for gas stations across Spain."
+  },
+  "tools": [
+    {
+      "name": "compare_fuel_prices",
+      "title": "Compare Fuel Prices",
+      "description": "Compare a specific fuel type price across multiple stations. Filter by station IDs, municipality, or get the cheapest options. Returns stations sorted by the selected fuel price (ascending).",
+      "parameters": [
+        {
+          "name": "fuelType",
+          "type": "enum",
+          "required": true,
+          "description": "The fuel price field to compare"
+        },
+        {
+          "name": "ids",
+          "type": "string[]",
+          "required": false,
+          "description": "Array of station IDs to compare"
+        },
+        {
+          "name": "municipalityId",
+          "type": "number",
+          "required": false,
+          "description": "Filter by municipality ID"
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "description": "Maximum number of results. Default: 50",
+          "defaultValue": "50",
+          "min": 1,
+          "max": 200
+        }
+      ],
+      "sourceFile": "src/mcp/tools/compare-fuel-prices.ts"
+    },
+    {
+      "name": "find_cheapest_fuel",
+      "title": "Find Cheapest Fuel",
+      "description": "Find the N cheapest stations for a specific fuel type. Can search globally or within a geographic radius. Results sorted from cheapest to most expensive.",
+      "parameters": [
+        {
+          "name": "fuelType",
+          "type": "enum",
+          "required": true,
+          "description": "The fuel price field to search"
+        },
+        {
+          "name": "latitude",
+          "type": "number",
+          "required": false,
+          "description": "Center latitude for geographic search",
+          "max": 90
+        },
+        {
+          "name": "longitude",
+          "type": "number",
+          "required": false,
+          "description": "Center longitude for geographic search",
+          "max": 180
+        },
+        {
+          "name": "distanceKm",
+          "type": "number",
+          "required": false,
+          "description": "Search radius in km (10-50). Required when coordinates are provided",
+          "min": 10,
+          "max": 50
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "description": "Number of cheapest stations to return. Default: 10",
+          "defaultValue": "10",
+          "min": 1,
+          "max": 200
+        }
+      ],
+      "sourceFile": "src/mcp/tools/find-cheapest-fuel.ts"
+    },
+    {
+      "name": "get_database_status",
+      "title": "Get Database Status",
+      "description": "Check the status of both databases (SQLite realtime and PostgreSQL historic). Returns the last update timestamp, total station count, and PostgreSQL connectivity status.",
+      "parameters": [],
+      "sourceFile": "src/mcp/tools/get-database-status.ts"
+    },
+    {
+      "name": "get_station_info",
+      "title": "Get Station Info",
+      "description": "Get complete details of a specific fuel station by its ID. Returns all available information including address, coordinates, opening hours, and all current fuel prices.",
+      "parameters": [
+        {
+          "name": "stationId",
+          "type": "string",
+          "required": true,
+          "description": "The unique ID of the fuel station"
+        }
+      ],
+      "sourceFile": "src/mcp/tools/get-station-info.ts"
+    },
+    {
+      "name": "list_municipalities",
+      "title": "List Municipalities",
+      "description": "List Spanish municipalities with optional filters for province, region, or text search. Returns municipality IDs, names, province, and autonomous community (region).",
+      "parameters": [
+        {
+          "name": "province",
+          "type": "string",
+          "required": false,
+          "description": "Filter by province name"
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "required": false,
+          "description": "Filter by autonomous community (region) name"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "required": false,
+          "description": "Search by municipality name (partial match)"
+        }
+      ],
+      "sourceFile": "src/mcp/tools/list-municipalities.ts"
+    },
+    {
+      "name": "query_fuel_stations",
+      "title": "Query Fuel Stations",
+      "description": "Search for fuel stations in Spain by ID, municipality, province, or region. Returns current fuel prices and station information. Use limit and offset for pagination.",
+      "parameters": [
+        {
+          "name": "ids",
+          "type": "string[]",
+          "required": false,
+          "description": "Array of station IDs to lookup"
+        },
+        {
+          "name": "municipalityId",
+          "type": "number",
+          "required": false,
+          "description": "Filter by municipality ID"
+        },
+        {
+          "name": "provinceId",
+          "type": "number",
+          "required": false,
+          "description": "Filter by province ID"
+        },
+        {
+          "name": "regionId",
+          "type": "number",
+          "required": false,
+          "description": "Filter by autonomous community region ID"
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "description": "`Maximum number of results (1-${MAX_LIMIT}). Default: 30`",
+          "defaultValue": "30`",
+          "min": 1
+        },
+        {
+          "name": "offset",
+          "type": "number",
+          "required": false,
+          "description": "Pagination offset. Default: 0",
+          "defaultValue": "0",
+          "min": 0
+        }
+      ],
+      "sourceFile": "src/mcp/tools/query-fuel-stations.ts"
+    },
+    {
+      "name": "query_historic_prices",
+      "title": "Query Historic Prices",
+      "description": "Query historical fuel prices for a specific station over a date range. Returns a time series of prices sorted chronologically. Maximum date range is 1 year. Optionally includes current prices.",
+      "parameters": [
+        {
+          "name": "stationId",
+          "type": "string",
+          "required": true,
+          "description": "The unique ID of the fuel station"
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "required": true,
+          "description": "Start date in yyyy-mm-dd format"
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "required": true,
+          "description": "End date in yyyy-mm-dd format"
+        },
+        {
+          "name": "includeCurrentPrices",
+          "type": "boolean",
+          "required": false,
+          "description": "Include current day prices in results. Default: false",
+          "defaultValue": "false"
+        }
+      ],
+      "sourceFile": "src/mcp/tools/query-historic-prices.ts"
+    },
+    {
+      "name": "search_stations_by_location",
+      "title": "Search Stations by Location",
+      "description": "Find fuel stations within a geographic radius. Provides the center coordinates (latitude, longitude) and a distance in kilometers (10-50 km). Returns all stations inside the search area with their current fuel prices.",
+      "parameters": [
+        {
+          "name": "latitude",
+          "type": "number",
+          "required": true,
+          "description": "Center latitude (-90 to 90)",
+          "max": 90
+        },
+        {
+          "name": "longitude",
+          "type": "number",
+          "required": true,
+          "description": "Center longitude (-180 to 180)",
+          "max": 180
+        },
+        {
+          "name": "distanceKm",
+          "type": "number",
+          "required": false,
+          "description": "`Search radius in km (${MIN_DISTANCE}-${MAX_DISTANCE}). Default: 30`",
+          "defaultValue": "30`"
+        }
+      ],
+      "sourceFile": "src/mcp/tools/search-by-location.ts"
+    }
+  ],
+  "resources": [
+    {
+      "name": "database-info",
+      "uri": "fuelstations://info/status",
+      "mimeType": "application/json",
+      "description": "Current status of the databases: connection state, total station count, and last update timestamp.",
+      "sourceFile": "src/mcp/resources/database-info.ts"
+    },
+    {
+      "name": "fuel-types",
+      "uri": "fuelstations://info/fuel-types",
+      "mimeType": "application/json",
+      "description": "List of all available fuel types with their field names, Spanish names, and units. Use the field names when querying prices via tools.",
+      "sourceFile": "src/mcp/resources/fuel-types.ts"
+    },
+    {
+      "name": "historic-schema",
+      "uri": "fuelstations://schema/historic",
+      "mimeType": "application/json",
+      "description": "Schema definition of the HistoricFuelStation table (persistent historic data). Shows all available fields with their types and descriptions.",
+      "sourceFile": "src/mcp/resources/historic-schema.ts"
+    },
+    {
+      "name": "municipalities-list",
+      "uri": "fuelstations://municipalities/all",
+      "mimeType": "application/json",
+      "description": "Complete list of all Spanish municipalities with their IDs, province, and autonomous community (region).",
+      "sourceFile": "src/mcp/resources/municipalities-list.ts"
+    },
+    {
+      "name": "stations-schema",
+      "uri": "fuelstations://schema/stations",
+      "mimeType": "application/json",
+      "description": "Schema definition of the FuelStation table (realtime data). Shows all available fields with their types and descriptions.",
+      "sourceFile": "src/mcp/resources/stations-schema.ts"
+    }
+  ]
+}
