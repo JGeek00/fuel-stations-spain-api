@@ -1,10 +1,26 @@
 openapi: 3.1.0
 info:
   title: Fuel Stations Spain API
-  description: >
+  description: |
     REST API that provides realtime information about fuel prices in Spain.
-    Data is sourced from the Spanish Ministry for Ecological Transition
-    (Ministerio para la Transición Ecológica y el Reto Demográfico).
+
+    Data source: [Spanish government public API](https://datos.gob.es/es/catalogo/e05068001-precio-de-carburantes-en-las-gasolineras-espanolas)
+
+    ## Querying fuel stations
+
+    The `/service-stations` endpoint supports several query strategies:
+
+    - **Pagination** — use `limit` and `offset` to page through all stations (default 30 per page, max 200).
+    - **By ID** — filter by one or more station IDs using the `id` parameter.
+    - **By municipality** — filter by `municipalityId`.
+    - **By geolocation** — provide `coordinates` (latitude,longitude) and optionally `distance` (in km, 10–50, default 30).
+
+    When `id`, `coordinates`, or `municipalityId` is provided, pagination parameters are ignored.
+
+    ## Historic prices
+
+    The `/historic-prices` endpoint returns a daily price history for a specific station over a date range (max 1 year). Optionally include the current price with `includeCurrentPrices=true`.
+
   version: 1.12.4
   license:
     name: GPL-3.0-only
@@ -14,103 +30,184 @@ info:
     url: https://github.com/JGeek00/fuel-stations-spain-api
 
 servers:
-  - url: http://localhost:3000
-    description: Local development
+  - url: http://localhost:{port}
+    description: Local development server
+    variables:
+      port:
+        default: "3000"
+        description: Port the API server is running on
 
 tags:
   - name: Service Stations
     description: Operations with fuel stations and realtime prices
   - name: Historic Prices
-    description: Historical fuel price data for stations
+    description: Historical fuel price data for a specific station
   - name: Municipalities
-    description: Spanish municipality reference data
+    description: Municipality, province and region reference data
   - name: Health
-    description: API health check
-  - name: MCP
-    description: Model Context Protocol server endpoints
+    description: Health check endpoint
 
 paths:
   /service-stations:
     get:
       tags:
         - Service Stations
-      summary: Get fuel stations and realtime prices
-      description: >
-        Retrieves fuel station data with realtime fuel prices. Supports
-        filtering by station ID(s), municipality, or geographic coordinates
-        with radius search. Results are paginated by default.
+      summary: List fuel stations
+      description: |
+        Returns a paginated list of fuel stations with their realtime prices. Supports filtering by station ID(s), municipality ID, or geolocation (coordinates + radius).
+
+        When no filter is provided, results are paginated with `limit` and `offset`.
+
+        When `id`, `coordinates`, or `municipalityId` is provided, pagination is disabled and all matching results are returned.
       operationId: getServiceStations
       parameters:
         - name: limit
           in: query
-          description: Maximum number of results to return
+          description: |
+            Maximum number of results to return per page. Only applied when no other filter (`id`, `coordinates`, `municipalityId`) is provided. Maximum effective page size is 200.
           required: false
           schema:
             type: integer
+            format: int32
+            minimum: 1
             default: 30
-            maximum: 200
         - name: offset
           in: query
-          description: Number of results to skip for pagination
+          description: Number of results to skip. Only applied when no other filter is provided. Must be lower than `limit`.
           required: false
           schema:
             type: integer
+            format: int32
+            minimum: 0
             default: 0
-        - name: municipalityId
-          in: query
-          description: Filter by municipality ID
-          required: false
-          schema:
-            type: integer
         - name: id
           in: query
-          description: >
-            Filter by station ID(s). Accepts a single ID string or multiple
-            comma-separated IDs. When specified, pagination parameters are ignored.
+          description: |
+            One or more station IDs to filter by. When provided, pagination parameters are ignored and all matching stations are returned. Pass multiple values as repeated query parameters.
           required: false
-          schema:
-            oneOf:
-              - type: string
-              - type: array
-                items:
-                  type: string
           style: form
           explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: municipalityId
+          in: query
+          description: Filter stations by municipality ID. When provided, pagination parameters are ignored.
+          required: false
+          schema:
+            type: integer
+            format: int32
         - name: coordinates
           in: query
-          description: >
-            Latitude and longitude for proximity search in the format
-            "latitude,longitude" (e.g., "40.4168,-3.7038").
+          description: |
+            Latitude and longitude in WGS84 format, separated by a comma (e.g. `40.4168,-3.7038`). Filters stations within a bounding box around the given point. Latitude: -90 to 90. Longitude: -180 to 180.
           required: false
           schema:
             type: string
-            pattern: "^-?[0-9]+\\.?[0-9]*,-?[0-9]+\\.?[0-9]*$"
+            pattern: '^-?[0-9]+\.?[0-9]*,-?[0-9]+\.?[0-9]*$'
             example: "40.4168,-3.7038"
         - name: distance
           in: query
-          description: >
-            Search radius in kilometers from the provided coordinates.
-            Must be between 10 and 50 km.
+          description: |
+            Search radius in kilometers around the `coordinates` point. If `distance` is provided, `coordinates` is also required. Minimum: 10 km, maximum: 50 km. Default: 30 km.
           required: false
           schema:
             type: integer
-            default: 30
+            format: int32
             minimum: 10
             maximum: 50
+            default: 30
       responses:
-        '200':
+        "200":
           description: Successful response with fuel station data
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetFuelStationsResponse'
-        '400':
-          description: Bad request - validation error or invalid parameters
+              example:
+                lastUpdated: "2025-01-15T08:30:00.000Z"
+                count: 28453
+                results:
+                  - stationId: "280789999"
+                    postalCode: "28078"
+                    address: "Calle Ejemplo, 1"
+                    openingHours: "24H"
+                    latitude: 40.4168
+                    longitude: -3.7038
+                    locality: "Madrid"
+                    margin: "N"
+                    municipality: "Madrid"
+                    province: "MADRID"
+                    referral: "dm"
+                    signage: "REPSOL"
+                    saleType: "P"
+                    percBioEthanol: "10"
+                    percMethylEster: "7"
+                    municipalityId: 7949
+                    provinceId: 28
+                    regionId: 29
+                    ammoniaPrice: null
+                    biodieselPrice: null
+                    bioethanolPrice: null
+                    compressedBiogasPrice: null
+                    liquefiedBiogasPrice: null
+                    renewableDieselPrice: null
+                    cngPrice: null
+                    lngPrice: null
+                    lpgPrice: null
+                    gasoilAPrice: null
+                    gasoilBPrice: 1.459
+                    premiumGasoilPrice: null
+                    gasoline95E10Price: 1.549
+                    gasoline95E25Price: null
+                    gasoline95E5Price: null
+                    gasoline95E5PremiumPrice: null
+                    gasoline95E85Price: null
+                    gasoline98E10Price: null
+                    gasoline98E5Price: null
+                    renewableGasolinePrice: null
+                    hydrogenPrice: null
+                    methanolPrice: null
+                    adbluePrice: 0.899
+        "400":
+          description: Validation error or bad request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-        '500':
+              examples:
+                validationError:
+                  summary: Validation error
+                  value:
+                    error:
+                      message: "Validation failed"
+                      code: "VALIDATION_ERROR"
+                      details:
+                        - type: "field"
+                          value: "abc"
+                          msg: "Limit parameter must be an int value"
+                          path: "limit"
+                          location: "query"
+                badRequest:
+                  summary: Bad request
+                  value:
+                    error:
+                      message: "Offset must be lower than limit"
+                      code: "BAD_REQUEST"
+                coordinatesRequired:
+                  summary: Coordinates required with distance
+                  value:
+                    error:
+                      message: "If the distance parameter is defined, the coordinates parameter is also required"
+                      code: "VALIDATION_ERROR"
+        "404":
+          description: Endpoint not found (disabled via configuration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        "500":
           description: Internal server error
           content:
             application/json:
@@ -121,22 +218,24 @@ paths:
     get:
       tags:
         - Historic Prices
-      summary: Get historical fuel prices for a station
-      description: >
-        Retrieves historical fuel price data for a specific station over a
-        date range. The maximum date range is 1 year. Optionally includes
-        current realtime prices as the last entry in the response.
+      summary: Get historic fuel prices
+      description: |
+        Returns historical fuel prices for a specific station over a date range.
+
+        The date range cannot exceed 1 year between `startDate` and `endDate`.
+
+        Use `includeCurrentPrices=true` to append the current realtime price as the last element in the results array.
       operationId: getHistoricPrices
       parameters:
         - name: id
           in: query
-          description: Station ID to query historical prices for
+          description: Station ID to retrieve historic prices for. Only one ID is allowed.
           required: true
           schema:
             type: string
         - name: startDate
           in: query
-          description: Start date for the historical range (yyyy-mm-dd)
+          description: "Start date for the query range (inclusive). Format: yyyy-mm-dd."
           required: true
           schema:
             type: string
@@ -144,7 +243,7 @@ paths:
             example: "2024-01-01"
         - name: endDate
           in: query
-          description: End date for the historical range (yyyy-mm-dd)
+          description: "End date for the query range (inclusive). Format: yyyy-mm-dd. Must be after `startDate` and within 1 year."
           required: true
           schema:
             type: string
@@ -152,30 +251,86 @@ paths:
             example: "2024-12-31"
         - name: includeCurrentPrices
           in: query
-          description: >
-            When true, appends the current realtime prices as an additional
-            entry with today's date.
+          description: When `true`, appends the current realtime price to the results with today's date.
           required: false
           schema:
             type: boolean
             default: false
       responses:
-        '200':
-          description: Successful response with historical price data
+        "200":
+          description: Successful response with historic price data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetHistoricPricesResponse'
-        '400':
-          description: >
-            Bad request - missing/invalid parameters, invalid date format,
-            or date range exceeds 1 year
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoricPrice'
+              example:
+                - stationId: "280789999"
+                  stationSignage: "REPSOL"
+                  date: "2024-06-15"
+                  ammoniaPrice: null
+                  biodieselPrice: null
+                  bioethanolPrice: null
+                  compressedBiogasPrice: null
+                  liquefiedBiogasPrice: null
+                  renewableDieselPrice: null
+                  cngPrice: null
+                  lngPrice: null
+                  lpgPrice: null
+                  gasoilAPrice: null
+                  gasoilBPrice: 1.529
+                  premiumGasoilPrice: null
+                  gasoline95E10Price: 1.619
+                  gasoline95E25Price: null
+                  gasoline95E5Price: null
+                  gasoline95E5PremiumPrice: null
+                  gasoline95E85Price: null
+                  gasoline98E10Price: null
+                  gasoline98E5Price: null
+                  renewableGasolinePrice: null
+                  hydrogenPrice: null
+                  methanolPrice: null
+                  adbluePrice: 0.929
+        "400":
+          description: Validation error or bad request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-        '500':
-          description: Internal server error or database not initialized
+              examples:
+                missingId:
+                  summary: Missing required id parameter
+                  value:
+                    error:
+                      message: "The id parameter is required"
+                      code: "VALIDATION_ERROR"
+                invalidDate:
+                  summary: Invalid date format
+                  value:
+                    error:
+                      message: "Invalid format for startDate. Must be yyyy-mm-dd."
+                      code: "VALIDATION_ERROR"
+                dateOrder:
+                  summary: Start date must be before end date
+                  value:
+                    error:
+                      message: "startDate must be an earlier date than endDate"
+                      code: "BAD_REQUEST"
+                dateRange:
+                  summary: Date range exceeds 1 year
+                  value:
+                    error:
+                      message: "The maximum difference between the dates cannot be greater than 1 year"
+                      code: "BAD_REQUEST"
+        "404":
+          description: Endpoint not found (disabled via configuration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        "500":
+          description: Internal server error
           content:
             application/json:
               schema:
@@ -185,20 +340,25 @@ paths:
     get:
       tags:
         - Municipalities
-      summary: Get list of Spanish municipalities
-      description: >
-        Returns the complete list of Spanish municipalities with their
-        associated province and autonomous community (region) identifiers
-        and names.
+      summary: List municipalities
+      description: Returns the complete list of Spanish municipalities with their associated provinces and autonomous regions (comunidades autónomas).
       operationId: getMunicipalities
       responses:
-        '200':
-          description: Successful response with municipality list
+        "200":
+          description: Successful response with municipality data
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetMunicipalitiesResponse'
-        '500':
+              example:
+                municipalities:
+                  - municipalityId: "28079"
+                    provinceId: "28"
+                    regionId: "29"
+                    municipality: "Madrid"
+                    province: "MADRID"
+                    region: "Madrid"
+        "500":
           description: Internal server error
           content:
             application/json:
@@ -210,61 +370,15 @@ paths:
       tags:
         - Health
       summary: Health check
-      description: >
-        Returns 200 if the API is operational and the database contains
-        fuel station data. Returns 500 otherwise.
+      description: Returns HTTP 200 if the service is healthy and the database contains data, HTTP 500 otherwise. Response body is empty.
       operationId: healthcheck
       responses:
-        '200':
-          description: API is healthy
-        '500':
-          description: API is unhealthy or database is empty
-
-  /mcp:
-    post:
-      tags:
-        - MCP
-      summary: MCP JSON-RPC endpoint
-      description: >
-        Model Context Protocol server endpoint. Accepts JSON-RPC 2.0
-        requests for tool execution and resource access.
-      operationId: mcpPost
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              description: JSON-RPC 2.0 request
-      responses:
-        '200':
-          description: MCP JSON-RPC response
-          content:
-            application/json:
-              schema:
-                type: object
-    get:
-      tags:
-        - MCP
-      summary: MCP capabilities endpoint
-      description: Returns MCP server capabilities and available tools/resources.
-      operationId: mcpGet
-      responses:
-        '200':
-          description: MCP capabilities
-          content:
-            application/json:
-              schema:
-                type: object
-    delete:
-      tags:
-        - MCP
-      summary: MCP session cleanup
-      description: Cleans up MCP session resources.
-      operationId: mcpDelete
-      responses:
-        '204':
-          description: Session cleaned up
+        "200":
+          description: Service is healthy
+          content: {}
+        "500":
+          description: Service is unhealthy or database is not available
+          content: {}
 
 components:
   schemas:
@@ -274,10 +388,11 @@ components:
         lastUpdated:
           type: string
           format: date-time
-          description: Timestamp of the last data update
+          description: Timestamp of the last data update from the government API
         count:
           type: integer
-          description: Total number of matching stations
+          format: int32
+          description: Total number of fuel stations matching the query
         results:
           type: array
           items:
@@ -287,30 +402,14 @@ components:
         - count
         - results
 
-    GetHistoricPricesResponse:
-      type: array
-      items:
-        $ref: '#/components/schemas/HistoricPrice'
-      description: Array of historical price records ordered by date ascending
-
-    GetMunicipalitiesResponse:
-      type: object
-      properties:
-        municipalities:
-          type: array
-          items:
-            $ref: '#/components/schemas/Municipality'
-      required:
-        - municipalities
-
     FuelStation:
       type: object
-      description: Fuel station with address, location, and realtime fuel prices
+      description: A fuel station with its realtime prices and location data
       properties:
         stationId:
           type: string
           nullable: true
-          description: Unique station identifier
+          description: Unique identifier of the fuel station
         postalCode:
           type: string
           nullable: true
@@ -318,29 +417,33 @@ components:
         address:
           type: string
           nullable: true
-          description: Full street address
+          description: Full street address of the station
         openingHours:
           type: string
           nullable: true
-          description: Station opening hours information
+          description: Opening hours (e.g., "24H", "L-V 07:00-22:00")
         latitude:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Geographic latitude coordinate
+          description: Latitude coordinate (WGS84)
         longitude:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Geographic longitude coordinate
+          description: Longitude coordinate (WGS84)
         locality:
           type: string
           nullable: true
-          description: Locality or town name
+          description: Locality name
         margin:
           type: string
           nullable: true
-          description: Station margin or location description
+          description: |
+            Margin type. Possible values:
+            - `N`: Normal
+            - `D`: Discounted (descuento)
+            - `I`: Independent
         municipality:
           type: string
           nullable: true
@@ -352,15 +455,22 @@ components:
         referral:
           type: string
           nullable: true
-          description: Station referral code
+          description: |
+            Referral type. Possible values:
+            - `dm`: Direct management
+            - `OM`: Concession
         signage:
           type: string
           nullable: true
-          description: Brand or signage name (e.g., Repsol, BP, Cepsa)
+          description: Brand/signage of the station (e.g., "REPSOL", "CEPSA", "GALP")
         saleType:
           type: string
           nullable: true
-          description: Type of sale (e.g., "AutoServicio")
+          description: |
+            Sale type. Possible values:
+            - `P`: Pump (self-service)
+            - `R`: Attendant
+            - `A`: Both
         percBioEthanol:
           type: string
           nullable: true
@@ -371,258 +481,296 @@ components:
           description: Percentage of methyl ester in diesel
         municipalityId:
           type: integer
-          format: int64
+          format: int32
           nullable: true
-          description: Municipality numeric identifier
+          description: Municipality reference ID
         provinceId:
           type: integer
-          format: int64
+          format: int32
           nullable: true
-          description: Province numeric identifier
+          description: Province reference ID
         regionId:
           type: integer
-          format: int64
+          format: int32
           nullable: true
-          description: Autonomous community numeric identifier
+          description: Autonomous region (CCAA) reference ID
         ammoniaPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Ammonia price in EUR/liter
+          description: Ammonia price in EUR per liter
         biodieselPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Biodiesel price in EUR/liter
+          description: Biodiesel price in EUR per liter
         bioethanolPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Bioethanol price in EUR/liter
+          description: Bioethanol price in EUR per liter
         compressedBiogasPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Compressed biogas (CBG) price in EUR/kg
+          description: Compressed biogas (bio-GNC) price in EUR per kg
         liquefiedBiogasPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Liquefied biogas (LBG) price in EUR/kg
+          description: Liquefied biogas (bio-GNL) price in EUR per kg
         renewableDieselPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Renewable diesel price in EUR/liter
+          description: Renewable diesel price in EUR per liter
         cngPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Compressed Natural Gas (CNG) price in EUR/kg
+          description: Compressed natural gas (GNC) price in EUR per kg
         lngPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Liquefied Natural Gas (LNG) price in EUR/kg
+          description: Liquefied natural gas (GNL) price in EUR per kg
         lpgPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Liquefied Petroleum Gas (LPG/GLP) price in EUR/liter
+          description: LPG (autogas/GLP) price in EUR per liter
         gasoilAPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasoil A (standard diesel) price in EUR/liter
+          description: Gasoil A price in EUR per liter
         gasoilBPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasoil B price in EUR/liter
+          description: Gasoil B (standard diesel) price in EUR per liter
         premiumGasoilPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Premium gasoil price in EUR/liter
+          description: Premium diesel price in EUR per liter
         gasoline95E10Price:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 95 sin plomo E10 price in EUR/liter
+          description: Gasolina 95 E10 price in EUR per liter
         gasoline95E25Price:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 95 sin plomo E25 price in EUR/liter
+          description: Gasolina 95 E25 price in EUR per liter
         gasoline95E5Price:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 95 sin plomo E5 price in EUR/liter
+          description: Gasolina 95 E5 price in EUR per liter
         gasoline95E5PremiumPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 95 sin plomo premium E5 price in EUR/liter
+          description: Gasolina 95 E5 Premium price in EUR per liter
         gasoline95E85Price:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 95 sin plomo E85 price in EUR/liter
+          description: Gasolina 95 E85 price in EUR per liter
         gasoline98E10Price:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 98 sin plomo E10 price in EUR/liter
+          description: Gasolina 98 E10 price in EUR per liter
         gasoline98E5Price:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Gasolina 98 sin plomo E5 price in EUR/liter
+          description: Gasolina 98 E5 price in EUR per liter
         renewableGasolinePrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Renewable gasoline price in EUR/liter
+          description: Renewable gasoline price in EUR per liter
         hydrogenPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Hydrogen price in EUR/kg
+          description: Hydrogen price in EUR per kg
         methanolPrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: Methanol price in EUR/liter
+          description: Methanol price in EUR per liter
         adbluePrice:
           type: number
-          format: double
+          format: float
           nullable: true
-          description: AdBlue price in EUR/liter
+          description: AdBlue price in EUR per liter
+      required:
+        - stationId
 
     HistoricPrice:
       type: object
-      description: Historical fuel price record for a station on a specific date
+      description: A historical fuel price record for a specific station and date
       properties:
         stationId:
           type: string
           nullable: true
-          description: Unique station identifier
+          description: Unique identifier of the fuel station
         stationSignage:
           type: string
           nullable: true
-          description: Brand or signage name
+          description: Brand/signage of the station
         date:
           type: string
           format: date
           nullable: true
-          description: Price recording date
+          description: Date of the price record (yyyy-mm-dd)
         ammoniaPrice:
           type: number
           format: double
           nullable: true
+          description: Ammonia price in EUR per liter
         biodieselPrice:
           type: number
           format: double
           nullable: true
+          description: Biodiesel price in EUR per liter
         bioethanolPrice:
           type: number
           format: double
           nullable: true
+          description: Bioethanol price in EUR per liter
         compressedBiogasPrice:
           type: number
           format: double
           nullable: true
+          description: Compressed biogas (bio-GNC) price in EUR per kg
         liquefiedBiogasPrice:
           type: number
           format: double
           nullable: true
+          description: Liquefied biogas (bio-GNL) price in EUR per kg
         renewableDieselPrice:
           type: number
           format: double
           nullable: true
+          description: Renewable diesel price in EUR per liter
         cngPrice:
           type: number
           format: double
           nullable: true
+          description: Compressed natural gas (GNC) price in EUR per kg
         lngPrice:
           type: number
           format: double
           nullable: true
+          description: Liquefied natural gas (GNL) price in EUR per kg
         lpgPrice:
           type: number
           format: double
           nullable: true
+          description: LPG (autogas/GLP) price in EUR per liter
         gasoilAPrice:
           type: number
           format: double
           nullable: true
+          description: Gasoil A price in EUR per liter
         gasoilBPrice:
           type: number
           format: double
           nullable: true
+          description: Gasoil B (standard diesel) price in EUR per liter
         premiumGasoilPrice:
           type: number
           format: double
           nullable: true
+          description: Premium diesel price in EUR per liter
         gasoline95E10Price:
           type: number
           format: double
           nullable: true
+          description: Gasolina 95 E10 price in EUR per liter
         gasoline95E25Price:
           type: number
           format: double
           nullable: true
+          description: Gasolina 95 E25 price in EUR per liter
         gasoline95E5Price:
           type: number
           format: double
           nullable: true
+          description: Gasolina 95 E5 price in EUR per liter
         gasoline95E5PremiumPrice:
           type: number
           format: double
           nullable: true
+          description: Gasolina 95 E5 Premium price in EUR per liter
         gasoline95E85Price:
           type: number
           format: double
           nullable: true
+          description: Gasolina 95 E85 price in EUR per liter
         gasoline98E10Price:
           type: number
           format: double
           nullable: true
+          description: Gasolina 98 E10 price in EUR per liter
         gasoline98E5Price:
           type: number
           format: double
           nullable: true
+          description: Gasolina 98 E5 price in EUR per liter
         renewableGasolinePrice:
           type: number
           format: double
           nullable: true
+          description: Renewable gasoline price in EUR per liter
         hydrogenPrice:
           type: number
           format: double
           nullable: true
+          description: Hydrogen price in EUR per kg
         methanolPrice:
           type: number
           format: double
           nullable: true
+          description: Methanol price in EUR per liter
         adbluePrice:
           type: number
           format: double
           nullable: true
+          description: AdBlue price in EUR per liter
+      required:
+        - stationId
+        - date
+
+    GetMunicipalitiesResponse:
+      type: object
+      properties:
+        municipalities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Municipality'
+      required:
+        - municipalities
 
     Municipality:
       type: object
-      description: Spanish municipality with administrative identifiers
+      description: A Spanish municipality with its province and autonomous region
       properties:
         municipalityId:
           type: string
-          description: Municipality numeric identifier
+          description: Municipality reference ID
         provinceId:
           type: string
-          description: Province numeric identifier
+          description: Province reference ID
         regionId:
           type: string
-          description: Autonomous community numeric identifier
+          description: Autonomous region (CCAA) reference ID
         municipality:
           type: string
           description: Municipality name
@@ -631,7 +779,7 @@ components:
           description: Province name
         region:
           type: string
-          description: Autonomous community name
+          description: Autonomous region name
       required:
         - municipalityId
         - provinceId
@@ -642,6 +790,7 @@ components:
 
     ApiError:
       type: object
+      description: Standard error response
       properties:
         error:
           type: object
@@ -651,13 +800,13 @@ components:
               description: Human-readable error message
             code:
               type: string
-              description: Machine-readable error code
-              enum:
-                - VALIDATION_ERROR
-                - BAD_REQUEST
-                - NOT_FOUND
-                - INTERNAL_ERROR
+              description: |
+                Machine-readable error code. Possible values:
+                - `VALIDATION_ERROR`: Request validation failed (400)
+                - `BAD_REQUEST`: Malformed request (400)
+                - `NOT_FOUND`: Resource or endpoint not found (404)
+                - `INTERNAL_ERROR`: Internal server error (500)
             details:
-              description: Additional error details
+              description: Additional error details (validation errors, stack traces in development mode)
       required:
         - error
