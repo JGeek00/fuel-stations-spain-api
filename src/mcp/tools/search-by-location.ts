@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { Op } from 'sequelize';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { DatabaseService } from '@/services/database/database.service';
-import { calculateBoundingBox } from '@/utils/calculate-distance/calculate-distance';
+import { DatabaseService } from '@/services/database.service';
+import { calculateBoundingBox } from '@/utils/calculate-distance';
 import { FuelStationsTable } from '@/models/db/FuelStations';
-import { logger } from '@/utils/logger/logger';
+import { logger } from '@/utils/logger';
 
 const MIN_DISTANCE = 10;
 const MAX_DISTANCE = 50;

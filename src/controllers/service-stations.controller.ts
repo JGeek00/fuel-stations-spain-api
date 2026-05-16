@@ -12,7 +12,7 @@ import {
   createBadRequestError,
   createInternalServerError,
   sendApiError,
-} from '@/utils/error-handler/error-handler';
+} from '@/utils/error-handler';
 
 export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuelStationsQueryParams>, res: Response, next: NextFunction): Promise<void> => {
   try {

@@ -3,8 +3,8 @@ import { GetMunicipalitiesResponse } from "@/models/out/GetMunicipalitiesRespons
 import {
   createInternalServerError,
   sendApiError,
-} from '@/utils/error-handler/error-handler';
-import MunicipalitiesRepository from '@/repository/Municipalities/Municipalities.repository';
+} from '@/utils/error-handler';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { logger } from '@/utils';
 
 export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {

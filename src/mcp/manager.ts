@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { DatabaseService } from '@/services/database/database.service';
+import { DatabaseService } from '@/services/database.service';
 import { createMcpServerInstance } from '@/mcp/server';
-import { parseCsvEnv } from '@/utils/mcp/mcp';
+import { parseCsvEnv } from '@/utils/mcp';
 
 /**
  * Represents a single active MCP client session.

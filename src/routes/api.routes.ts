@@ -3,8 +3,8 @@ import { serviceStationsController } from '@/controllers/service-stations.contro
 import { municipalitiesController } from '@/controllers/municipalities.controller';
 import { historicPricesController } from '@/controllers/historic-prices.controller';
 import { healthcheckController } from '@/controllers/healthcheck.controller';
-import { serviceStationsValidations } from '@/validations/service-stations/service-stations.validation';
-import { historicPricesValidations } from '@/validations/historic-prices/historic-prices.validation';
+import { serviceStationsValidations } from '@/validations/service-stations.validation';
+import { historicPricesValidations } from '@/validations/historic-prices.validation';
 
 const router: Router = Router();
 

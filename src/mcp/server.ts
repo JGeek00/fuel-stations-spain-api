@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { DatabaseService } from '@/services/database/database.service';
-import MunicipalitiesRepository from '@/repository/Municipalities/Municipalities.repository';
+import { DatabaseService } from '@/services/database.service';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { compareFuelPricesTool, findCheapestFuelTool, getDatabaseStatusTool, getStationInfoTool, listMunicipalitiesTool, queryFuelStationsTool, queryHistoricPricesTool, searchByLocationTool } from '@/mcp/tools';
 import { registerDatabaseInfoResource, registerFuelTypesResource, registerHistoricSchemaResource, registerMunicipalitiesResource, registerStationsSchemaResource } from '@/mcp/resources';
 import packageJson from '../../package.json';
