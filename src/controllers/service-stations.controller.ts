@@ -75,8 +75,11 @@ export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuel
 
     // If ids are defined that should be the only filter on where
     if (req.query.id) {
+      const ids = Array.isArray(req.query.id) ? req.query.id : [req.query.id];
       where = {
-        id: req.query.id
+        stationId: {
+          [Op.in]: ids
+        }
       }
     }
 
