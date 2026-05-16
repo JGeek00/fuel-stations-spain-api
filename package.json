@@ -23,6 +23,9 @@
     "build:prod:compile": "tsc --sourceMap false --declaration false --declarationMap false && tsc-alias",
     "build:prod:obfuscate": "node scripts/obfuscate.js",
     "prepare": "node scripts/prepare.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "mcp:info": "echo 'MCP server available at http://localhost:${PORT:-3000}/mcp when the API is running'",
     "generate:mcp-docs": "node scripts/generate-mcp-docs.js"
   },
@@ -34,12 +37,14 @@
     "@types/luxon": "3.7.1",
     "@types/morgan": "1.9.10",
     "@types/node": "25.7.0",
+    "@vitest/coverage-v8": "4.1.6",
     "javascript-obfuscator": "5.4.2",
     "nodemon": "3.1.14",
     "ts-patch": "3.3.0",
     "tsc-alias": "1.8.17",
     "tsconfig-paths": "4.2.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "4.1.6"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
