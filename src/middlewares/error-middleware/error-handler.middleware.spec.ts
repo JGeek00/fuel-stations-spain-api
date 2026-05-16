@@ -5,13 +5,28 @@ import type { Request, Response, NextFunction } from 'express';
 vi.mock('@sentry/node', () => ({
   captureException: vi.fn(),
 }));
-vi.mock('@/services/sentry.service', () => ({
+vi.mock('@/services/sentry/sentry.service', () => ({
   sentryEnabled: false,
 }));
 vi.mock('@/utils', () => ({
   logger: {
     error: vi.fn(),
   },
+  createInternalServerError: vi.fn((message, _error) => ({
+    error: { message, code: 'INTERNAL_ERROR' },
+  })),
+  errorStatus: vi.fn((code) => {
+    const map: Record<string, number> = {
+      VALIDATION_ERROR: 400,
+      NOT_FOUND: 404,
+      INTERNAL_ERROR: 500,
+      BAD_REQUEST: 400,
+    };
+    return map[code] ?? 500;
+  }),
+  sendApiError: vi.fn((res, apiError, statusCode) => {
+    res.status(statusCode).json(apiError);
+  }),
 }));
 
 import * as Sentry from '@sentry/node';

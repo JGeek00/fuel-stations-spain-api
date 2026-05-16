@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Op } from 'sequelize';
 import { DateTime } from 'luxon';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { DatabaseService } from '@/services/database.service';
+import { DatabaseService } from '@/services/database/database.service';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { keysToCamel } from '@/utils/case-keys/case-keys';
 import { FuelStationsTable } from '@/models/db/FuelStations';

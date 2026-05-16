@@ -6,11 +6,11 @@ import { validatePostgresDbData } from '@/utils/postgres-db/postgres-db';
 import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
 import { HistoricNoDataTable, HistoricNoDataModel } from '@/models/db/HistoricNoData';
 import { Migrations, MigrationsModel } from '@/models/db/Migrations';
-import { migrationService } from '@/services/migration.service';
+import { migrationService } from '@/services/migration/migration.service';
 import { MIGRATIONS } from '@/migrations';
-import { realtimeDataService } from '@/services/realtime-data.service';
-import { persistedDataService } from '@/services/persisted-data.service';
-import { logger } from '@/utils/logger/logger';
+import { realtimeDataService } from '@/services/realtime-data/realtime-data.service';
+import { persistedDataService } from '@/services/persisted-data/persisted-data.service';
+import { logger } from '@/utils';
 
 export class DatabaseService {
   private _memoryDbInstance: Sequelize | null = null;

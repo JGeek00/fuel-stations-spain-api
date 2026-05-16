@@ -4,7 +4,7 @@ import {
   createInternalServerError,
   sendApiError,
 } from '@/utils/error-handler/error-handler';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import MunicipalitiesRepository from '@/repository/Municipalities/Municipalities.repository';
 import { logger } from '@/utils';
 
 export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {

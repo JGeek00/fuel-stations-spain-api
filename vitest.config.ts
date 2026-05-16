@@ -20,6 +20,7 @@ export default defineConfig({
         'src/models',
         'src/dto',
         'src/mapper',
+        'src/routes',
       ],
       reporter: ['text', 'json', 'html'],
     },

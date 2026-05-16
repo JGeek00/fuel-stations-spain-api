@@ -1,9 +1,9 @@
 import { CronJob } from "cron";
 import { randomUUID } from "crypto";
-import { DataProviderApiService } from "./data-provider-api.service";
+import { DataProviderApiService } from "../data-provider-api/data-provider-api.service";
 import { LastUpdated } from "@/models/db/LastUpdated";
 import { FuelStationsMapper } from "@/mapper";
-import MunicipalitiesRepository from "@/repository/Municipalities.repository";
+import MunicipalitiesRepository from "@/repository/Municipalities/Municipalities.repository";
 import { FuelStationsTable } from "@/models/db/FuelStations";
 import { logger } from "@/utils";
 

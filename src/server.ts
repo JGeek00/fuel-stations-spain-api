@@ -3,7 +3,7 @@ import '@/bootstrap';
 
 import packageJson from '../package.json';
 import { initExpress } from '@/express';
-import { databaseService } from '@/services/database.service';
+import { databaseService } from '@/services/database/database.service';
 import { McpServerManager } from '@/mcp/manager';
 import { validateHistoricDataMaxRange, logger } from '@/utils';
 

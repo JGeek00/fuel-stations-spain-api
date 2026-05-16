@@ -5,7 +5,7 @@ export interface ServiceStationsDto {
   ResultadoConsulta: string;
 }
 
-interface ListaEESSPrecio {
+export interface ListaEESSPrecio {
   "C.P.": string;
   Dirección: string;
   Horario: string;
