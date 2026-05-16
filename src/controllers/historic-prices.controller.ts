@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { DateTime, Interval } from 'luxon';
+import { DateTime } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
 import { HistoricFuelStation } from "@/models/db/HistoricFuelStation";
@@ -8,6 +8,7 @@ import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 import { GetHistoricPricesQueryParams } from "@/models/in/GetHistoricPricesQueryParams.model";
 import { GetHistoricPricesResponse } from "@/models/out/GetHistoricPricesResponse.model";
 import { keysToCamel } from "@/utils/case-keys";
+import { getHistoricDataMaxRangeMonths, formatRange } from "@/utils/historic-data-limit";
 import {
   createValidationError,
   createBadRequestError,
@@ -45,12 +46,13 @@ export const historicPricesController = async (req: Request<{}, {}, {}, GetHisto
     const start = startDate.setZone(timezone)
     const end = endDate.setZone(timezone)
 
-    if (isNaN(Interval.fromDateTimes(start, end).length('days'))) {
+    if (isNaN(end.diff(start).as('days'))) {
       throw createBadRequestError('startDate must be an earlier date than endDate');
     }
 
-    if (Interval.fromDateTimes(start, end).length('years') > 1) {
-      throw createBadRequestError('The maximum difference between the dates cannot be greater than 1 year');
+    const maxRangeMonths = getHistoricDataMaxRangeMonths();
+    if (maxRangeMonths !== null && end.diff(start).as('months') > maxRangeMonths) {
+      throw createBadRequestError(`The maximum difference between the dates cannot be greater than ${formatRange(maxRangeMonths)}`);
     }
 
     const stationId = Array.isArray(req.query.id) ? req.query.id[0] : (req.query.id as string)

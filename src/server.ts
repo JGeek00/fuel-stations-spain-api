@@ -6,6 +6,7 @@ import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
 import { loadSentry } from '@/services/sentry.service';
 import { McpServerManager } from '@/mcp/manager';
+import { validateHistoricDataMaxRange } from '@/utils/historic-data-limit';
 
 const step = (label: string, status: '✓' | '⚠' | '✗', detail?: string): void => {
   const paddedLabel = label.padEnd(36, '.');
@@ -35,6 +36,10 @@ export const startServer = async (): Promise<void> => {
     // Validate environment
     validateEnvironment();
     step('Environment', '✓', `PORT=${process.env.PORT ?? '3000'}`);
+
+    // Validate HISTORIC_DATA_MAX_RANGE
+    const historicLimitResult = validateHistoricDataMaxRange();
+    step('Historic data limit', historicLimitResult.status, historicLimitResult.detail);
 
     // Initialize both databases via databaseService
     await databaseService.init();
