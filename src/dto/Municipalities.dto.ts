@@ -7,7 +7,7 @@ export interface MunicipalitiesDto {
   CCAA: Ccaa;
 }
 
-enum Ccaa {
+export enum Ccaa {
   Andalucia = "Andalucia",
   Aragón = "Aragón",
   Asturias = "Asturias",

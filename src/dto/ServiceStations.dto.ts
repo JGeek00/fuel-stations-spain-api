@@ -12,7 +12,7 @@ interface ListaEESSPrecio {
   Latitud: string;
   Localidad: string;
   "Longitud (WGS84)": string;
-  Margen: Margen;
+  Margen: string;
   Municipio: string;
   "Precio Adblue": string;
   "Precio Amoniaco": string;
@@ -37,86 +37,14 @@ interface ListaEESSPrecio {
   "Precio Gasolina Renovable": string;
   "Precio Hidrogeno": string;
   "Precio Metanol": string;
-  Provincia: Provincia;
-  Remisión: Remisión;
+  Provincia: string;
+  Remisión: string;
   Rótulo: string;
-  "Tipo Venta": TipoVenta;
+  "Tipo Venta": string;
   "% BioEtanol": string;
   "% Éster metílico": string;
   IDEESS: string;
   IDMunicipio: string;
   IDProvincia: string;
   IDCCAA: string;
-}
-
-enum Margen {
-  D = "D",
-  I = "I",
-  N = "N",
-}
-
-enum Provincia {
-  Albacete = "ALBACETE",
-  Alicante = "ALICANTE",
-  Almería = "ALMERÍA",
-  ArabaÁlava = "ARABA/ÁLAVA",
-  Asturias = "ASTURIAS",
-  Badajoz = "BADAJOZ",
-  BalearsIlles = "BALEARS (ILLES)",
-  Barcelona = "BARCELONA",
-  Bizkaia = "BIZKAIA",
-  Burgos = "BURGOS",
-  Cantabria = "CANTABRIA",
-  CastellónCastelló = "CASTELLÓN / CASTELLÓ",
-  Ceuta = "CEUTA",
-  CiudadReal = "CIUDAD REAL",
-  CoruñaA = "CORUÑA (A)",
-  Cuenca = "CUENCA",
-  Cáceres = "CÁCERES",
-  Cádiz = "CÁDIZ",
-  Córdoba = "CÓRDOBA",
-  Gipuzkoa = "GIPUZKOA",
-  Girona = "GIRONA",
-  Granada = "GRANADA",
-  Guadalajara = "GUADALAJARA",
-  Huelva = "HUELVA",
-  Huesca = "HUESCA",
-  Jaén = "JAÉN",
-  León = "LEÓN",
-  Lleida = "LLEIDA",
-  Lugo = "LUGO",
-  Madrid = "MADRID",
-  Melilla = "MELILLA",
-  Murcia = "MURCIA",
-  Málaga = "MÁLAGA",
-  Navarra = "NAVARRA",
-  Ourense = "OURENSE",
-  Palencia = "PALENCIA",
-  PalmasLas = "PALMAS (LAS)",
-  Pontevedra = "PONTEVEDRA",
-  RiojaLa = "RIOJA (LA)",
-  Salamanca = "SALAMANCA",
-  SantaCruzDeTenerife = "SANTA CRUZ DE TENERIFE",
-  Segovia = "SEGOVIA",
-  Sevilla = "SEVILLA",
-  Soria = "SORIA",
-  Tarragona = "TARRAGONA",
-  Teruel = "TERUEL",
-  Toledo = "TOLEDO",
-  ValenciaValència = "VALENCIA / VALÈNCIA",
-  Valladolid = "VALLADOLID",
-  Zamora = "ZAMORA",
-  Zaragoza = "ZARAGOZA",
-  Ávila = "ÁVILA",
-}
-
-enum Remisión {
-  Dm = "dm",
-  Om = "OM",
-}
-
-enum TipoVenta {
-  P = "P",
-  R = "R",
-  A = "A"
 }

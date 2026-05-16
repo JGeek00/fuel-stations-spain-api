@@ -7,7 +7,7 @@ import ApiRouter from '@/routes/api.routes';
 import McpRouter from '@/routes/mcp.routes';
 import { sentryEnabled } from '@/services/sentry.service';
 import { McpServerManager } from '@/mcp/manager';
-import { errorHandlerMiddleware } from '@/middlewares/error-handler.middleware';
+import { errorHandlerMiddleware } from '@/middlewares/error-middleware/error-handler.middleware';
 
 export const initExpress = (mcpManager?: McpServerManager): Application => {
   const app = express();

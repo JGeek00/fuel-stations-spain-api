@@ -1,3 +1,3 @@
-export * from './mcp-security.middleware';
-export * from './mcp-cors.middleware';
-export * from './error-handler.middleware';
+export * from './mcp-security/mcp-security.middleware';
+export * from './mcp-cors/mcp-cors.middleware';
+export * from './error-middleware/error-handler.middleware';

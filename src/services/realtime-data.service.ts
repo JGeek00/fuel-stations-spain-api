@@ -2,7 +2,7 @@ import { CronJob } from "cron";
 import { randomUUID } from "crypto";
 import { DataProviderApiService } from "./data-provider-api.service";
 import { LastUpdated } from "@/models/db/LastUpdated";
-import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
+import { FuelStationsMapper } from "@/mapper";
 import MunicipalitiesRepository from "@/repository/Municipalities.repository";
 import { FuelStationsTable } from "@/models/db/FuelStations";
 import { logger } from "@/utils";

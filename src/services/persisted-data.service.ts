@@ -7,7 +7,7 @@ import { HistoricFuelStation } from "@/models/db/HistoricFuelStation"
 import { HistoricNoDataTable } from "@/models/db/HistoricNoData"
 import { DataProviderApiService } from "@/services/data-provider-api.service"
 import { logger, sleep, twoDigits } from "@/utils"
-import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
+import { FuelStationsMapper } from "@/mapper";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 
 
