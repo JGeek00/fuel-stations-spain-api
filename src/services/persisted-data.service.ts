@@ -10,6 +10,7 @@ import { sleep } from "@/utils/sleep"
 import { twoDigits } from "@/utils/numbers";
 import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
+import { logger } from "@/utils/logger";
 
 
 class PersistedDataService {
@@ -17,7 +18,7 @@ class PersistedDataService {
     try {
       const sequelize = HistoricFuelStation.sequelize;
       if (!sequelize) {
-        console.error("❌ Persistent DB not initialized.");
+        logger.error("❌ Persistent DB not initialized.");
         return;
       }
 
@@ -34,7 +35,7 @@ class PersistedDataService {
       const noDataDates = new Set(noDataResult);
 
       if (existingDates.size === 0) {
-        console.error("❌ Persistent DB has no data. You must import manually the data first.");
+        logger.error("❌ Persistent DB has no data. You must import manually the data first.");
         return;
       }
 
@@ -62,11 +63,11 @@ class PersistedDataService {
       }
 
       if (datesToFetch.length === 0) {
-        console.log("🗓️ No new dates to fetch for the historic");
+        logger.info("🗓️ No new dates to fetch for the historic");
         return;
       }
 
-      console.log(`🗓️ ${datesToFetch.length} dates to fetch (${existingDates.size} already in DB)`);
+      logger.info(`🗓️ ${datesToFetch.length} dates to fetch (${existingDates.size} already in DB)`);
 
       // Group into batches of 7
       const grouped: DateTime[][] = [];
@@ -74,17 +75,17 @@ class PersistedDataService {
         grouped.push(datesToFetch.slice(i, i + 7));
       }
 
-      console.log(`${grouped.length} batch(es) to process`);
+      logger.info(`${grouped.length} batch(es) to process`);
 
       for (let batchIndex = 0; batchIndex < grouped.length; batchIndex++) {
         const group = grouped[batchIndex];
 
         const queries = group.map(date => DataProviderApiService.getStationsHistoric(date));
 
-        console.log(`🛜 Fetch batch ${batchIndex}: ${twoDigits(group[0].day)}-${twoDigits(group[0].month)}-${group[0].year} to ${twoDigits(group[group.length - 1].day)}-${twoDigits(group[group.length - 1].month)}-${group[group.length - 1].year}`);
+        logger.info(`🛜 Fetch batch ${batchIndex}: ${twoDigits(group[0].day)}-${twoDigits(group[0].month)}-${group[0].year} to ${twoDigits(group[group.length - 1].day)}-${twoDigits(group[group.length - 1].month)}-${group[group.length - 1].year}`);
 
         const results = await Promise.all(queries);
-        console.log(`✅ Batch ${batchIndex} fetched successfully`);
+        logger.info(`✅ Batch ${batchIndex} fetched successfully`);
 
         // Parse results and build records for this batch
         const batchStations: HistoricPrice[] = [];
@@ -92,12 +93,12 @@ class PersistedDataService {
         for (let key = 0; key < results.length; key++) {
           const result = results[key];
           if (!result) {
-            console.error(`  ⚠️ Failed to fetch data for date ${group[key].toSQLDate()}`);
+            logger.error(`  ⚠️ Failed to fetch data for date ${group[key].toSQLDate()}`);
             continue;
           }
 
           if (!result.ListaEESSPrecio || !result.Fecha) {
-            console.error(`  ⚠️ Invalid response for date ${group[key].toSQLDate()}`);
+            logger.error(`  ⚠️ Invalid response for date ${group[key].toSQLDate()}`);
             continue;
           }
 
@@ -119,7 +120,7 @@ class PersistedDataService {
             const dateSQL = group[key].toSQLDate();
             if (dateSQL) {
               await HistoricNoDataTable.create({ date: dateSQL });
-              console.log(`  🚫 No data for ${dateSQL} — marked as no-data`);
+              logger.info(`  🚫 No data for ${dateSQL} — marked as no-data`);
             }
           }
         }
@@ -140,9 +141,9 @@ class PersistedDataService {
             })),
             bulkOptions
           );
-          console.log(`  💾 Batch ${batchIndex} saved (${batchStations.length} records)`);
+          logger.info(`  💾 Batch ${batchIndex} saved (${batchStations.length} records)`);
         } else {
-          console.log(`  ⚠️ Batch ${batchIndex}: no records to save`);
+          logger.warn(`  ⚠️ Batch ${batchIndex}: no records to save`);
         }
 
         // Sleep between batches (not after the last one)
@@ -151,15 +152,19 @@ class PersistedDataService {
         }
       }
 
-      console.log("✅ Historic data update completed");
+      logger.info("✅ Historic data update completed");
     } catch (error) {
       Sentry.captureException(error);
-      console.error(error);
+      logger.error(error);
     }
   }
 
-  loadAll = () => {
-    this.loadStationsHistoric();
+  loadAll = async (): Promise<void> => {
+    try {
+      await this.loadStationsHistoric();
+    } catch (error) {
+      logger.error("PersistedDataService.loadAll error:", error);
+    }
   }
 
   registerProgrammedTask = () => {
@@ -170,6 +175,7 @@ class PersistedDataService {
       start: true,
       timeZone: process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
+    logger.info('  ⏰ Persisted data cron registered', { cronTime: '0 1 * * *' });
   }
 }
 

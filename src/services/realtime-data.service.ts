@@ -5,13 +5,14 @@ import { LastUpdated } from "@/models/db/LastUpdated";
 import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
 import MunicipalitiesRepository from "@/repository/Municipalities.repository";
 import { FuelStationsTable } from "@/models/db/FuelStations";
+import { logger } from "@/utils/logger";
 
 class RealtimeDataService {
   loadStations = async () => {
     try {
       const result = await DataProviderApiService.getStations();
       if (!result) {
-        console.error("Failed to fetch stations data")
+        logger.error("Failed to fetch stations data")
         return
       }
 
@@ -28,7 +29,7 @@ class RealtimeDataService {
         }
       })
       if (duplicatedIds.length > 0) {
-        console.log(`⚠️ Duplicated IDs found: ${duplicatedIds.join(",")}`)
+        logger.warn(`⚠️ Duplicated IDs found: ${duplicatedIds.join(",")}`)
       }
 
       // Save previous state in case new insert fails
@@ -47,7 +48,7 @@ class RealtimeDataService {
           lastUpdated: new Date()
         })
 
-        console.log("✅ Realtime data saved successfully")
+        logger.info("✅ Realtime data saved successfully")
 
       } catch (error) {
         // Save previous data (convert model instances to plain objects)
@@ -61,11 +62,11 @@ class RealtimeDataService {
           await LastUpdated.create(lastUpdatedData)
         }
 
-        console.log("⚠️ Restored previous data")
+        logger.warn("⚠️ Restored previous data")
       }
 
     } catch (error) {
-      console.error(error)
+      logger.error(error)
     }
   }
 
@@ -73,7 +74,7 @@ class RealtimeDataService {
     try {
       const result = await DataProviderApiService.getMunicipalities();
       if (!result) {
-        console.error("Failed to fetch municipalities data")
+        logger.error("Failed to fetch municipalities data")
         return
       }
 
@@ -88,9 +89,9 @@ class RealtimeDataService {
 
       MunicipalitiesRepository.data = parsed
 
-      console.log("✅ Municipalities saved successfully")
+      logger.info("✅ Municipalities saved successfully")
     } catch (error) {
-      console.error(error)
+      logger.error(error)
     }
   }
 
@@ -101,7 +102,7 @@ class RealtimeDataService {
         this.loadMunicipalities()
       ]);
     } catch (error) {
-      console.error("RealtimeDataService.loadAll error:", error);
+      logger.error("RealtimeDataService.loadAll error:", error);
     }
   }
 
@@ -113,6 +114,7 @@ class RealtimeDataService {
       start: true,
       timeZone: process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
+    logger.info('  ⏰ Realtime data cron registered', { cronTime: process.env.REALTIME_DATA_CRON ?? '0,30 * * * *' });
   }
 }
 

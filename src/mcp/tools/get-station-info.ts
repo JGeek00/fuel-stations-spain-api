@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { FuelStationsTable } from '@/models/db/FuelStations';
+import { logger } from '@/utils/logger';
 
 export function getStationInfoTool(server: McpServer, _databaseService: DatabaseService): void {
   server.registerTool(
@@ -40,6 +41,7 @@ export function getStationInfoTool(server: McpServer, _databaseService: Database
           ],
         };
       } catch (error) {
+        logger.error('Error getting station info', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error getting station info: ${error}` }],
           isError: true,

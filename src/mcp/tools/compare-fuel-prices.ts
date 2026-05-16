@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { FuelStation } from '@/models/entities/FuelStation.model';
 import { FuelStationsTable } from '@/models/db/FuelStations';
+import { logger } from '@/utils/logger';
 
 const FUEL_FIELD_NAMES = [
   'gasoilAPrice',
@@ -98,6 +99,7 @@ export function compareFuelPricesTool(server: McpServer, _databaseService: Datab
           ],
         };
       } catch (error) {
+        logger.error('Error comparing fuel prices', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error comparing fuel prices: ${error}` }],
           isError: true,

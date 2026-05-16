@@ -1,6 +1,7 @@
 import { Sequelize } from 'sequelize';
 import { Migrations, MigrationsAttributes } from '@/models/db/Migrations';
 import { MIGRATIONS } from '@/migrations';
+import { logger } from '@/utils/logger';
 
 export class MigrationService {
   async run(sequelize: Sequelize): Promise<void> {
@@ -8,7 +9,7 @@ export class MigrationService {
     const pending = MIGRATIONS.filter((m) => !applied.includes(m.version));
 
     if (pending.length === 0) {
-      console.log('  📋 No pending migrations');
+      logger.info('  📋 No pending migrations');
       return;
     }
 
@@ -25,10 +26,10 @@ export class MigrationService {
         );
       });
 
-      console.log(`  📋 Migration ${migration.version} ${migration.name} applied ✓`);
+      logger.info(`  📋 Migration ${migration.version} ${migration.name} applied ✓`);
     }
 
-    console.log(`  📋 ${pending.length} migration(s) applied`);
+    logger.info(`  📋 ${pending.length} migration(s) applied`);
   }
 
   async rollback(sequelize: Sequelize, count: number = 1): Promise<void> {
@@ -36,14 +37,14 @@ export class MigrationService {
     const toRollback = applied.slice(-count).reverse();
 
     if (toRollback.length === 0) {
-      console.log('  📋 No migrations to rollback');
+      logger.info('  📋 No migrations to rollback');
       return;
     }
 
     for (const version of toRollback) {
       const migration = MIGRATIONS.find((m) => m.version === version);
       if (!migration) {
-        console.warn(`  📋 Migration ${version} not found in registry, skipping`);
+        logger.warn(`  📋 Migration ${version} not found in registry, skipping`);
         continue;
       }
 
@@ -52,7 +53,7 @@ export class MigrationService {
         await Migrations.destroy({ where: { version }, transaction, logging: false });
       });
 
-      console.log(`  📋 Migration ${version} ${migration.name} rolled back ✓`);
+      logger.info(`  📋 Migration ${version} ${migration.name} rolled back ✓`);
     }
   }
 
@@ -84,7 +85,8 @@ export class MigrationService {
         logging: false,
       });
       return rows.map((r) => (r as unknown as MigrationsAttributes).version);
-    } catch {
+    } catch (error) {
+      logger.debug('  📋 Migrations table not found, returning empty list', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }

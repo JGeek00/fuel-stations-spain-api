@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { parseCsvEnv } from "@/utils/mcp";
+import { logger } from '@/utils/logger';
 
 /**
  * Middleware for MCP endpoint security (DNS rebinding protection).
@@ -26,6 +27,7 @@ export const mcpSecurityMiddleware = (req: Request, _res: Response, next: NextFu
   // Validate Origin if configured
   if (allowedOrigins.length > 0 && origin) {
     if (!allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) {
+      logger.warn('MCP request rejected: invalid Origin', { origin, host });
       _res.status(403).json({
         error: -32000,
         message: `Invalid Origin header: ${origin}`
@@ -37,6 +39,7 @@ export const mcpSecurityMiddleware = (req: Request, _res: Response, next: NextFu
   // Validate Host if configured
   if (allowedHosts.length > 0 && host) {
     if (!allowedHosts.includes('*') && !allowedHosts.includes(host)) {
+      logger.warn('MCP request rejected: invalid Host', { host, origin });
       _res.status(403).json({
         error: -32000,
         message: `Invalid Host header: ${host}`

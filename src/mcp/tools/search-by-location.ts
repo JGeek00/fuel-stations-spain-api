@@ -4,6 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
 import { FuelStationsTable } from '@/models/db/FuelStations';
+import { logger } from '@/utils/logger';
 
 const MIN_DISTANCE = 10;
 const MAX_DISTANCE = 50;
@@ -55,6 +56,7 @@ export function searchByLocationTool(server: McpServer, _databaseService: Databa
           ],
         };
       } catch (error) {
+        logger.error('Error searching by location', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error searching by location: ${error}` }],
           isError: true,

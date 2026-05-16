@@ -5,6 +5,7 @@ import { DatabaseService } from '@/services/database.service';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
 import { FuelStationsTable } from '@/models/db/FuelStations';
 import { FuelStation } from '@/models/entities/FuelStation.model';
+import { logger } from '@/utils/logger';
 
 const FUEL_FIELD_NAMES = [
   'gasoilAPrice',
@@ -110,6 +111,7 @@ export function findCheapestFuelTool(server: McpServer, _databaseService: Databa
           ],
         };
       } catch (error) {
+        logger.error('Error finding cheapest fuel', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error finding cheapest fuel: ${error}` }],
           isError: true,

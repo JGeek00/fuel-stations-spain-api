@@ -6,6 +6,7 @@ import { DatabaseService } from '@/services/database.service';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { keysToCamel } from '@/utils/case-keys';
 import { FuelStationsTable } from '@/models/db/FuelStations';
+import { logger } from '@/utils/logger';
 
 export function queryHistoricPricesTool(server: McpServer, databaseService: DatabaseService): void {
   server.registerTool(
@@ -99,6 +100,7 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
           ],
         };
       } catch (error) {
+        logger.error('Error querying historic prices', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error querying historic prices: ${error}` }],
           isError: true,

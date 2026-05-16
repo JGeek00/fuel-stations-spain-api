@@ -5,6 +5,7 @@ import {
   sendApiError,
 } from '@/utils/error-handler';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { logger } from '@/utils/logger';
 
 export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {
@@ -26,6 +27,7 @@ export const municipalitiesController = async (req: Request, res: Response<GetMu
           : 500;
       sendApiError(res, apiError, status);
     } else {
+      logger.error('Unexpected error in municipalities endpoint', { error: error instanceof Error ? error.message : String(error) });
       next(createInternalServerError('Internal server error', error instanceof Error ? error : undefined));
     }
   }

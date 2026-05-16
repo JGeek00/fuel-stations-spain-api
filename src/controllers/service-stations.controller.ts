@@ -13,6 +13,7 @@ import {
   createInternalServerError,
   sendApiError,
 } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuelStationsQueryParams>, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -114,6 +115,7 @@ export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuel
       sendApiError(res, apiError, status);
     } else {
       Sentry.captureException(error);
+      logger.error('Unexpected error in service-stations endpoint', { error: error instanceof Error ? error.message : String(error) });
       next(createInternalServerError('Internal server error', error instanceof Error ? error : undefined));
     }
   }

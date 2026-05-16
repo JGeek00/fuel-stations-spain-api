@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { Municipality } from '@/models/entities/Municipality.model';
+import { logger } from '@/utils/logger';
 
 export function listMunicipalitiesTool(server: McpServer, municipalitiesRepository: typeof MunicipalitiesRepository): void {
   server.registerTool(
@@ -40,6 +41,7 @@ export function listMunicipalitiesTool(server: McpServer, municipalitiesReposito
           ],
         };
       } catch (error) {
+        logger.error('Error listing municipalities', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error listing municipalities: ${error}` }],
           isError: true,

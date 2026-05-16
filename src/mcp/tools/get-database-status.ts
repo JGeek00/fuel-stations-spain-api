@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { LastUpdated } from '@/models/db/LastUpdated';
 import { FuelStationsTable } from '@/models/db/FuelStations';
+import { logger } from '@/utils/logger';
 
 export function getDatabaseStatusTool(server: McpServer, databaseService: DatabaseService): void {
   server.registerTool(
@@ -46,6 +47,7 @@ export function getDatabaseStatusTool(server: McpServer, databaseService: Databa
           ],
         };
       } catch (error) {
+        logger.error('Error getting database status', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error getting database status: ${error}` }],
           isError: true,

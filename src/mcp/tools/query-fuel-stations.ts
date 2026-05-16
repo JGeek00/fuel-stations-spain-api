@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { FuelStationsTable } from '@/models/db/FuelStations';
+import { logger } from '@/utils/logger';
 
 const MAX_LIMIT = 200;
 
@@ -48,6 +49,7 @@ export function queryFuelStationsTool(server: McpServer, _databaseService: Datab
           ],
         };
       } catch (error) {
+        logger.error('Error querying fuel stations', { error: error instanceof Error ? error.message : String(error) });
         return {
           content: [{ type: 'text', text: `Error querying fuel stations: ${error}` }],
           isError: true,

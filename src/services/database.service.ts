@@ -10,6 +10,7 @@ import { migrationService } from '@/services/migration.service';
 import { MIGRATIONS } from '@/migrations';
 import { realtimeDataService } from '@/services/realtime-data.service';
 import { persistedDataService } from '@/services/persisted-data.service';
+import { logger } from '@/utils/logger';
 
 export class DatabaseService {
   private _memoryDbInstance: Sequelize | null = null;
@@ -35,7 +36,7 @@ export class DatabaseService {
       storage: ':memory:',
       logging: false
     })
-    console.log("✅ Memory DB initialized")
+    logger.info("✅ Memory DB initialized")
 
     FuelStationsTable.init(FuelStationModel, {
       sequelize: this._memoryDbInstance,
@@ -54,7 +55,7 @@ export class DatabaseService {
     realtimeDataService.loadAll() // Load data on start
     realtimeDataService.registerProgrammedTask();
 
-    console.log("✅ Memory DB tables initialized")
+    logger.info("✅ Memory DB tables initialized")
   }
 
   private async initPersistedDb(): Promise<void> {
@@ -77,7 +78,7 @@ export class DatabaseService {
       try {
         await this._persistedDbInstance.authenticate();
 
-        console.log('✅ Persisted DB initialized');
+        logger.info('✅ Persisted DB initialized');
 
         const isFreshInstall = await migrationService.isDbEmpty(this._persistedDbInstance);
 
@@ -91,7 +92,7 @@ export class DatabaseService {
         if (!isFreshInstall) {
           await migrationService.run(this._persistedDbInstance);
         } else {
-          console.log('  📋 Fresh install — marking all migrations as applied');
+          logger.info('  📋 Fresh install — marking all migrations as applied');
           await Migrations.bulkCreate(
             MIGRATIONS.map(m => ({
               version: m.version,
@@ -119,15 +120,15 @@ export class DatabaseService {
         persistedDataService.loadAll() // Load persisted data on start
         persistedDataService.registerProgrammedTask();
 
-        console.log('✅ Persisted DB tables initialized');
+        logger.info('✅ Persisted DB tables initialized');
       } catch (error) {
-        console.log(error)
+        logger.error(error)
         Sentry.captureException(error);
-        console.error('❌ Unable to connect to the persisted database');
+        logger.error('❌ Unable to connect to the persisted database');
         this._persistedDbInstance = null;
       }
     } else {
-      console.log("❌ Database connection values not provided. Historic endpoint won`t be available.");
+      logger.warn("❌ Database connection values not provided. Historic endpoint won`t be available.");
     }
   }
 

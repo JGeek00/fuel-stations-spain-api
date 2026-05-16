@@ -4,6 +4,7 @@ import { API_BASE_URL } from "@/config/constants";
 import { twoDigits } from "@/utils/numbers";
 import { ServiceStationsDto } from "@/dto/ServiceStations.dto";
 import { MunicipalitiesDto } from "@/dto/Municipalities.dto";
+import { logger } from "@/utils/logger";
 
 const commonHeaders = {
   "Content-Type": "application/json"
@@ -22,7 +23,7 @@ export class DataProviderApiService {
       const parsed = typia.assert<ServiceStationsDto>(data);
       return parsed;
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       return null;
     }
   }
@@ -40,7 +41,7 @@ export class DataProviderApiService {
       const parsed = typia.assert<ServiceStationsDto>(data);
       return parsed;
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       return null;
     }
   }
@@ -57,7 +58,7 @@ export class DataProviderApiService {
       const parsed = typia.assert<MunicipalitiesDto[]>(data);
       return parsed;
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       return null;
     }
   }

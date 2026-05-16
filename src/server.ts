@@ -6,28 +6,29 @@ import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
 import { McpServerManager } from '@/mcp/manager';
 import { validateHistoricDataMaxRange } from '@/utils/historic-data-limit';
+import { logger } from '@/utils/logger';
 
 const step = (label: string, status: '✓' | '⚠' | '✗', detail?: string): void => {
   const paddedLabel = label.padEnd(36, '.');
   const suffix = detail ? ` (${detail})` : '';
-  console.log(`  ${paddedLabel} ${status}${suffix}`);
+  logger.banner(`  ${paddedLabel} ${status}${suffix}`);
 };
 
 const validateEnvironment = (): void => {
   const port = process.env.PORT;
   if (port && Number.isNaN(Number(port))) {
-    console.error('❌ ERROR: PORT must be a number');
+    logger.error('❌ ERROR: PORT must be a number');
     process.exit(1);
   }
 };
 
 export const startServer = async (): Promise<void> => {
   try {
-    console.log('');
-    console.log('  ╔══════════════════════════════════════╗');
-    console.log(`  ║   Fuel Stations Spain API  v${packageJson.version.padEnd(12)}║`);
-    console.log('  ╚══════════════════════════════════════╝');
-    console.log('');
+    logger.banner('');
+    logger.banner('  ╔══════════════════════════════════════╗');
+    logger.banner(`  ║   Fuel Stations Spain API  v${packageJson.version.padEnd(12)}║`);
+    logger.banner('  ╚══════════════════════════════════════╝');
+    logger.banner('');
 
     // Validate environment
     validateEnvironment();
@@ -61,17 +62,17 @@ export const startServer = async (): Promise<void> => {
 
     const port = Number(process.env.PORT ?? 3000);
     const server = app.listen(port, () => {
-      console.log('');
-      console.log('  ┌─────────────────────────────────────┐');
-      console.log('  │  Server ready                       │');
-      console.log(`  │  Port:        ${String(port).padEnd(22)}│`);
-      console.log(`  │  Environment: ${(process.env.NODE_ENV ?? 'development').padEnd(22)}│`);
-      console.log('  └─────────────────────────────────────┘');
-      console.log('');
+      logger.banner('');
+      logger.banner('  ┌─────────────────────────────────────┐');
+      logger.banner('  │  Server ready                       │');
+      logger.banner(`  │  Port:        ${String(port).padEnd(22)}│`);
+      logger.banner(`  │  Environment: ${(process.env.NODE_ENV ?? 'development').padEnd(22)}│`);
+      logger.banner('  └─────────────────────────────────────┘');
+      logger.banner('');
     });
 
     const gracefulShutdown = async (signal: string) => {
-      console.log(`\n  Shutting down gracefully (${signal})...`);
+      logger.info(`\n  Shutting down gracefully (${signal})...`);
       if (mcpManager) {
         await mcpManager.shutdown();
       }
@@ -80,19 +81,19 @@ export const startServer = async (): Promise<void> => {
 
     // Graceful handling for unhandled rejections and exceptions
     process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
-      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
       gracefulShutdown('unhandledRejection');
     });
 
     process.on('uncaughtException', (error: Error) => {
-      console.error('Uncaught Exception:', error);
+      logger.error('Uncaught Exception:', error);
       gracefulShutdown('uncaughtException');
     });
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
-    console.error('✗ Failed to start server:', error);
+    logger.error('✗ Failed to start server:', error);
     process.exit(1);
   }
 };

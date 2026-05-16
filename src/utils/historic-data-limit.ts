@@ -1,5 +1,7 @@
 const MIN_MONTHS = 6;
 
+import { logger } from './logger';
+
 /**
  * Cached parsed result. `undefined` means not yet parsed; `null` means no limit.
  */
@@ -110,13 +112,13 @@ export function validateHistoricDataMaxRange(): { status: '✓' | '⚠'; detail:
 
   const months = parseHistoricDataMaxRange(raw);
   if (months === null) {
-    console.warn(`  ✗ Invalid HISTORIC_DATA_MAX_RANGE value: "${raw}". Expected format: XyXm (e.g., "4y6m", "1y", "6m"). Defaulting to no limit.`);
+    logger.warn(`  ✗ Invalid HISTORIC_DATA_MAX_RANGE value: "${raw}". Expected format: XyXm (e.g., "4y6m", "1y", "6m"). Defaulting to no limit.`);
     return { status: '⚠', detail: `invalid format ("${raw}") — no limit` };
   }
 
   const effective = Math.max(months, MIN_MONTHS);
   if (months < MIN_MONTHS) {
-    console.warn(`  ✗ HISTORIC_DATA_MAX_RANGE "${raw}" is less than ${MIN_MONTHS} months. Minimum of ${MIN_MONTHS} months will be applied.`);
+    logger.warn(`  ✗ HISTORIC_DATA_MAX_RANGE "${raw}" is less than ${MIN_MONTHS} months. Minimum of ${MIN_MONTHS} months will be applied.`);
   }
 
   return { status: '✓', detail: formatRange(effective) };

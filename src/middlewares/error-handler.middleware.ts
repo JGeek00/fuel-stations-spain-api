@@ -2,6 +2,7 @@ import type { ErrorRequestHandler } from 'express';
 import * as Sentry from '@sentry/node';
 import { sentryEnabled } from '@/services/sentry.service';
 import { sendApiError, createInternalServerError, errorStatus } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 /**
  * Global Express error middleware.
@@ -26,6 +27,7 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, _req, res, _nex
 
   // Fallback: wrap unknown errors
   const message = err instanceof Error ? err.message : 'Internal server error';
+  logger.error('Unhandled error caught by global middleware', { error: message });
   const apiError = createInternalServerError(message, err instanceof Error ? err : new Error(String(err)));
   sendApiError(res, apiError, 500);
 };
