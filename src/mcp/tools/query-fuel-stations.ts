@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { FuelStationsTable } from '@/models/db/FuelStations';
-import { logger } from '@/utils/logger';
+import { logger } from '@/utils/logger/logger';
 
 const MAX_LIMIT = 200;
 

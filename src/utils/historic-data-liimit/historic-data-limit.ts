@@ -1,6 +1,6 @@
 const MIN_MONTHS = 6;
 
-import { logger } from './logger';
+import { logger } from '../logger/logger';
 
 /**
  * Cached parsed result. `undefined` means not yet parsed; `null` means no limit.

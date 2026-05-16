@@ -3,9 +3,9 @@ import { GetMunicipalitiesResponse } from "@/models/out/GetMunicipalitiesRespons
 import {
   createInternalServerError,
   sendApiError,
-} from '@/utils/error-handler';
+} from '@/utils/error-handler/error-handler';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
-import { logger } from '@/utils/logger';
+import { logger } from '@/utils';
 
 export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {

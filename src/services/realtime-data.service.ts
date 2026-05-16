@@ -5,7 +5,7 @@ import { LastUpdated } from "@/models/db/LastUpdated";
 import { FuelStationsMapper } from "@/mapper/FuelStations.mapper";
 import MunicipalitiesRepository from "@/repository/Municipalities.repository";
 import { FuelStationsTable } from "@/models/db/FuelStations";
-import { logger } from "@/utils/logger";
+import { logger } from "@/utils";
 
 class RealtimeDataService {
   loadStations = async () => {

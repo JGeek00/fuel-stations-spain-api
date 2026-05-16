@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { LastUpdated } from '@/models/db/LastUpdated';
 import { FuelStationsTable } from '@/models/db/FuelStations';
-import { logger } from '@/utils/logger';
+import { logger } from '@/utils/logger/logger';
 
 export function getDatabaseStatusTool(server: McpServer, databaseService: DatabaseService): void {
   server.registerTool(

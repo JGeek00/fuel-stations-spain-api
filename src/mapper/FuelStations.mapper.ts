@@ -1,6 +1,6 @@
 import { ServiceStationsDto } from "@/dto/ServiceStations.dto";
 import { FuelStation } from "@/models/entities/FuelStation.model";
-import { parseStringToFloat } from "@/utils/parser";
+import { parseStringToFloat } from "@/utils";
 
 export class FuelStationsMapper {
   static map = (stations: ServiceStationsDto["ListaEESSPrecio"]): FuelStation[] => {

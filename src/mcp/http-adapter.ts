@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { McpServerManager } from './manager';
-import { parseSessionId } from '@/utils/mcp';
+import { parseSessionId } from '@/utils/mcp/mcp';
 
 /**
  * Creates Express route handlers for the MCP Streamable HTTP transport.

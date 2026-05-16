@@ -4,9 +4,9 @@ import { DateTime } from 'luxon';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
-import { keysToCamel } from '@/utils/case-keys';
+import { keysToCamel } from '@/utils/case-keys/case-keys';
 import { FuelStationsTable } from '@/models/db/FuelStations';
-import { logger } from '@/utils/logger';
+import { logger } from '@/utils/logger/logger';
 
 export function queryHistoricPricesTool(server: McpServer, databaseService: DatabaseService): void {
   server.registerTool(

@@ -1,8 +1,8 @@
 import type { ErrorRequestHandler } from 'express';
 import * as Sentry from '@sentry/node';
 import { sentryEnabled } from '@/services/sentry.service';
-import { sendApiError, createInternalServerError, errorStatus } from '@/utils/error-handler';
-import { logger } from '@/utils/logger';
+import { sendApiError, createInternalServerError, errorStatus } from '@/utils/error-handler/error-handler';
+import { logger } from '@/utils';
 
 /**
  * Global Express error middleware.

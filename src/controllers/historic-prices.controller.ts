@@ -7,15 +7,15 @@ import { FuelStationsTable } from "@/models/db/FuelStations";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 import { GetHistoricPricesQueryParams } from "@/models/in/GetHistoricPricesQueryParams.model";
 import { GetHistoricPricesResponse } from "@/models/out/GetHistoricPricesResponse.model";
-import { keysToCamel } from "@/utils/case-keys";
-import { getHistoricDataMaxRangeMonths, formatRange } from "@/utils/historic-data-limit";
+import { keysToCamel } from "@/utils/case-keys/case-keys";
+import { getHistoricDataMaxRangeMonths, formatRange } from "@/utils";
 import {
   createValidationError,
   createBadRequestError,
   createInternalServerError,
   sendApiError,
-} from '@/utils/error-handler';
-import { logger } from '@/utils/logger';
+} from '@/utils/error-handler/error-handler';
+import { logger } from '@/utils/logger/logger';
 
 export const historicPricesController = async (req: Request<{}, {}, {}, GetHistoricPricesQueryParams>, res: Response<GetHistoricPricesResponse>, next: NextFunction): Promise<void> => {
   try {

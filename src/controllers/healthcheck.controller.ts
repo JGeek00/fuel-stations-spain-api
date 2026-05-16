@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { FuelStationsTable } from "@/models/db/FuelStations";
-import { logger } from '@/utils/logger';
+import { logger } from '@/utils';
 
 export const healthcheckController = async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
   try {
