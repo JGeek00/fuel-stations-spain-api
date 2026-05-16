@@ -1,10 +1,9 @@
-import * as dotenv from 'dotenv';
-dotenv.config();
+// Load Sentry before anything else
+import '@/bootstrap';
 
 import packageJson from '../package.json';
 import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
-import { loadSentry } from '@/services/sentry.service';
 import { McpServerManager } from '@/mcp/manager';
 import { validateHistoricDataMaxRange } from '@/utils/historic-data-limit';
 
@@ -24,9 +23,6 @@ const validateEnvironment = (): void => {
 
 export const startServer = async (): Promise<void> => {
   try {
-    // Initialize Sentry if configured
-    loadSentry();
-
     console.log('');
     console.log('  ╔══════════════════════════════════════╗');
     console.log(`  ║   Fuel Stations Spain API  v${packageJson.version.padEnd(12)}║`);
