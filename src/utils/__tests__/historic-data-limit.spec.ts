@@ -1,15 +1,15 @@
 /// <reference types="node" />
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-let parseHistoricDataMaxRange: typeof import('../historic-data-limit').parseHistoricDataMaxRange;
-let formatRange: typeof import('../historic-data-limit').formatRange;
-let getHistoricDataMaxRangeMonths: typeof import('../historic-data-limit').getHistoricDataMaxRangeMonths;
-let validateHistoricDataMaxRange: typeof import('../historic-data-limit').validateHistoricDataMaxRange;
+let parseHistoricDataMaxRange: typeof import('@/utils/historic-data-limit').parseHistoricDataMaxRange;
+let formatRange: typeof import('@/utils/historic-data-limit').formatRange;
+let getHistoricDataMaxRangeMonths: typeof import('@/utils/historic-data-limit').getHistoricDataMaxRangeMonths;
+let validateHistoricDataMaxRange: typeof import('@/utils/historic-data-limit').validateHistoricDataMaxRange;
 
 describe('parseHistoricDataMaxRange', () => {
   beforeEach(async () => {
     vi.resetModules();
-    const mod = await import('../historic-data-limit');
+    const mod = await import('@/utils/historic-data-limit');
     parseHistoricDataMaxRange = mod.parseHistoricDataMaxRange;
     formatRange = mod.formatRange;
     getHistoricDataMaxRangeMonths = mod.getHistoricDataMaxRangeMonths;
@@ -59,7 +59,7 @@ describe('parseHistoricDataMaxRange', () => {
 describe('formatRange', () => {
   beforeEach(async () => {
     vi.resetModules();
-    const mod = await import('../historic-data-limit');
+    const mod = await import('@/utils/historic-data-limit');
     formatRange = mod.formatRange;
   });
 
@@ -98,7 +98,7 @@ describe('getHistoricDataMaxRangeMonths', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const mod = await import('../historic-data-limit');
+    const mod = await import('@/utils/historic-data-limit');
     getHistoricDataMaxRangeMonths = mod.getHistoricDataMaxRangeMonths;
   });
 
@@ -110,55 +110,55 @@ describe('getHistoricDataMaxRangeMonths', () => {
   it('returns null when env var is not set', async () => {
     delete process.env.HISTORIC_DATA_MAX_RANGE;
     // Force fresh module load
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBeNull();
   });
 
   it('returns null when env var is empty', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBeNull();
   });
 
   it('returns null when env var is whitespace', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '   ';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBeNull();
   });
 
   it('returns parsed months for valid value', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '4y6m';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBe(54);
   });
 
   it('returns parsed months for Xy format', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '1y';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBe(12);
   });
 
   it('returns parsed months for Xm format', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '6m';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBe(6);
   });
 
   it('clamps to MIN_MONTHS when value is below minimum', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '3m';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBe(6);
   });
 
   it('returns null for invalid format', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = 'invalid';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     expect(mod.getHistoricDataMaxRangeMonths()).toBeNull();
   });
 
   it('caches result after first call', async () => {
     process.env.HISTORIC_DATA_MAX_RANGE = '2y';
-    const mod = await import('../historic-data-limit?v=' + Date.now());
+    const mod = await import('@/utils/historic-data-limit?v=' + Date.now());
     const first = mod.getHistoricDataMaxRangeMonths();
     const second = mod.getHistoricDataMaxRangeMonths();
     expect(first).toBe(24);
@@ -173,7 +173,7 @@ describe('validateHistoricDataMaxRange', () => {
   beforeEach(async () => {
     vi.resetModules();
     stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const mod = await import('../historic-data-limit');
+    const mod = await import('@/utils/historic-data-limit');
     validateHistoricDataMaxRange = mod.validateHistoricDataMaxRange;
     formatRange = mod.formatRange;
   });

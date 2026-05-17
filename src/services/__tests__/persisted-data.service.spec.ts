@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DateTime } from 'luxon';
-import { ListaEESSPrecio } from '../../dto/ServiceStations.dto';
+import { ListaEESSPrecio } from '@/dto/ServiceStations.dto';
 
 // Mock Sentry
 vi.mock('@sentry/node', () => ({

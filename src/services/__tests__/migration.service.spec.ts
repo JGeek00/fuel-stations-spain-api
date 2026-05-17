@@ -64,7 +64,7 @@ describe('MigrationService', () => {
     it('applies pending migrations', async () => {
       mockMigrationsFindAll.mockResolvedValue([]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.run(mockSequelize);
 
       expect(mockMigration001.up).toHaveBeenCalledWith(mockSequelize);
@@ -77,7 +77,7 @@ describe('MigrationService', () => {
         { version: '001' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.run(mockSequelize);
 
       expect(mockMigration001.up).not.toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('MigrationService', () => {
         { version: '002' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.run(mockSequelize);
 
       expect(mockMigration001.up).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ describe('MigrationService', () => {
         { version: '002' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.rollback(mockSequelize, 1);
 
       expect(mockMigration002.down).toHaveBeenCalledWith(mockSequelize);
@@ -124,7 +124,7 @@ describe('MigrationService', () => {
         { version: '002' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.rollback(mockSequelize, 2);
 
       expect(mockMigration002.down).toHaveBeenCalled();
@@ -135,7 +135,7 @@ describe('MigrationService', () => {
     it('does nothing when no migrations to rollback', async () => {
       mockMigrationsFindAll.mockResolvedValue([]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.rollback(mockSequelize, 1);
 
       expect(mockMigration001.down).not.toHaveBeenCalled();
@@ -148,7 +148,7 @@ describe('MigrationService', () => {
         { version: '999' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       await migrationService.rollback(mockSequelize, 1);
 
       expect(mockMigrationsDestroy).not.toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe('MigrationService', () => {
         { version: '001' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const status = await migrationService.status(mockSequelize);
 
       expect(status).toEqual([
@@ -173,7 +173,7 @@ describe('MigrationService', () => {
     it('marks all as not applied when none are applied', async () => {
       mockMigrationsFindAll.mockResolvedValue([]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const status = await migrationService.status(mockSequelize);
 
       expect(status).toEqual([
@@ -187,7 +187,7 @@ describe('MigrationService', () => {
     it('returns true when no tables exist', async () => {
       mockSequelize.query = vi.fn().mockResolvedValue([[{ has_tables: false }]]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const result = await migrationService.isDbEmpty(mockSequelize);
 
       expect(result).toBe(true);
@@ -196,7 +196,7 @@ describe('MigrationService', () => {
     it('returns false when tables exist', async () => {
       mockSequelize.query = vi.fn().mockResolvedValue([[{ has_tables: true }]]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const result = await migrationService.isDbEmpty(mockSequelize);
 
       expect(result).toBe(false);
@@ -210,7 +210,7 @@ describe('MigrationService', () => {
         { version: '002' },
       ]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const result = await migrationService.getLastAppliedVersion(mockSequelize);
 
       expect(result).toBe('002');
@@ -219,7 +219,7 @@ describe('MigrationService', () => {
     it('returns null when no migrations are applied', async () => {
       mockMigrationsFindAll.mockResolvedValue([]);
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const result = await migrationService.getLastAppliedVersion(mockSequelize);
 
       expect(result).toBeNull();
@@ -230,7 +230,7 @@ describe('MigrationService', () => {
     it('returns empty array when migrations table does not exist', async () => {
       mockMigrationsFindAll.mockRejectedValue(new Error('Table not found'));
 
-      const { migrationService } = await import('../migration.service');
+      const { migrationService } = await import('@/services/migration.service');
       const status = await migrationService.status(mockSequelize);
 
       // All should be unapplied

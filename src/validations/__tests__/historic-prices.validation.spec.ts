@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FieldValidationError, validationResult } from 'express-validator';
 import type { Request } from 'express';
-import { historicPricesValidations } from '../historic-prices.validation';
+import { historicPricesValidations } from '@/validations/historic-prices.validation';
 
 /**
  * Helper to run validation chains against a mock Express request.

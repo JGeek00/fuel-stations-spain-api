@@ -14,9 +14,9 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 
-import { mcpSecurityMiddleware } from '../mcp-security.middleware';
-import { parseCsvEnv } from '../../utils/mcp';
-import { logger } from '../../utils/logger';
+import { mcpSecurityMiddleware } from '@/middlewares/mcp-security.middleware';
+import { parseCsvEnv } from '@/utils/mcp';
+import { logger } from '@/utils/logger';
 
 const mockParseCsvEnv = vi.mocked(parseCsvEnv);
 const mockLoggerWarn = vi.mocked(logger.warn);

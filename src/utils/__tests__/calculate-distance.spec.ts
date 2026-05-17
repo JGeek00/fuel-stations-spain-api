@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateBoundingBox } from '../calculate-distance';
+import { calculateBoundingBox } from '@/utils/calculate-distance';
 
 describe('calculateBoundingBox', () => {
   it('calculates bounding box for center of Spain', () => {

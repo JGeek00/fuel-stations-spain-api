@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2021",
-    "module": "node16",
+    "module": "commonjs",
     "lib": [
       "ES2021"
     ],
@@ -12,7 +12,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node16",
+    "moduleResolution": "bundler",
     "declaration": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -22,7 +22,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "types": [
-      "node"
+      "node",
+      "vitest/globals"
     ],
     "paths": {
       "@/*": [
@@ -36,11 +37,12 @@
     ]
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "**/*.spec.ts",
+    "**/*.test.ts",
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.spec.ts"
   ]
 }

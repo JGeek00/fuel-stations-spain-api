@@ -146,7 +146,7 @@ describe('DatabaseService', () => {
 
   describe('memoryDbInstance getter', () => {
     it('throws error when not initialized', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
 
       expect(() => service.memoryDbInstance).toThrow(
@@ -157,7 +157,7 @@ describe('DatabaseService', () => {
 
   describe('persistedDbInstance getter', () => {
     it('throws error when not initialized', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
 
       expect(() => service.persistedDbInstance).toThrow(
@@ -168,7 +168,7 @@ describe('DatabaseService', () => {
 
   describe('initMemoryDb', () => {
     it('creates an in-memory SQLite database', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -182,7 +182,7 @@ describe('DatabaseService', () => {
     });
 
     it('initializes FuelStationsTable and LastUpdated models', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -203,7 +203,7 @@ describe('DatabaseService', () => {
     });
 
     it('syncs tables with alter option', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -216,7 +216,7 @@ describe('DatabaseService', () => {
     });
 
     it('loads realtime data and registers cron task', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
       await Promise.resolve(); // Allow pending microtasks to settle
@@ -226,7 +226,7 @@ describe('DatabaseService', () => {
     });
 
     it('returns initialized memoryDbInstance after init', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -238,7 +238,7 @@ describe('DatabaseService', () => {
 
   describe('initPersistedDb', () => {
     it('skips initialization when validatePostgresDbData returns false', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -252,7 +252,7 @@ describe('DatabaseService', () => {
 
   describe('init', () => {
     it('initializes both memory and persisted DBs in parallel', async () => {
-      const { DatabaseService } = await import('../database.service');
+      const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -266,8 +266,8 @@ describe('DatabaseService', () => {
 
   describe('databaseService singleton', () => {
     it('exports a singleton instance', async () => {
-      const { databaseService } = await import('../database.service');
-      const { DatabaseService } = await import('../database.service');
+      const { databaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/services/database.service');
 
       expect(databaseService).toBeInstanceOf(DatabaseService);
     });
@@ -350,7 +350,7 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
     }));
     vi.doMock('@sentry/node', () => ({ captureException: vi.fn() }));
 
-    const { DatabaseService } = await import('../database.service');
+    const { DatabaseService } = await import('@/services/database.service');
     const service = new DatabaseService();
     await service.init();
 
@@ -418,7 +418,7 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
     }));
     vi.doMock('@sentry/node', () => ({ captureException: vi.fn() }));
 
-    const { DatabaseService } = await import('../database.service');
+    const { DatabaseService } = await import('@/services/database.service');
     const service = new DatabaseService();
     await service.init();
 

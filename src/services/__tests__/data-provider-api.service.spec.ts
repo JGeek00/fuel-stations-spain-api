@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DateTime } from 'luxon';
-import { twoDigits } from '../../utils/numbers';
-import { API_BASE_URL } from '../../config/constants';
+import { twoDigits } from '@/utils/numbers';
+import { API_BASE_URL } from '@/config/constants';
 
 vi.mock('@/utils', () => ({
   logger: {
@@ -91,7 +91,7 @@ describe('DataProviderApiService', () => {
         statusText: 'OK',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getStations();
 
       expect(global.fetch).toHaveBeenCalledWith(`${API_BASE_URL}/EstacionesTerrestres/`, {
@@ -107,7 +107,7 @@ describe('DataProviderApiService', () => {
         statusText: 'Internal Server Error',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getStations();
 
       expect(result).toBeNull();
@@ -116,7 +116,7 @@ describe('DataProviderApiService', () => {
     it('returns null on network error', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getStations();
 
       expect(result).toBeNull();
@@ -140,7 +140,7 @@ describe('DataProviderApiService', () => {
         statusText: 'OK',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getStationsHistoric(date);
 
       const expectedUrl = `${API_BASE_URL}/EstacionesTerrestresHist/${twoDigits(date.get('day'))}-${twoDigits(date.get('month'))}-${twoDigits(date.get('year'))}`;
@@ -165,7 +165,7 @@ describe('DataProviderApiService', () => {
         statusText: 'OK',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       await DataProviderApiService.getStationsHistoric(date);
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -183,7 +183,7 @@ describe('DataProviderApiService', () => {
         statusText: 'Not Found',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getStationsHistoric(date);
 
       expect(result).toBeNull();
@@ -210,7 +210,7 @@ describe('DataProviderApiService', () => {
         statusText: 'OK',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getMunicipalities();
 
       expect(global.fetch).toHaveBeenCalledWith(`${API_BASE_URL}/Listados/Municipios`, {
@@ -226,7 +226,7 @@ describe('DataProviderApiService', () => {
         statusText: 'Internal Server Error',
       });
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getMunicipalities();
 
       expect(result).toBeNull();
@@ -235,7 +235,7 @@ describe('DataProviderApiService', () => {
     it('returns null on network error', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
 
-      const { DataProviderApiService } = await import('../data-provider-api.service');
+      const { DataProviderApiService } = await import('@/services/data-provider-api.service');
       const result = await DataProviderApiService.getMunicipalities();
 
       expect(result).toBeNull();

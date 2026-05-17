@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { logger, LogLevel } from '../logger';
+import { logger, LogLevel } from '@/utils/logger';
 
 describe('LogLevel enum', () => {
   it('has correct numeric values', () => {

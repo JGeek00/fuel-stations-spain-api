@@ -6,8 +6,8 @@ vi.mock('@/utils/mcp', () => ({
   parseCsvEnv: vi.fn(),
 }));
 
-import { mcpCorsMiddleware } from '../mcp-cors.middleware';
-import { parseCsvEnv } from '../../utils/mcp';
+import { mcpCorsMiddleware } from '@/middlewares/mcp-cors.middleware';
+import { parseCsvEnv } from '@/utils/mcp';
 
 const mockParseCsvEnv = vi.mocked(parseCsvEnv);
 

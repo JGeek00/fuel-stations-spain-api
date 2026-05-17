@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FieldValidationError, validationResult } from 'express-validator';
 import type { Request } from 'express';
-import { serviceStationsValidations } from '../service-stations.validation';
+import { serviceStationsValidations } from '@/validations/service-stations.validation';
 
 /**
  * Helper to run validation chains against a mock Express request.

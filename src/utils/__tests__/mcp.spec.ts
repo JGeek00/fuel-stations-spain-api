@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseSessionId, parseCsvEnv } from '../mcp';
+import { parseSessionId, parseCsvEnv } from '@/utils/mcp';
 
 describe('parseSessionId', () => {
   it('returns the ID for a valid string', () => {

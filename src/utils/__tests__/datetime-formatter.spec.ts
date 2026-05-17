@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatCurrentDate } from '../datetime-formatter';
+import { formatCurrentDate } from '@/utils/datetime-formatter';
 
 describe('formatCurrentDate', () => {
   const originalDate = globalThis.Date;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Municipality } from '../../models/entities';
+import { Municipality } from '@/models/entities';
 
 describe('MunicipalitiesRepository', () => {
   beforeEach(() => {
@@ -8,8 +8,8 @@ describe('MunicipalitiesRepository', () => {
 
   describe('singleton pattern', () => {
     it('returns the same instance on every import', async () => {
-      const { default: firstImport } = await import('../Municipalities.repository');
-      const { default: secondImport } = await import('../Municipalities.repository');
+      const { default: firstImport } = await import('@/repository/Municipalities.repository');
+      const { default: secondImport } = await import('@/repository/Municipalities.repository');
 
       expect(firstImport).toBe(secondImport);
     });
@@ -17,7 +17,7 @@ describe('MunicipalitiesRepository', () => {
 
   describe('data initialization', () => {
     it('initializes data as an empty array', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       expect(municipalitiesRepo.data).toEqual([]);
@@ -25,7 +25,7 @@ describe('MunicipalitiesRepository', () => {
     });
 
     it('data is a mutable array', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       const municipality: Municipality = {
@@ -45,7 +45,7 @@ describe('MunicipalitiesRepository', () => {
 
   describe('data operations', () => {
     it('allows adding multiple municipalities', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       const municipalities: Municipality[] = [
@@ -72,7 +72,7 @@ describe('MunicipalitiesRepository', () => {
     });
 
     it('allows clearing all data', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       municipalitiesRepo.data.push({
@@ -89,7 +89,7 @@ describe('MunicipalitiesRepository', () => {
     });
 
     it('allows replacing data entirely', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       const newMunicipalities: Municipality[] = [
@@ -108,7 +108,7 @@ describe('MunicipalitiesRepository', () => {
     });
 
     it('supports filtering by province', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       municipalitiesRepo.data = [
@@ -138,7 +138,7 @@ describe('MunicipalitiesRepository', () => {
     });
 
     it('supports filtering by region', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       municipalitiesRepo.data = [
@@ -168,7 +168,7 @@ describe('MunicipalitiesRepository', () => {
     });
 
     it('supports partial text search on municipality name', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       municipalitiesRepo.data = [
@@ -200,7 +200,7 @@ describe('MunicipalitiesRepository', () => {
 
   describe('Municipality schema', () => {
     it('data items conform to the Municipality interface', async () => {
-      const repo = await import('../Municipalities.repository');
+      const repo = await import('@/repository/Municipalities.repository');
       const municipalitiesRepo = repo.default;
 
       const municipality: Municipality = {

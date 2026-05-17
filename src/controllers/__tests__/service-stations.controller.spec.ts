@@ -92,12 +92,12 @@ vi.mock('@/models/db/LastUpdated', () => ({
 
 import * as Sentry from '@sentry/node';
 import { validationResult } from 'express-validator';
-import { serviceStationsController } from '../service-stations.controller';
-import { logger } from '../../utils/logger';
-import { calculateBoundingBox } from '../../utils/calculate-distance';
-import { FuelStationsTable } from '../../models/db/FuelStations';
-import { LastUpdated } from '../../models/db/LastUpdated';
-import { sendApiError } from '../../utils/error-handler';
+import { serviceStationsController } from '@/controllers/service-stations.controller';
+import { logger } from '@/utils/logger';
+import { calculateBoundingBox } from '@/utils/calculate-distance';
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import { sendApiError } from '@/utils/error-handler';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);

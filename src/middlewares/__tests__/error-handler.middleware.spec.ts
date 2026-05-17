@@ -35,8 +35,8 @@ vi.mock('@/utils/error-handler', () => ({
 }));
 
 import * as Sentry from '@sentry/node';
-import { errorHandlerMiddleware } from '../error-handler.middleware';
-import { logger } from '../../utils/logger';
+import { errorHandlerMiddleware } from '@/middlewares/error-handler.middleware';
+import { logger } from '@/utils/logger';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);
