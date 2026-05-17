@@ -14,6 +14,7 @@ export default defineConfig({
         'src/__tests__/**',
         'src/migrations/**',
         'src/bootstrap.ts',
+        'src/express.ts',
         'src/server.ts',
         'src/config/',
         'src/migrations/',
