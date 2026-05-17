@@ -1,38 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
 
-// Stub Sentry before importing middleware
-vi.mock('@sentry/node', () => ({
-  captureException: vi.fn(),
-}));
+// ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
+import '@/test-utils/controller-mocks';
+import {
+  createMockResponse,
+  createMockNext,
+  createMockRequest,
+} from '@/test-utils/controller-mocks';
+
+// ── Test-specific mocks (hoisted by Vitest) ─────────────────────────────────
 vi.mock('@/services/sentry.service', () => ({
   sentryEnabled: false,
 }));
-vi.mock('@/utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-vi.mock('@/utils/error-handler', () => ({
-  createInternalServerError: vi.fn((message, _error) => ({
-    error: { message, code: 'INTERNAL_ERROR' },
-  })),
-  errorStatus: vi.fn((code) => {
-    const map: Record<string, number> = {
-      VALIDATION_ERROR: 400,
-      NOT_FOUND: 404,
-      INTERNAL_ERROR: 500,
-      BAD_REQUEST: 400,
-    };
-    return map[code] ?? 500;
-  }),
-  sendApiError: vi.fn((res, apiError, statusCode) => {
-    res.status(statusCode).json(apiError);
-  }),
-}));
+
+// ── Imports (after mocks) ──────────────────────────────────────────────────
 
 import * as Sentry from '@sentry/node';
 import { errorHandlerMiddleware } from '@/middlewares/error-handler.middleware';
@@ -40,24 +21,6 @@ import { logger } from '@/utils/logger';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);
-
-function createMockRequest(): Request {
-  return {} as unknown as Request;
-}
-
-function createMockResponse(): Response {
-  const statusSpy = vi.fn().mockReturnThis();
-  const jsonSpy = vi.fn().mockReturnThis();
-  return {
-    status: statusSpy,
-    json: jsonSpy,
-    send: vi.fn(),
-  } as unknown as Response;
-}
-
-function createMockNext(): NextFunction {
-  return vi.fn();
-}
 
 describe('errorHandlerMiddleware', () => {
   beforeEach(() => {

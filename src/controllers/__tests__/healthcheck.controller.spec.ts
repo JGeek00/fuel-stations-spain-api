@@ -1,23 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response } from 'express';
 
-// ── Mocks (vi.mock is hoisted — no top-level refs inside factory) ──────────
-
-vi.mock('@/utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findAndCountAll: vi.fn(),
-  },
-  FuelStationModel: {},
-}));
+// ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
+import '@/test-utils/controller-mocks';
+import {
+  createMockResponse,
+  createMockRequest,
+} from '@/test-utils/controller-mocks';
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
@@ -27,27 +15,6 @@ import { FuelStationsTable } from '@/models/db/FuelStations';
 
 const mockLoggerError = vi.mocked(logger.error);
 const mockFindAndCountAll = FuelStationsTable.findAndCountAll as unknown as ReturnType<typeof vi.fn<() => Promise<{ rows: unknown[]; count: number | null | undefined }>>>;
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function createMockResponse() {
-  const statusSpy = vi.fn().mockReturnThis();
-  const sendSpy = vi.fn().mockReturnThis();
-  return {
-    status: statusSpy,
-    send: sendSpy,
-    json: vi.fn(),
-  } as unknown as Response;
-}
-
-function createMockRequest(overrides: Record<string, unknown> = {}): Request {
-  return {
-    query: {},
-    body: {},
-    params: {},
-    ...overrides,
-  } as unknown as Request;
-}
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 

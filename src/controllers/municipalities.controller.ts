@@ -7,12 +7,8 @@ import {
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { logger } from '@/utils/logger';
 
-export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
+export const municipalitiesController = async (_req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {
-    if (process.env.DISABLE_MUNICIPALITIES == "true") {
-      throw createInternalServerError('Endpoint not found');
-    }
-
     const data = MunicipalitiesRepository.data
     res.send({
       municipalities: data

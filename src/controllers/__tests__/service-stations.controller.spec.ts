@@ -1,92 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response } from 'express';
 import { Op } from 'sequelize';
 
-// ── Mocks (vi.mock is hoisted — no top-level refs inside factory) ──────────
-
-vi.mock('@sentry/node', () => ({
-  captureException: vi.fn(),
-}));
-
-vi.mock('express-validator', () => ({
-  validationResult: vi.fn(() => ({
-    isEmpty: vi.fn(() => true),
-    array: vi.fn(() => []),
-  })),
-}));
-
-vi.mock('@/utils/calculate-distance', () => ({
-  calculateBoundingBox: vi.fn(
-    (lat: number, lon: number, radius: number) => ({
-      minLat: lat - radius / 111.32,
-      maxLat: lat + radius / 111.32,
-      minLon: lon - radius / 111.32,
-      maxLon: lon + radius / 111.32,
-    }),
-  ),
-}));
-
-vi.mock('@/utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-
-vi.mock('@/utils/error-handler', () => ({
-  createValidationError: vi.fn((message, details) => ({
-    error: { message, code: 'VALIDATION_ERROR', details },
-  })),
-  createBadRequestError: vi.fn((message) => ({
-    error: { message, code: 'BAD_REQUEST' },
-  })),
-  createInternalServerError: vi.fn((message, error) => ({
-    error: { message, code: 'INTERNAL_ERROR', details: error },
-  })),
-  sendApiError: vi.fn((res, apiError, statusCode) => {
-    res.status(statusCode).json(apiError);
-  }),
-  errorStatus: vi.fn(),
-}));
-
-vi.mock('@/config/config.json', () => ({
-  default: {
-    defaults: {
-      query: {
-        limit: 30,
-        offset: 0,
-        distance: 30,
-      },
-    },
-    maximums: {
-      query: {
-        amount: 200,
-        distance: 50,
-      },
-    },
-    minimums: {
-      query: {
-        distance: 10,
-      },
-    },
-  },
-}));
-
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findAndCountAll: vi.fn(),
-  },
-  FuelStationModel: {},
-}));
-
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    findAll: vi.fn(),
-  },
-  LastUpdatedModel: {},
-}));
+// ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
+import '@/test-utils/controller-mocks';
+import {
+  createMockResponse,
+  createMockNext,
+  createMockRequest,
+  createMockRow,
+  createMockLastUpdated,
+} from '@/test-utils/controller-mocks';
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
@@ -107,45 +30,6 @@ const mockLastUpdatedFindAll = vi.mocked(LastUpdated.findAll);
 const mockValidationResult = vi.mocked(validationResult);
 const mockSendApiError = vi.mocked(sendApiError);
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function createMockResponse() {
-  const statusSpy = vi.fn().mockReturnThis();
-  const jsonSpy = vi.fn().mockReturnThis();
-  return {
-    status: statusSpy,
-    json: jsonSpy,
-    send: vi.fn(),
-  } as unknown as Response;
-}
-
-function createMockNext() {
-  return vi.fn();
-}
-
-function createMockRequest(overrides: Record<string, unknown> = {}): Request {
-  return {
-    query: {},
-    body: {},
-    params: {},
-    ...overrides,
-  } as unknown as Request;
-}
-
-function createMockRow(dataValues: Record<string, unknown>) {
-  return {
-    dataValues,
-    getDataValue: vi.fn((key: string) => dataValues[key]),
-  } as unknown as import('sequelize').Model;
-}
-
-function createMockLastUpdated(lastUpdated: Date) {
-  return {
-    dataValues: { lastUpdated },
-    getDataValue: vi.fn(() => lastUpdated),
-  } as unknown as import('sequelize').Model;
-}
-
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('serviceStationsController', () => {
@@ -154,7 +38,6 @@ describe('serviceStationsController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
-    delete process.env.DISABLE_SERVICE_STATIONS;
     mockFindAndCountAll.mockResolvedValue({ rows: [], count: 0 });
     mockLastUpdatedFindAll.mockResolvedValue([createMockLastUpdated(new Date('2024-01-01'))]);
     mockCalculateBoundingBox.mockReturnValue({
@@ -168,46 +51,6 @@ describe('serviceStationsController', () => {
       isEmpty: vi.fn(() => true),
       array: vi.fn(() => []),
     } as any);
-  });
-
-  describe('DISABLE_SERVICE_STATIONS flag', () => {
-    it('returns 400 when DISABLE_SERVICE_STATIONS is true', async () => {
-      process.env.DISABLE_SERVICE_STATIONS = 'true';
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const next = createMockNext();
-
-      await serviceStationsController(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: expect.objectContaining({ code: 'BAD_REQUEST' }),
-        })
-      );
-    });
-
-    it('does not block when DISABLE_SERVICE_STATIONS is false', async () => {
-      process.env.DISABLE_SERVICE_STATIONS = 'false';
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const next = createMockNext();
-
-      await serviceStationsController(req, res, next);
-
-      expect(mockFindAndCountAll).toHaveBeenCalled();
-    });
-
-    it('proceeds when DISABLE_SERVICE_STATIONS is not set', async () => {
-      delete process.env.DISABLE_SERVICE_STATIONS;
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const next = createMockNext();
-
-      await serviceStationsController(req, res, next);
-
-      expect(mockFindAndCountAll).toHaveBeenCalled();
-    });
   });
 
   describe('validation errors from express-validator', () => {

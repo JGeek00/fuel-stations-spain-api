@@ -99,8 +99,8 @@ describe('PersistedDataService', () => {
     it('returns early when DB is not initialized', async () => {
       mockHistoricFuelStation.sequelize = null;
 
-      const { logger } = await import('../../utils/logger');
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { logger } = await import('@/utils/logger');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.error).toHaveBeenCalledWith('❌ Persistent DB not initialized.');
@@ -111,8 +111,8 @@ describe('PersistedDataService', () => {
       mockHistoricFuelStationFindAll.mockResolvedValue([]);
       mockHistoricNoDataFindAll.mockResolvedValue([]);
 
-      const { logger } = await import('../../utils/logger');
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { logger } = await import('@/utils/logger');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.error).toHaveBeenCalledWith(
@@ -131,8 +131,8 @@ describe('PersistedDataService', () => {
       ]);
       mockHistoricNoDataFindAll.mockResolvedValue([]);
 
-      const { logger } = await import('../../utils/logger');
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { logger } = await import('@/utils/logger');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.info).toHaveBeenCalledWith('🗓️ No new dates to fetch for the historic');
@@ -155,7 +155,7 @@ describe('PersistedDataService', () => {
       mockMap.mockReturnValue([{ stationId: 'ES001', signage: 'Test' }]);
       mockHistoricFuelStationBulkCreate.mockResolvedValue([]);
 
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       // Should have called getStationsHistoric for missing dates
@@ -179,7 +179,7 @@ describe('PersistedDataService', () => {
       mockHistoricFuelStationBulkCreate.mockResolvedValue([]);
       mockMap.mockReturnValue([]);
 
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       // Should mark the date as no-data
@@ -200,7 +200,7 @@ describe('PersistedDataService', () => {
       mockGetStationsHistoric.mockResolvedValue(null);
       mockHistoricFuelStationBulkCreate.mockResolvedValue([]);
 
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       // Should not fetch the no-data date
@@ -214,7 +214,7 @@ describe('PersistedDataService', () => {
     it('calls loadStationsHistoric', async () => {
       mockHistoricFuelStation.sequelize = null;
 
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadAll();
 
       // loadStationsHistoric should have been called (and returned early due to null sequelize)
@@ -225,8 +225,8 @@ describe('PersistedDataService', () => {
       mockHistoricFuelStation.sequelize = mockSequelize;
       mockHistoricFuelStationFindAll.mockRejectedValue(new Error('DB error'));
 
-      const { logger } = await import('../../utils/logger');
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { logger } = await import('@/utils/logger');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadAll();
 
       // Should have logged the error
@@ -236,7 +236,7 @@ describe('PersistedDataService', () => {
 
   describe('registerProgrammedTask', () => {
     it('registers a cron job with schedule 0 1 * * *', async () => {
-      const { persistedDataService } = await import('../persisted-data.service');
+      const { persistedDataService } = await import('@/services/persisted-data.service');
       persistedDataService.registerProgrammedTask();
 
       expect(mockCronJobFrom).toHaveBeenCalledWith(

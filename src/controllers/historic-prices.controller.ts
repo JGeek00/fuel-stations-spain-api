@@ -19,16 +19,6 @@ import { formatRange, getHistoricDataMaxRangeMonths } from "@/utils/historic-dat
 
 export const historicPricesController = async (req: Request<{}, {}, {}, GetHistoricPricesQueryParams>, res: Response<GetHistoricPricesResponse>, next: NextFunction): Promise<void> => {
   try {
-    if (process.env.DISABLE_SERVICE_STATIONS_HISTORIC == "true") {
-      throw createBadRequestError('Endpoint not found');
-    }
-
-    if (!HistoricFuelStation.sequelize) {
-      throw createInternalServerError('Database not initialized');
-    }
-
-    await HistoricFuelStation.sequelize.authenticate();
-
     let startDate: DateTime;
     try {
       startDate = DateTime.fromSQL(req.query.startDate as string);

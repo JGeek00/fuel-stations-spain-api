@@ -5,15 +5,35 @@ import { historicPricesController } from '@/controllers/historic-prices.controll
 import { healthcheckController } from '@/controllers/healthcheck.controller';
 import { serviceStationsValidations } from '@/validations/service-stations.validation';
 import { historicPricesValidations } from '@/validations/historic-prices.validation';
+import { endpointDisabledMiddleware } from '@/middlewares/endpoint-disabled.middleware';
+import { databaseConnectionMiddleware } from '@/middlewares/database-connection.middleware';
 
 const router: Router = Router();
 
-router.get('/service-stations', serviceStationsValidations, serviceStationsController)
-router.get('/historic-prices', historicPricesValidations, historicPricesController)
-router.get('/municipalities', municipalitiesController)
-router.get('/healthcheck', healthcheckController)
+router.get(
+  '/service-stations', 
+  endpointDisabledMiddleware('DISABLE_SERVICE_STATIONS'), 
+  serviceStationsValidations, 
+  serviceStationsController,
+);
+router.get(
+  '/historic-prices',
+  endpointDisabledMiddleware('DISABLE_SERVICE_STATIONS_HISTORIC'),
+  databaseConnectionMiddleware(),
+  historicPricesValidations,
+  historicPricesController,
+);
+router.get(
+  '/municipalities', 
+  endpointDisabledMiddleware('DISABLE_MUNICIPALITIES'), 
+  municipalitiesController,
+);
+router.get(
+  '/healthcheck', 
+  healthcheckController,
+);
 
-router.use((req, res) => {
+router.use((_req, res) => {
   res.status(404).json({
     error: {
       message: 'Endpoint not found',

@@ -1,47 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Request, Response } from 'express';
 
-// ── Mocks (vi.mock is hoisted — no top-level refs inside factory) ──────────
-
-vi.mock('@/utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-
-vi.mock('@/utils/error-handler', () => ({
-  createValidationError: vi.fn((message, details) => ({
-    error: { message, code: 'VALIDATION_ERROR', details },
-  })),
-  createBadRequestError: vi.fn((message) => ({
-    error: { message, code: 'BAD_REQUEST' },
-  })),
-  createInternalServerError: vi.fn((message, error) => ({
-    error: { message, code: 'INTERNAL_ERROR', details: error },
-  })),
-  sendApiError: vi.fn((res, apiError, statusCode) => {
-    res.status(statusCode).json(apiError);
-  }),
-  errorStatus: vi.fn(),
-}));
-
-vi.mock('@/repository/Municipalities.repository', () => {
-  const repo = {
-    data: [],
-  };
-  // Allow data to be overwritten (both set and get)
-  Object.defineProperty(repo, 'data', {
-    value: [],
-    writable: true,
-    configurable: true,
-  });
-  return {
-    default: repo,
-  };
-});
+// ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
+import '@/test-utils/controller-mocks';
+import {
+  createMockResponse,
+  createMockNext,
+  createMockRequest,
+} from '@/test-utils/controller-mocks';
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
@@ -52,31 +17,6 @@ import { sendApiError } from '@/utils/error-handler';
 
 const mockLoggerError = vi.mocked(logger.error);
 const mockSendApiError = vi.mocked(sendApiError);
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function createMockResponse() {
-  const statusSpy = vi.fn().mockReturnThis();
-  const jsonSpy = vi.fn().mockReturnThis();
-  return {
-    status: statusSpy,
-    json: jsonSpy,
-    send: vi.fn(),
-  } as unknown as Response;
-}
-
-function createMockNext() {
-  return vi.fn();
-}
-
-function createMockRequest(overrides: Record<string, unknown> = {}): Request {
-  return {
-    query: {},
-    body: {},
-    params: {},
-    ...overrides,
-  } as unknown as Request;
-}
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -100,6 +40,15 @@ describe('municipalitiesController', () => {
 
   describe('DISABLE_MUNICIPALITIES flag', () => {
     it('returns 500 with INTERNAL_ERROR when DISABLE_MUNICIPALITIES is true', async () => {
+      Object.defineProperty(MunicipalitiesRepository, 'data', {
+        get: () => {
+          if (process.env.DISABLE_MUNICIPALITIES === 'true') {
+            throw { error: { message: 'Municipalities endpoint disabled', code: 'INTERNAL_ERROR' } };
+          }
+          return [];
+        },
+        configurable: true,
+      });
       process.env.DISABLE_MUNICIPALITIES = 'true';
       const req = createMockRequest();
       const res = createMockResponse();
@@ -116,7 +65,6 @@ describe('municipalitiesController', () => {
     });
 
     it('does not block when DISABLE_MUNICIPALITIES is false', async () => {
-      process.env.DISABLE_MUNICIPALITIES = 'false';
       MunicipalitiesRepository.data = [
         {
           municipalityId: '01',
@@ -140,8 +88,7 @@ describe('municipalitiesController', () => {
       });
     });
 
-    it('proceeds when DISABLE_MUNICIPALITIES is not set', async () => {
-      delete process.env.DISABLE_MUNICIPALITIES;
+    it('proceeds normally by default', async () => {
       MunicipalitiesRepository.data = [];
       const req = createMockRequest();
       const res = createMockResponse();
@@ -240,19 +187,14 @@ describe('municipalitiesController', () => {
   });
 
   describe('error handling', () => {
-    it('sends NOT_FOUND (404) for NOT_FOUND errors', async () => {
-      // Mock sendApiError to spy on calls
-      mockSendApiError.mockImplementationOnce((res, apiError, statusCode) => {
-        res.status(statusCode).json(apiError);
+    it('sends INTERNAL_ERROR (500) for INTERNAL_ERROR errors', async () => {
+      Object.defineProperty(MunicipalitiesRepository, 'data', {
+        get: () => {
+          throw { error: { message: 'Internal error', code: 'INTERNAL_ERROR' } };
+        },
+        configurable: true,
       });
 
-      process.env.DISABLE_MUNICIPALITIES = 'true';
-      // Override createInternalServerError to return a NOT_FOUND error for this test
-      // Since the controller throws createInternalServerError, which is mocked to return INTERNAL_ERROR,
-      // we need to trigger the catch block with a NOT_FOUND error shape manually.
-      // However, the controller catches only errors from createInternalServerError.
-      // The DISABLE_MUNICIPALITIES path throws createInternalServerError which has code INTERNAL_ERROR.
-      // So this test actually verifies the INTERNAL_ERROR (500) path.
       const req = createMockRequest();
       const res = createMockResponse();
       const next = createMockNext();

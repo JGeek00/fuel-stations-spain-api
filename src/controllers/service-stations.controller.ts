@@ -17,10 +17,6 @@ import { calculateBoundingBox } from "@/utils/calculate-distance";
 
 export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuelStationsQueryParams>, res: Response, next: NextFunction): Promise<void> => {
   try {
-    if (process.env.DISABLE_SERVICE_STATIONS == "true") {
-      throw createBadRequestError('Endpoint not found');
-    }
-
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
