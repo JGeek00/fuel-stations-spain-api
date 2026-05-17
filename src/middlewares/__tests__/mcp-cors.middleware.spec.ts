@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
 
-// Stub @/utils before importing middleware
-vi.mock('@/utils', () => ({
+// Stub @/utils/mcp before importing middleware
+vi.mock('@/utils/mcp', () => ({
   parseCsvEnv: vi.fn(),
 }));
 
 import { mcpCorsMiddleware } from '../mcp-cors.middleware';
-import { parseCsvEnv } from '../../utils';
+import { parseCsvEnv } from '../../utils/mcp';
 
 const mockParseCsvEnv = vi.mocked(parseCsvEnv);
 

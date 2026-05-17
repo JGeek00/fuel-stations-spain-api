@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 let parseHistoricDataMaxRange: typeof import('../historic-data-limit').parseHistoricDataMaxRange;

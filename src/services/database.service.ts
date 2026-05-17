@@ -10,7 +10,7 @@ import { migrationService } from '@/services/migration.service';
 import { MIGRATIONS } from '@/migrations';
 import { realtimeDataService } from '@/services/realtime-data.service';
 import { persistedDataService } from '@/services/persisted-data.service';
-import { logger } from '@/utils';
+import { logger } from '@/utils/logger';
 
 export class DatabaseService {
   private _memoryDbInstance: Sequelize | null = null;

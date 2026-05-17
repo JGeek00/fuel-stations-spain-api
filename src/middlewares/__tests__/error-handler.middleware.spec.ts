@@ -5,13 +5,18 @@ import type { Request, Response, NextFunction } from 'express';
 vi.mock('@sentry/node', () => ({
   captureException: vi.fn(),
 }));
-vi.mock('@/services/sentry/sentry.service', () => ({
+vi.mock('@/services/sentry.service', () => ({
   sentryEnabled: false,
 }));
-vi.mock('@/utils', () => ({
+vi.mock('@/utils/logger', () => ({
   logger: {
     error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
   },
+}));
+vi.mock('@/utils/error-handler', () => ({
   createInternalServerError: vi.fn((message, _error) => ({
     error: { message, code: 'INTERNAL_ERROR' },
   })),
@@ -31,7 +36,7 @@ vi.mock('@/utils', () => ({
 
 import * as Sentry from '@sentry/node';
 import { errorHandlerMiddleware } from '../error-handler.middleware';
-import { logger } from '../../utils';
+import { logger } from '../../utils/logger';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);

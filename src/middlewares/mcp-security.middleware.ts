@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { parseCsvEnv } from "@/utils/mcp";
-import { logger } from '@/utils';
+import { logger } from '@/utils/logger';
 
 /**
  * Middleware for MCP endpoint security (DNS rebinding protection).

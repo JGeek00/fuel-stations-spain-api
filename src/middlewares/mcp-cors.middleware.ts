@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { parseCsvEnv } from '@/utils';
+import { parseCsvEnv } from '@/utils/mcp';
 
 /**
  * CORS middleware personalized for MCP routes.

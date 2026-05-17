@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { API_BASE_URL } from "@/config/constants";
 import { twoDigits } from "@/utils/numbers";
 import { MunicipalitiesDto, ServiceStationsDto } from "@/dto";
-import { logger } from "@/utils";
+import { logger } from "@/utils/logger";
 
 const commonHeaders = {
   "Content-Type": "application/json"

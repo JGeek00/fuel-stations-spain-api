@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DateTime } from 'luxon';
-import { twoDigits } from '../../utils';
+import { twoDigits } from '../../utils/numbers';
 import { API_BASE_URL } from '../../config/constants';
 
 vi.mock('@/utils', () => ({

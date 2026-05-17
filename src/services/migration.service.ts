@@ -1,7 +1,7 @@
 import { Sequelize } from 'sequelize';
 import { Migrations, MigrationsAttributes } from '@/models/db/Migrations';
 import { MIGRATIONS } from '@/migrations';
-import { logger } from '@/utils';
+import { logger } from '@/utils/logger';
 
 export class MigrationService {
   async run(sequelize: Sequelize): Promise<void> {

@@ -5,19 +5,18 @@ import type { Request, Response, NextFunction } from 'express';
 vi.mock('@/utils/mcp', () => ({
   parseCsvEnv: vi.fn(),
 }));
-vi.mock('@/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils')>();
-  return {
-    ...actual,
-    logger: {
-      warn: vi.fn(),
-    },
-  };
-});
+vi.mock('@/utils/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 import { mcpSecurityMiddleware } from '../mcp-security.middleware';
-import { parseCsvEnv } from '@/utils/mcp';
-import { logger } from '@/utils';
+import { parseCsvEnv } from '../../utils/mcp';
+import { logger } from '../../utils/logger';
 
 const mockParseCsvEnv = vi.mocked(parseCsvEnv);
 const mockLoggerWarn = vi.mocked(logger.warn);

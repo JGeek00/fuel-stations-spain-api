@@ -5,7 +5,7 @@ import {
   sendApiError,
 } from '@/utils/error-handler';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
-import { logger } from '@/utils';
+import { logger } from '@/utils/logger';
 
 export const municipalitiesController = async (req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {

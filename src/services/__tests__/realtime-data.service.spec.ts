@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock logger
-vi.mock('@/utils', () => ({
+vi.mock('@/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -180,7 +180,7 @@ describe('RealtimeDataService', () => {
       mockMap.mockReturnValue([{ stationId: 'ES001' }, { stationId: 'ES001' }]);
 
       const { realtimeDataService } = await import('../realtime-data.service');
-      const { logger } = await import('../../utils');
+      const { logger } = await import('../../utils/logger');
       await realtimeDataService.loadStations();
 
       expect(logger.warn).toHaveBeenCalledWith('⚠️ Duplicated IDs found: ES001');

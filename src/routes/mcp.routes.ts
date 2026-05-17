@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { mcpCorsMiddleware, mcpSecurityMiddleware } from "@/middlewares";
+import { mcpCorsMiddleware } from "@/middlewares/mcp-cors.middleware";
+import { mcpSecurityMiddleware } from "@/middlewares/mcp-security.middleware";
 import { createMcpRouter, McpServerManager } from "@/mcp";
 
 export default (manager: McpServerManager) => {

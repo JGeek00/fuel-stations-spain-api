@@ -6,9 +6,11 @@ import { BulkCreateOptions } from "sequelize";
 import { HistoricFuelStation } from "@/models/db/HistoricFuelStation"
 import { HistoricNoDataTable } from "@/models/db/HistoricNoData"
 import { DataProviderApiService } from "@/services/data-provider-api.service"
-import { logger, sleep, twoDigits } from "@/utils"
+import { logger } from "@/utils/logger"
 import { FuelStationsMapper } from "@/mapper";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
+import { twoDigits } from "@/utils/numbers";
+import { sleep } from "@/utils/sleep";
 
 
 class PersistedDataService {

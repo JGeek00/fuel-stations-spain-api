@@ -8,7 +8,6 @@ import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 import { GetHistoricPricesQueryParams } from "@/models/in/GetHistoricPricesQueryParams.model";
 import { GetHistoricPricesResponse } from "@/models/out/GetHistoricPricesResponse.model";
 import { keysToCamel } from "@/utils/case-keys";
-import { getHistoricDataMaxRangeMonths, formatRange } from "@/utils";
 import {
   createValidationError,
   createBadRequestError,
@@ -16,6 +15,7 @@ import {
   sendApiError,
 } from '@/utils/error-handler';
 import { logger } from '@/utils/logger';
+import { formatRange, getHistoricDataMaxRangeMonths } from "@/utils/historic-data-limit";
 
 export const historicPricesController = async (req: Request<{}, {}, {}, GetHistoricPricesQueryParams>, res: Response<GetHistoricPricesResponse>, next: NextFunction): Promise<void> => {
   try {

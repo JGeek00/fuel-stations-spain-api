@@ -5,7 +5,8 @@ import packageJson from '../package.json';
 import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
 import { McpServerManager } from '@/mcp/manager';
-import { validateHistoricDataMaxRange, logger } from '@/utils';
+import { logger } from '@/utils/logger';
+import { validateHistoricDataMaxRange } from '@/utils/historic-data-limit';
 
 const step = (label: string, status: '✓' | '⚠' | '✗', detail?: string): void => {
   const paddedLabel = label.padEnd(36, '.');

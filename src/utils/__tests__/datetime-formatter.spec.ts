@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { formatCurrentDate } from '../datetime-formatter';
 
 describe('formatCurrentDate', () => {
-  const originalDate = global.Date;
+  const originalDate = globalThis.Date;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -10,7 +10,9 @@ describe('formatCurrentDate', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    global.Date = originalDate;
+    // restore the original Date constructor
+    // use globalThis to satisfy TypeScript's globals
+    (globalThis as any).Date = originalDate;
   });
 
   it('returns a string in YYYY-MM-DD HH:MM:SS format', () => {

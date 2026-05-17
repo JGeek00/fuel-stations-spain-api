@@ -21,15 +21,19 @@ vi.mock('cron/dist/job', () => ({
 }));
 
 // Mock logger
-vi.mock('@/utils', () => ({
+vi.mock('@/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
   },
-  sleep: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/utils/numbers', () => ({
   twoDigits: vi.fn((n) => String(n).padStart(2, '0')),
+}));
+vi.mock('@/utils/sleep', () => ({
+  sleep: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock DataProviderApiService
@@ -63,7 +67,7 @@ const mockSequelize = {
 const mockHistoricFuelStation = {
   findAll: mockHistoricFuelStationFindAll,
   bulkCreate: mockHistoricFuelStationBulkCreate,
-  sequelize: mockSequelize,
+  sequelize: mockSequelize as typeof mockSequelize | null,
 };
 vi.mock('@/models/db/HistoricFuelStation', () => ({
   HistoricFuelStation: mockHistoricFuelStation,
@@ -95,7 +99,7 @@ describe('PersistedDataService', () => {
     it('returns early when DB is not initialized', async () => {
       mockHistoricFuelStation.sequelize = null;
 
-      const { logger } = await import('../../utils');
+      const { logger } = await import('../../utils/logger');
       const { persistedDataService } = await import('../persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
@@ -107,7 +111,7 @@ describe('PersistedDataService', () => {
       mockHistoricFuelStationFindAll.mockResolvedValue([]);
       mockHistoricNoDataFindAll.mockResolvedValue([]);
 
-      const { logger } = await import('../../utils');
+      const { logger } = await import('../../utils/logger');
       const { persistedDataService } = await import('../persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
@@ -127,7 +131,7 @@ describe('PersistedDataService', () => {
       ]);
       mockHistoricNoDataFindAll.mockResolvedValue([]);
 
-      const { logger } = await import('../../utils');
+      const { logger } = await import('../../utils/logger');
       const { persistedDataService } = await import('../persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
@@ -221,7 +225,7 @@ describe('PersistedDataService', () => {
       mockHistoricFuelStation.sequelize = mockSequelize;
       mockHistoricFuelStationFindAll.mockRejectedValue(new Error('DB error'));
 
-      const { logger } = await import('../../utils');
+      const { logger } = await import('../../utils/logger');
       const { persistedDataService } = await import('../persisted-data.service');
       await persistedDataService.loadAll();
 

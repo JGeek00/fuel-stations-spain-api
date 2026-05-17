@@ -4,7 +4,7 @@ import { Op } from "sequelize";
 import * as Sentry from '@sentry/node'
 import { FuelStationsTable } from "@/models/db/FuelStations";
 import config from '@/config/config.json'
-import { calculateBoundingBox, logger } from '@/utils';
+import { logger } from '@/utils/logger';
 import { LastUpdated } from "@/models/db/LastUpdated";
 import { GetFuelStationsQueryParams } from "@/models/in/GetFuelStationsQueryParams.model";
 import {
@@ -13,6 +13,7 @@ import {
   createInternalServerError,
   sendApiError,
 } from '@/utils/error-handler';
+import { calculateBoundingBox } from "@/utils/calculate-distance";
 
 export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuelStationsQueryParams>, res: Response, next: NextFunction): Promise<void> => {
   try {
