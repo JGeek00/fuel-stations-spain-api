@@ -4,6 +4,7 @@ import '@/bootstrap';
 import packageJson from '../package.json';
 import { initExpress } from '@/express';
 import { databaseService } from '@/services/database.service';
+import { startScheduledJobs } from '@/jobs/scheduler';
 import { McpServerManager } from '@/mcp/manager';
 import { logger } from '@/utils/logger';
 import { validateHistoricDataMaxRange } from '@/utils/historic-data-limit';
@@ -38,8 +39,10 @@ export const startServer = async (): Promise<void> => {
     const historicLimitResult = validateHistoricDataMaxRange();
     step('Historic data limit', historicLimitResult.status, historicLimitResult.detail);
 
-    // Initialize both databases via databaseService
+    // Initialize both databases via databaseService (side-effect free),
+    // then start scheduled jobs from the jobs layer (S5).
     await databaseService.init();
+    await startScheduledJobs();
     step('Memory DB', '✓');
     try {
       databaseService.persistedDbInstance;

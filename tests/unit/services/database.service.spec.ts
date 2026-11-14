@@ -199,14 +199,14 @@ describe('DatabaseService', () => {
       expect(service.memoryDbInstance).toBe(getMemoryDb());
     });
 
-    it('loads realtime data and registers cron task', async () => {
+    it('does NOT load data or register crons (jobs owned by scheduler)', async () => {
       const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
       await Promise.resolve(); // Allow pending microtasks to settle
 
-      expect(mockRealtimeDataService.loadAll).toHaveBeenCalled();
-      expect(mockRealtimeDataService.registerProgrammedTask).toHaveBeenCalled();
+      expect(mockRealtimeDataService.loadAll).not.toHaveBeenCalled();
+      expect(mockRealtimeDataService.registerProgrammedTask).not.toHaveBeenCalled();
     });
 
     it('returns a defined memoryDbInstance after init', async () => {

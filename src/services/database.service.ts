@@ -20,8 +20,7 @@ import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { pgMigrations } from '@/models/db/Migrations';
 import { migrationService } from '@/services/migration.service';
 import { MIGRATIONS } from '@/migrations';
-import { realtimeDataService } from '@/services/realtime-data.service';
-import { persistedDataService } from '@/services/persisted-data.service';
+import { ensurePersistedSchema } from '@/infrastructure/persistence/ensurePersistedSchema';
 import { logger } from '@/utils/logger';
 
 export class DatabaseService {
@@ -65,8 +64,8 @@ export class DatabaseService {
 
     this._memoryDbInstance = getMemoryDb();
 
-    realtimeDataService.loadAll() // Load data on start
-    realtimeDataService.registerProgrammedTask();
+    // Scheduled jobs are owned by src/jobs/scheduler.ts (called from server.ts),
+    // never by the DB wiring.
 
     logger.info("✅ Memory DB tables initialized")
   }
@@ -124,45 +123,9 @@ export class DatabaseService {
             );
         }
 
-        // Sequelize `sync({ alter: true })` equivalent: ensure the persisted
-        // tables exist with the current (post-migration) production schema.
-        await this._persistedDbInstance.execute(sql`
-          CREATE TABLE IF NOT EXISTS historic_data (
-            "id" uuid PRIMARY KEY,
-            "stationId" varchar(255),
-            "stationSignage" varchar(255),
-            "adbluePrice" double precision,
-            "ammoniaPrice" double precision,
-            "biodieselPrice" double precision,
-            "bioethanolPrice" double precision,
-            "compressedBiogasPrice" double precision,
-            "liquefiedBiogasPrice" double precision,
-            "renewableDieselPrice" double precision,
-            "cngPrice" double precision,
-            "lngPrice" double precision,
-            "lpgPrice" double precision,
-            "gasoilAPrice" double precision,
-            "gasoilBPrice" double precision,
-            "premiumGasoilPrice" double precision,
-            "gasoline95E10Price" double precision,
-            "gasoline95E25Price" double precision,
-            "gasoline95E5Price" double precision,
-            "gasoline95E5PremiumPrice" double precision,
-            "gasoline95E85Price" double precision,
-            "gasoline98E10Price" double precision,
-            "gasoline98E5Price" double precision,
-            "renewableGasolinePrice" double precision,
-            "hydrogenPrice" double precision,
-            "methanolPrice" double precision,
-            "date" date
-          )
-        `);
-        await this._persistedDbInstance.execute(
-          sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_historic_station_date ON historic_data ("stationId", "date")`
-        );
-        await this._persistedDbInstance.execute(
-          sql`CREATE TABLE IF NOT EXISTS historic_no_data ("date" date PRIMARY KEY)`
-        );
+        // Schema owned by migrations (003_ensure_historic_schema); the service
+        // only ensures it exists (fresh installs mark migrations applied).
+        await ensurePersistedSchema(this._persistedDbInstance);
 
         markPersistedDbInitialized();
         setPersistedDb(this._persistedDbInstance);
@@ -179,8 +142,8 @@ export class DatabaseService {
           configurable: true,
         });
 
-        persistedDataService.loadAll() // Load persisted data on start
-        persistedDataService.registerProgrammedTask();
+        // Scheduled jobs are owned by src/jobs/scheduler.ts (called from server.ts),
+        // never by the DB wiring.
 
         logger.info('✅ Persisted DB tables initialized');
       } catch (error) {
