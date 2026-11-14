@@ -7,11 +7,6 @@ vi.mock('@sentry/node', () => ({
   captureException: vi.fn(),
 }));
 
-// Mock randomUUID
-vi.mock('crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-' + Math.random()),
-}));
-
 // Mock CronJob
 const mockCronJobFrom = vi.fn();
 vi.mock('cron/dist/job', () => ({
@@ -57,71 +52,28 @@ vi.mock('@/mapper', () => ({
   },
 }));
 
-// Drizzle memory DB seam (src/models/db/memory-db.ts)
-const {
-  mockDb,
-  mockIsPersistedDbInitialized,
-  historicFuelStationsTable,
-  historicNoDataTable,
-} = vi.hoisted(() => ({
-  mockDb: {
-    selectDistinct: vi.fn(),
-    select: vi.fn(),
-    insert: vi.fn(),
+// Mock the repository seam (services must not touch DB or drizzle directly)
+const mockIsReady = vi.fn<() => boolean>(() => true);
+const mockGetExistingDates = vi.fn<() => Promise<string[]>>(async () => []);
+const mockGetNoDataDates = vi.fn<() => Promise<string[]>>(async () => []);
+const mockInsertHistoricBatch = vi.fn<(rows: unknown[]) => Promise<void>>(async () => {});
+const mockMarkNoDataDate = vi.fn<(date: string) => Promise<void>>(async () => {});
+vi.mock('@/infrastructure/persistence/HistoricRepository', () => ({
+  historicRepository: {
+    isReady: () => mockIsReady(),
+    getExistingDates: () => mockGetExistingDates(),
+    getNoDataDates: () => mockGetNoDataDates(),
+    insertHistoricBatch: (rows: unknown[]) => mockInsertHistoricBatch(rows),
+    markNoDataDate: (date: string) => mockMarkNoDataDate(date),
   },
-  mockIsPersistedDbInitialized: vi.fn<() => boolean>(),
-  historicFuelStationsTable: { name: 'historicFuelStationsTable' },
-  historicNoDataTable: { name: 'historicNoDataTable' },
 }));
-vi.mock('@/models/db/memory-db', () => ({
-  getMemoryDb: () => mockDb,
-  getPersistedDb: () => null,
-  isPersistedDbInitialized: mockIsPersistedDbInitialized,
-  historicFuelStationsTable,
-  historicNoDataTable,
-}));
-
-interface InsertedRow {
-  table: unknown;
-  values: unknown;
-  conflictIgnored?: boolean;
-}
-let insertedRows: InsertedRow[] = [];
-
-// Wires the mockDb chain for one scenario.
-const seedDb = (options: {
-  existingDates?: { date: string }[];
-  noDataDates?: { date: string }[];
-  rejectDistinct?: boolean;
-} = {}) => {
-  insertedRows = [];
-  mockDb.selectDistinct.mockImplementation(() => ({
-    from: vi.fn().mockReturnValue({
-      orderBy: vi.fn(() =>
-        options.rejectDistinct ? Promise.reject(new Error('DB error')) : Promise.resolve(options.existingDates ?? [])
-      ),
-    }),
-  }));
-  mockDb.select.mockImplementation(() => ({
-    from: vi.fn(async () => options.noDataDates ?? []),
-  }));
-  mockDb.insert.mockImplementation((table: unknown) => ({
-    values: vi.fn((values: unknown) => {
-      const entry: InsertedRow = { table, values };
-      insertedRows.push(entry);
-      return {
-        onConflictDoNothing: vi.fn(async () => {
-          entry.conflictIgnored = true;
-        }),
-      };
-    }),
-  }));
-};
 
 describe('PersistedDataService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsPersistedDbInitialized.mockReturnValue(true);
+    mockIsReady.mockReturnValue(true);
+    mockGetExistingDates.mockResolvedValue([]);
+    mockGetNoDataDates.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -130,18 +82,18 @@ describe('PersistedDataService', () => {
 
   describe('loadStationsHistoric', () => {
     it('returns early when DB is not initialized', async () => {
-      mockIsPersistedDbInitialized.mockReturnValue(false);
+      mockIsReady.mockReturnValue(false);
 
       const { logger } = await import('@/utils/logger');
       const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.error).toHaveBeenCalledWith('❌ Persistent DB not initialized.');
-      expect(mockDb.selectDistinct).not.toHaveBeenCalled();
+      expect(mockGetExistingDates).not.toHaveBeenCalled();
     });
 
     it('returns early when no data exists in DB', async () => {
-      seedDb({ existingDates: [] });
+      mockGetExistingDates.mockResolvedValue([]);
 
       const { logger } = await import('@/utils/logger');
       const { persistedDataService } = await import('@/services/persisted-data.service');
@@ -150,6 +102,7 @@ describe('PersistedDataService', () => {
       expect(logger.error).toHaveBeenCalledWith(
         '❌ Persistent DB has no data. You must import manually the data first.'
       );
+      expect(mockGetStationsHistoric).not.toHaveBeenCalled();
     });
 
     it('returns early when no new dates to fetch', async () => {
@@ -157,7 +110,7 @@ describe('PersistedDataService', () => {
       const yesterday = now.minus({ days: 1 }).toSQLDate();
       const today = now.toSQLDate();
 
-      seedDb({ existingDates: [{ date: yesterday as string }, { date: today as string }] });
+      mockGetExistingDates.mockResolvedValue([yesterday as string, today as string]);
 
       const { logger } = await import('@/utils/logger');
       const { persistedDataService } = await import('@/services/persisted-data.service');
@@ -170,7 +123,7 @@ describe('PersistedDataService', () => {
       const now = DateTime.local();
       const date1 = now.minus({ days: 5 }).toSQLDate();
 
-      seedDb({ existingDates: [{ date: date1 as string }] });
+      mockGetExistingDates.mockResolvedValue([date1 as string]);
       mockGetStationsHistoric.mockResolvedValue({
         ListaEESSPrecio: [
           { IDEESS: 'ES001', Rótulo: 'Test' },
@@ -182,21 +135,41 @@ describe('PersistedDataService', () => {
       const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
-      // Should have called getStationsHistoric for missing dates and saved the
-      // batch with the conflict-ignore equivalent
+      // Should have fetched the missing dates and saved the batch through the repository
       expect(mockGetStationsHistoric).toHaveBeenCalled();
-      expect(mockDb.insert).toHaveBeenCalledWith(historicFuelStationsTable);
-      const historicInsert = insertedRows.find((row) => row.table === historicFuelStationsTable);
-      expect(historicInsert).toBeDefined();
-      expect(historicInsert?.conflictIgnored).toBe(true);
-      expect((historicInsert?.values as { stationId: string }[])[0].stationId).toBe('ES001');
+      expect(mockInsertHistoricBatch).toHaveBeenCalledTimes(1);
+      const savedRows = mockInsertHistoricBatch.mock.calls[0][0] as { stationId: string }[];
+      expect(savedRows[0].stationId).toBe('ES001');
+    });
+
+    it('splits more than 7 missing dates into several batches with sleep between them', async () => {
+      const now = DateTime.local();
+      // date1 is 15 days ago → 14 missing dates between it and yesterday
+      const date1 = now.minus({ days: 15 }).toSQLDate();
+
+      mockGetExistingDates.mockResolvedValue([date1 as string]);
+      mockGetStationsHistoric.mockResolvedValue({
+        ListaEESSPrecio: [{ IDEESS: 'ES001', Rótulo: 'Test' }],
+        Fecha: '01/01/2024 10:00:00',
+      });
+      mockMap.mockReturnValue([{ stationId: 'ES001', signage: 'Test' }]);
+
+      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { sleep } = await import('@/utils/sleep');
+      await persistedDataService.loadStationsHistoric();
+
+      // 14 missing dates → 2 full batches of 7, sleep only between batches
+      expect(mockGetStationsHistoric).toHaveBeenCalledTimes(14);
+      expect(mockInsertHistoricBatch).toHaveBeenCalledTimes(2);
+      expect(sleep).toHaveBeenCalledTimes(1);
+      expect(sleep).toHaveBeenCalledWith(60000);
     });
 
     it('marks dates with no data as no-data', async () => {
       const now = DateTime.local();
       const date1 = now.minus({ days: 5 }).toSQLDate();
 
-      seedDb({ existingDates: [{ date: date1 as string }] });
+      mockGetExistingDates.mockResolvedValue([date1 as string]);
       // API returns empty array but valid Fecha - service marks as no-data
       mockGetStationsHistoric.mockResolvedValue({
         ListaEESSPrecio: [],
@@ -207,9 +180,9 @@ describe('PersistedDataService', () => {
       const { persistedDataService } = await import('@/services/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
-      // Should mark the date as no-data
-      expect(mockDb.insert).toHaveBeenCalledWith(historicNoDataTable);
-      expect(insertedRows.some((row) => row.table === historicNoDataTable)).toBe(true);
+      // every hole (4 days since date1) returns empty → all marked as no-data
+      expect(mockMarkNoDataDate).toHaveBeenCalledTimes(4);
+      expect(typeof mockMarkNoDataDate.mock.calls[0][0]).toBe('string');
     });
 
     it('skips dates already in no-data set', async () => {
@@ -217,10 +190,8 @@ describe('PersistedDataService', () => {
       const date1 = now.minus({ days: 5 }).toSQLDate();
       const noDataDate = now.minus({ days: 4 }).toSQLDate();
 
-      seedDb({
-        existingDates: [{ date: date1 as string }],
-        noDataDates: [{ date: noDataDate as string }],
-      });
+      mockGetExistingDates.mockResolvedValue([date1 as string]);
+      mockGetNoDataDates.mockResolvedValue([noDataDate as string]);
       mockGetStationsHistoric.mockResolvedValue(null);
 
       const { persistedDataService } = await import('@/services/persisted-data.service');
@@ -235,7 +206,7 @@ describe('PersistedDataService', () => {
 
   describe('loadAll', () => {
     it('calls loadStationsHistoric', async () => {
-      mockIsPersistedDbInitialized.mockReturnValue(false);
+      mockIsReady.mockReturnValue(false);
 
       const { logger } = await import('@/utils/logger');
       const { persistedDataService } = await import('@/services/persisted-data.service');
@@ -246,7 +217,7 @@ describe('PersistedDataService', () => {
     });
 
     it('catches errors from loadStationsHistoric', async () => {
-      seedDb({ rejectDistinct: true });
+      mockGetExistingDates.mockRejectedValue(new Error('DB error'));
 
       const { logger } = await import('@/utils/logger');
       const { persistedDataService } = await import('@/services/persisted-data.service');

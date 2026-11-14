@@ -1,6 +1,16 @@
+import { randomUUID } from 'crypto';
 import { and, asc, between, eq } from 'drizzle-orm';
-import { fuelStationsTable, getMemoryDb, getPersistedDb, historicFuelStationsTable } from '@/models/db/memory-db';
+import {
+  fuelStationsTable,
+  getMemoryDb,
+  getPersistedDb,
+  historicFuelStationsTable,
+  historicNoDataTable,
+  isPersistedDbInitialized,
+} from '@/models/db/memory-db';
 import { pgHistoricData } from '@/models/db/HistoricFuelStation';
+import { pgHistoricNoData } from '@/models/db/HistoricNoData';
+import type { HistoricPrice } from '@/models/entities/HistoricPrice.model';
 import { HISTORIC_PRICE_COLUMNS } from './fuel-fields';
 import type { IHistoricRepository } from '@/application/ports/repositories';
 
@@ -11,13 +21,53 @@ import type { IHistoricRepository } from '@/application/ports/repositories';
  */
 class HistoricRepository implements IHistoricRepository {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private backend(): { db: any; h: any; isPg: boolean } {
+  private backend(): { db: any; h: any; noDataTable: any; isPg: boolean } {
     const persisted = getPersistedDb();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db: any = persisted ?? getMemoryDb();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const h: any = persisted ? pgHistoricData : historicFuelStationsTable;
-    return { db, h, isPg: !!persisted };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const noDataTable: any = persisted ? pgHistoricNoData : historicNoDataTable;
+    return { db, h, noDataTable, isPg: !!persisted };
+  }
+
+  /** Whether the persisted backend is initialized (early-exit seam for jobs). */
+  isReady(): boolean {
+    return isPersistedDbInitialized();
+  }
+
+  /** Sorted list of dates already present in the historic table. */
+  async getExistingDates(): Promise<string[]> {
+    const { db, h } = this.backend();
+    const rows: { date: string | null }[] = await db
+      .selectDistinct({ date: h.date })
+      .from(h)
+      .orderBy(asc(h.date));
+    return rows.map((e) => e.date).filter((e): e is string => e != null);
+  }
+
+  /** Dates previously marked as having no data. */
+  async getNoDataDates(): Promise<string[]> {
+    const { db, noDataTable } = this.backend();
+    const rows: { date: string | null }[] = await db.select({ date: noDataTable.date }).from(noDataTable);
+    return rows.map((e) => e.date).filter((e): e is string => e != null);
+  }
+
+  /** Inserts a batch of historic rows (adds ids, ignores conflicts). */
+  async insertHistoricBatch(rows: HistoricPrice[]): Promise<void> {
+    if (rows.length === 0) return;
+    const { db, h } = this.backend();
+    await db
+      .insert(h)
+      .values(rows.map((station) => ({ id: randomUUID(), ...station })))
+      .onConflictDoNothing();
+  }
+
+  /** Marks a date as having no data to avoid retrying it. */
+  async markNoDataDate(date: string): Promise<void> {
+    const { db, noDataTable } = this.backend();
+    await db.insert(noDataTable).values({ date });
   }
 
   async queryRange(stationId: string, startDate: string, endDate: string): Promise<Record<string, unknown>[]> {

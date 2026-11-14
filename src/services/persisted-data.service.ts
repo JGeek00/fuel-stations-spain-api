@@ -1,17 +1,7 @@
 import { DateTime, Interval } from "luxon";
 import * as Sentry from '@sentry/node';
-import { randomUUID } from "crypto"
 import { CronJob } from "cron/dist/job";
-import { asc } from "drizzle-orm";
-import {
-  getMemoryDb,
-  getPersistedDb,
-  historicFuelStationsTable,
-  historicNoDataTable,
-  isPersistedDbInitialized,
-} from "@/models/db/memory-db";
-import { pgHistoricData } from "@/models/db/HistoricFuelStation";
-import { pgHistoricNoData } from "@/models/db/HistoricNoData";
+import { historicRepository } from "@/infrastructure/persistence/HistoricRepository";
 import { DataProviderApiService } from "@/services/data-provider-api.service"
 import { logger } from "@/utils/logger"
 import { FuelStationsMapper } from "@/mapper";
@@ -23,31 +13,13 @@ import { sleep } from "@/utils/sleep";
 class PersistedDataService {
   loadStationsHistoric = async () => {
     try {
-      if (!isPersistedDbInitialized()) {
+      if (!historicRepository.isReady()) {
         logger.error("❌ Persistent DB not initialized.");
         return;
       }
 
-      // PG when configured, memory fallback for tests without PG (S1: same output).
-      const persisted = getPersistedDb();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db: any = persisted ?? getMemoryDb();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const h: any = persisted ? pgHistoricData : historicFuelStationsTable;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const noDataTable: any = persisted ? pgHistoricNoData : historicNoDataTable;
-
-      // sequelize.fn('DISTINCT', col) equivalent for Drizzle.
-      const existingDatesRows: { date: string | null }[] = await db
-        .selectDistinct({ date: h.date })
-        .from(h)
-        .orderBy(asc(h.date));
-      const existingDates = new Set(existingDatesRows.map(e => e.date).filter(e => e != null));
-
-      const noDataResultRaw: { date: string | null }[] = await db
-        .select({ date: noDataTable.date })
-        .from(noDataTable);
-      const noDataDates = new Set(noDataResultRaw.map(e => e.date).filter(e => e != null));
+      const existingDates = new Set(await historicRepository.getExistingDates());
+      const noDataDates = new Set(await historicRepository.getNoDataDates());
 
       if (existingDates.size === 0) {
         logger.error("❌ Persistent DB has no data. You must import manually the data first.");
@@ -117,8 +89,8 @@ class PersistedDataService {
             continue;
           }
 
-            // `signage` has no historic column; it maps to stationSignage.
-            const parsedStations = FuelStationsMapper.map(result.ListaEESSPrecio).map(station => {
+          // `signage` has no historic column; it maps to stationSignage.
+          const parsedStations = FuelStationsMapper.map(result.ListaEESSPrecio).map(station => {
             const { signage, ...stationFields } = station;
             return <HistoricPrice>{
               ...stationFields,
@@ -136,7 +108,7 @@ class PersistedDataService {
           if (parsedStations.length === 0) {
             const dateSQL = group[key].toSQLDate();
             if (dateSQL) {
-              await db.insert(noDataTable).values({ date: dateSQL });
+              await historicRepository.markNoDataDate(dateSQL);
               logger.info(`  🚫 No data for ${dateSQL} — marked as no-data`);
             }
           }
@@ -144,14 +116,7 @@ class PersistedDataService {
 
         // Save this batch immediately to the database
         if (batchStations.length > 0) {
-          // conflict:{target, action:'ignore'} equivalent for Drizzle.
-          await db
-            .insert(h)
-            .values(batchStations.map(station => ({
-              id: randomUUID(),
-              ...station,
-            })))
-            .onConflictDoNothing();
+          await historicRepository.insertHistoricBatch(batchStations);
           logger.info(`  💾 Batch ${batchIndex} saved (${batchStations.length} records)`);
         } else {
           logger.warn(`  ⚠️ Batch ${batchIndex}: no records to save`);

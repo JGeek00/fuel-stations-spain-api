@@ -2,8 +2,8 @@ import { CronJob } from "cron";
 import { randomUUID } from "crypto";
 import { DataProviderApiService } from "./data-provider-api.service";
 import { FuelStationsMapper } from "@/mapper";
-import MunicipalitiesRepository from "@/repository/Municipalities.repository";
-import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from "@/models/db/memory-db";
+import { stationRepository } from "@/infrastructure/persistence/StationRepository";
+import { municipalitiesRepository } from "@/infrastructure/persistence/MunicipalitiesRepository";
 import { logger } from "@/utils/logger";
 
 class RealtimeDataService {
@@ -31,40 +31,16 @@ class RealtimeDataService {
         logger.warn(`⚠️ Duplicated IDs found: ${duplicatedIds.join(",")}`)
       }
 
-      const db = getMemoryDb()
-
-      // Save previous state in case new insert fails
-      const previousStations = await db.select().from(fuelStationsTable)
-      const previousLastUpdated = await db.select().from(lastUpdatedTable)
-
-      // Erase previous data
-      await db.delete(fuelStationsTable)
-      await db.delete(lastUpdatedTable)
-
       try {
-        // Save new data
+        // Save new data (the repository restores previous state on failure)
         const stations = FuelStationsMapper.map(result.ListaEESSPrecio).map(e => ({ ...e, id: randomUUID() }))
-        if (stations.length > 0) {
-          await db.insert(fuelStationsTable).values(stations)
-        }
-
-        await db.insert(lastUpdatedTable).values({
-          lastUpdated: new Date().toISOString()
-        })
+        await stationRepository.replaceAll(stations, new Date().toISOString())
 
         logger.info("✅ Realtime data saved successfully")
 
       } catch (error) {
-        // Save previous data (plain rows read before the delete)
-        if (previousStations.length > 0) {
-          await db.insert(fuelStationsTable).values(previousStations)
-        }
-
-        if (previousLastUpdated.length > 0) {
-          await db.insert(lastUpdatedTable).values(previousLastUpdated[0])
-        }
-
         logger.warn("⚠️ Restored previous data")
+        logger.error(error)
       }
 
     } catch (error) {
@@ -89,7 +65,7 @@ class RealtimeDataService {
       data = data.replaceAll("CCAA", "region")
       let parsed = JSON.parse(data)
 
-      MunicipalitiesRepository.data = parsed
+      municipalitiesRepository.replaceAll(parsed)
 
       logger.info("✅ Municipalities saved successfully")
     } catch (error) {
