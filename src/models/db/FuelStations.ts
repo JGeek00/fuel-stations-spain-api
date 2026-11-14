@@ -1,104 +1,33 @@
 import type BetterSqlite3 from 'better-sqlite3';
-import { DataTypes, Model } from "sequelize";
-import { count as drizzleCount } from "drizzle-orm";
-import { sqliteTable, text, integer, real, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import { count as drizzleCount, getTableColumns } from "drizzle-orm";
 import { FuelStation } from "../entities/FuelStation.model";
-import { getMemoryDb, getMemorySqlite, MemoryRow, resetMemoryDb, translateOrder, translateWhere, type MemoryTable } from './memory-db';
+import { fuelStationsTable, getMemoryDb, getMemorySqlite, MemoryRow, resetMemoryDb, translateOrder, translateWhere, type MemoryTable } from './memory-db';
 
-export class FuelStationsTable extends Model<FuelStation> {}
+/**
+ * Typing shell replacing the removed Sequelize `Model` base: every member is
+ * declaration-only, and the Drizzle adapter Object.assign'd below provides the
+ * real behavior (init/findAll/findOne/findAndCountAll/count/truncate/
+ * bulkCreate/create over the shared `:memory:` database).
+ */
+export class FuelStationsTable {
+  declare dataValues: FuelStation;
+  declare get: (options?: { plain?: boolean }) => FuelStation;
+  declare getDataValue: <K extends keyof FuelStation>(key: K) => FuelStation[K];
 
-export const FuelStationModel = {
-  id: {
-    type: DataTypes.UUID,
-    primaryKey: true,
-  },
-  stationId: DataTypes.STRING,
-  postalCode: DataTypes.STRING,
-  address: DataTypes.STRING,
-  openingHours: DataTypes.STRING,
-  latitude: DataTypes.FLOAT,
-  longitude: DataTypes.FLOAT,
-  locality: DataTypes.STRING,
-  margin: DataTypes.STRING,
-  municipality: DataTypes.STRING,
-  province: DataTypes.STRING,
-  referral: DataTypes.STRING,
-  signage: DataTypes.STRING,
-  saleType: DataTypes.STRING,
-  percBioEthanol: DataTypes.STRING,
-  percMethylEster: DataTypes.STRING,
-  municipalityId: DataTypes.INTEGER,
-  provinceId: DataTypes.INTEGER,
-  regionId: DataTypes.INTEGER,
-  adbluePrice: DataTypes.FLOAT,
-  ammoniaPrice: DataTypes.FLOAT,
-  biodieselPrice: DataTypes.FLOAT,
-  bioethanolPrice: DataTypes.FLOAT,
-  compressedBiogasPrice: DataTypes.FLOAT,
-  liquefiedBiogasPrice: DataTypes.FLOAT,
-  renewableDieselPrice: DataTypes.FLOAT,
-  cngPrice: DataTypes.FLOAT,
-  lngPrice: DataTypes.FLOAT,
-  lpgPrice: DataTypes.FLOAT,
-  gasoilAPrice: DataTypes.FLOAT,
-  gasoilBPrice: DataTypes.FLOAT,
-  premiumGasoilPrice: DataTypes.FLOAT,
-  gasoline95E10Price: DataTypes.FLOAT,
-  gasoline95E25Price: DataTypes.FLOAT,
-  gasoline95E5Price: DataTypes.FLOAT,
-  gasoline95E5PremiumPrice: DataTypes.FLOAT,
-  gasoline95E85Price: DataTypes.FLOAT,
-  gasoline98E10Price: DataTypes.FLOAT,
-  gasoline98E5Price: DataTypes.FLOAT,
-  renewableGasolinePrice: DataTypes.FLOAT,
-  hydrogenPrice: DataTypes.FLOAT,
-  methanolPrice: DataTypes.FLOAT,
+  declare static init: (...args: unknown[]) => void;
+  declare static findAll: (options?: FuelStationsFindOptions) => Promise<FuelStationsTable[]>;
+  declare static findOne: (options?: FuelStationsFindOptions) => Promise<FuelStationsTable | null>;
+  declare static findAndCountAll: (options?: FuelStationsFindOptions) => Promise<{ rows: FuelStationsTable[]; count: number }>;
+  declare static count: () => Promise<number>;
+  declare static truncate: () => Promise<void>;
+  declare static bulkCreate: (values: Record<string, unknown>[]) => Promise<FuelStationsTable[]>;
+  declare static create: (values: Record<string, unknown>) => Promise<FuelStationsTable>;
 }
 
-const fuelStations = sqliteTable('fuel_stations', {
-  id: text('id').primaryKey(),
-  stationId: text('stationId'),
-  postalCode: text('postalCode'),
-  address: text('address'),
-  openingHours: text('openingHours'),
-  latitude: real('latitude'),
-  longitude: real('longitude'),
-  locality: text('locality'),
-  margin: text('margin'),
-  municipality: text('municipality'),
-  province: text('province'),
-  referral: text('referral'),
-  signage: text('signage'),
-  saleType: text('saleType'),
-  percBioEthanol: text('percBioEthanol'),
-  percMethylEster: text('percMethylEster'),
-  municipalityId: integer('municipalityId'),
-  provinceId: integer('provinceId'),
-  regionId: integer('regionId'),
-  adbluePrice: real('adbluePrice'),
-  ammoniaPrice: real('ammoniaPrice'),
-  biodieselPrice: real('biodieselPrice'),
-  bioethanolPrice: real('bioethanolPrice'),
-  compressedBiogasPrice: real('compressedBiogasPrice'),
-  liquefiedBiogasPrice: real('liquefiedBiogasPrice'),
-  renewableDieselPrice: real('renewableDieselPrice'),
-  cngPrice: real('cngPrice'),
-  lngPrice: real('lngPrice'),
-  lpgPrice: real('lpgPrice'),
-  gasoilAPrice: real('gasoilAPrice'),
-  gasoilBPrice: real('gasoilBPrice'),
-  premiumGasoilPrice: real('premiumGasoilPrice'),
-  gasoline95E10Price: real('gasoline95E10Price'),
-  gasoline95E25Price: real('gasoline95E25Price'),
-  gasoline95E5Price: real('gasoline95E5Price'),
-  gasoline95E5PremiumPrice: real('gasoline95E5PremiumPrice'),
-  gasoline95E85Price: real('gasoline95E85Price'),
-  gasoline98E10Price: real('gasoline98E10Price'),
-  gasoline98E5Price: real('gasoline98E5Price'),
-  renewableGasolinePrice: real('renewableGasolinePrice'),
-  hydrogenPrice: real('hydrogenPrice'),
-  methanolPrice: real('methanolPrice'),
-});
+// Legacy column map kept only so DatabaseService keeps passing the model into
+// the adapter's init() (database.service.spec pins that call shape); the real
+// table definition is the single source of truth in memory-db.ts.
+export const FuelStationModel = getTableColumns(fuelStationsTable);
 
 const ensureFuelStationsTable = (sqlite: BetterSqlite3.Database): void => {
   sqlite.exec(`CREATE TABLE IF NOT EXISTS fuel_stations (
@@ -158,7 +87,7 @@ interface FuelStationsFindOptions {
   offset?: number;
 }
 
-const table = fuelStations as unknown as MemoryTable;
+const table = fuelStationsTable as unknown as MemoryTable;
 
 const runSelect = (options: FuelStationsFindOptions) => {
   const db = getMemoryDb();
@@ -166,7 +95,7 @@ const runSelect = (options: FuelStationsFindOptions) => {
     ? db.select(Object.fromEntries(options.attributes.map((attribute) => [attribute, table[attribute]])))
     : db.select();
 
-  let query = base.from(fuelStations).where(translateWhere(table, options.where));
+  let query = base.from(fuelStationsTable).where(translateWhere(table, options.where));
 
   const orderBy = translateOrder(table, options.order);
   if (orderBy.length > 0) {
@@ -194,29 +123,29 @@ const findOne = async (options: FuelStationsFindOptions = {}) => {
 };
 
 const count = async () => {
-  const [row] = await getMemoryDb().select({ value: drizzleCount() }).from(fuelStations);
+  const [row] = await getMemoryDb().select({ value: drizzleCount() }).from(fuelStationsTable);
   return row.value as number;
 };
 
 const findAndCountAll = async (options: FuelStationsFindOptions = {}) => {
   const rows = await runSelect(options);
-  const [countRow] = await getMemoryDb().select({ value: drizzleCount() }).from(fuelStations).where(translateWhere(table, options.where));
+  const [countRow] = await getMemoryDb().select({ value: drizzleCount() }).from(fuelStationsTable).where(translateWhere(table, options.where));
   return { rows: rows.map(rowOf), count: countRow.value as number };
 };
 
 const truncate = async () => {
   // Drizzle query builders are lazy promise-likes: they only run when awaited.
-  await getMemoryDb().delete(fuelStations);
+  await getMemoryDb().delete(fuelStationsTable);
 };
 
 const bulkCreate = async (values: Record<string, unknown>[]) => {
   if (values.length === 0) return [];
-  const rows = await getMemoryDb().insert(fuelStations).values(values).returning();
+  const rows = await getMemoryDb().insert(fuelStationsTable).values(values).returning();
   return rows.map(rowOf);
 };
 
 const create = async (values: Record<string, unknown>) => {
-  const [row] = await getMemoryDb().insert(fuelStations).values(values).returning();
+  const [row] = await getMemoryDb().insert(fuelStationsTable).values(values).returning();
   return rowOf(row);
 };
 

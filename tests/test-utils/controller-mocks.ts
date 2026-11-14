@@ -184,23 +184,3 @@ export function createMockRequest(overrides: Record<string, unknown> = {}): Requ
   } as unknown as Request;
 }
 
-/**
- * Creates a mock Sequelize Model instance with the given dataValues.
- */
-export function createMockRow(dataValues: Record<string, unknown>) {
-  return {
-    dataValues,
-    get: vi.fn(() => dataValues),
-    getDataValue: vi.fn((key: string) => dataValues[key]),
-  } as unknown as import('sequelize').Model;
-}
-
-/**
- * Creates a mock LastUpdated Sequelize row.
- */
-export function createMockLastUpdated(lastUpdated: Date) {
-  return {
-    dataValues: { lastUpdated },
-    getDataValue: vi.fn(() => lastUpdated),
-  } as unknown as import('sequelize').Model;
-}

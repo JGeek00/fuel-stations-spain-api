@@ -1,8 +1,7 @@
 import Database from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { Op } from 'sequelize';
-import { and, asc, between, count as drizzleCount, desc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, count as drizzleCount, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { integer, real, sqliteTable, text, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { HistoricFuelStation } from './HistoricFuelStation';
 import { HistoricNoDataTable } from './HistoricNoData';
@@ -54,10 +53,10 @@ export const getPersistedDb = (): any => persistedPg;
 
 export type MemoryTable = Record<string, AnySQLiteColumn>;
 
-// ── Drizzle table definitions shared by controllers and MCP tools ──────────
-// FuelStations.ts / LastUpdated.ts keep identical private defs for the model
-// adapters; these mirror them (same table/column names) so consumers can build
-// Drizzle queries directly without importing Sequelize models.
+// ── Drizzle table definitions: single source of truth ─────────────────────
+// The FuelStations.ts / LastUpdated.ts model adapters import these tables
+// (same table/column names the old Sequelize defs had) so controllers, MCP
+// tools and the adapters all query one shared definition.
 export const fuelStationsTable = sqliteTable('fuel_stations', {
   id: text('id').primaryKey(),
   stationId: text('stationId'),
@@ -274,10 +273,14 @@ export class MemoryRow<T extends Record<string, unknown>> {
   }
 }
 
-type SequelizeStyleWhere = Record<string, unknown>;
+type PlainWhere = Record<string, unknown>;
 
-/** Translate a Sequelize-style where object ({col, [Op.between], [Op.in]}) into Drizzle conditions. */
-export function translateWhere(table: MemoryTable, where?: SequelizeStyleWhere): SQL | undefined {
+/**
+ * Translate a plain where object ({col: value | value[]}) into Drizzle
+ * conditions. No `Op.*` symbol branches: since T4 the controllers/tools build
+ * plain where objects (arrays are IN filters, scalars are equality).
+ */
+export function translateWhere(table: MemoryTable, where?: PlainWhere): SQL | undefined {
   if (!where) return undefined;
 
   const conditions: SQL[] = [];
@@ -286,20 +289,12 @@ export function translateWhere(table: MemoryTable, where?: SequelizeStyleWhere):
     if (!column) {
       throw new Error(`Unknown column "${key}" in memory DB query`);
     }
-    const record = value as Record<symbol, unknown>;
     if (Array.isArray(value)) {
       conditions.push(inArray(column, value));
-    } else if (value !== null && typeof value === 'object' && Op.between in record) {
-      const [min, max] = record[Op.between] as [unknown, unknown];
-      conditions.push(between(column, min as never, max as never));
-    } else if (value !== null && typeof value === 'object' && Op.in in record) {
-      conditions.push(inArray(column, record[Op.in] as never));
-    } else if (value !== null && typeof value === 'object' && Op.eq in record) {
-      conditions.push(eq(column, record[Op.eq] as never));
-    } else if (value !== null && typeof value === 'object') {
-      throw new Error(`Unsupported memory DB where operator for column "${key}"`);
-    } else {
+    } else if (value === null || typeof value !== 'object') {
       conditions.push(eq(column, value as never));
+    } else {
+      throw new Error(`Unsupported memory DB where operator for column "${key}"`);
     }
   }
 
@@ -307,7 +302,7 @@ export function translateWhere(table: MemoryTable, where?: SequelizeStyleWhere):
   return conditions.length === 1 ? conditions[0] : and(...conditions);
 }
 
-/** Translate a Sequelize-style order ([col, 'ASC'|'DESC']) into Drizzle orderBy entries. */
+/** Translate a legacy order tuple ([col, 'ASC'|'DESC']) into Drizzle orderBy entries. */
 export function translateOrder(table: MemoryTable, order?: unknown[][]): SQL[] {
   if (!order) return [];
   return order.map(([column, direction]) => {

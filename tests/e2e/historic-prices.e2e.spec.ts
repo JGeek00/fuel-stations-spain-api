@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
-import type { CreationAttributes } from 'sequelize';
 
 vi.mock('@/utils/logger', () => ({
   logger: {
@@ -13,33 +12,30 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
-import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
-import { createSqlite, listenApp, closeTestServer, type TestServer } from './setup';
-
-const sequelize = createSqlite();
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;
 let currentRowPk: string;
 
-// FuelStation's interface does not declare `id`, so the seeded primary key needs a cast.
-const fuelRow = (): CreationAttributes<FuelStationsTable> =>
-  ({
-    id: crypto.randomUUID(),
-    stationId: 'ES0001',
-    signage: 'REPSOL',
-    locality: 'Madrid',
-    gasoline95E5Price: 1.65,
-  }) as unknown as CreationAttributes<FuelStationsTable>;
+// FuelStation/HistoricPrice interfaces do not declare `id`, so the seeded
+// primary key is set directly (the adapters accept plain row objects).
+const fuelRow = () => ({
+  id: crypto.randomUUID(),
+  stationId: 'ES0001',
+  signage: 'REPSOL',
+  locality: 'Madrid',
+  gasoline95E5Price: 1.65,
+});
 
-const historicRow = (date: string, price: number, stationId = 'ES0001'): CreationAttributes<HistoricFuelStation> =>
-  ({
-    id: crypto.randomUUID(),
-    stationId,
-    stationSignage: 'REPSOL',
-    date,
-    gasoline95E5Price: price,
-  }) as unknown as CreationAttributes<HistoricFuelStation>;
+const historicRow = (date: string, price: number, stationId = 'ES0001') => ({
+  id: crypto.randomUUID(),
+  stationId,
+  stationSignage: 'REPSOL',
+  date,
+  gasoline95E5Price: price,
+});
 
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
@@ -47,17 +43,8 @@ beforeAll(async () => {
   // its parsed result for the lifetime of this module graph.
   process.env.HISTORIC_DATA_MAX_RANGE = '6m';
 
-  FuelStationsTable.init(FuelStationModel, {
-    sequelize,
-    modelName: 'FuelStation',
-    timestamps: false,
-  });
-  HistoricFuelStation.init(HistoricFuelStationModel, {
-    sequelize,
-    modelName: 'HistoricFuelStation',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
+  FuelStationsTable.init();
+  HistoricFuelStation.init();
 
   testServer = await listenApp(initExpress());
 });
@@ -112,7 +99,7 @@ describe('GET /historic-prices (e2e over real HTTP)', () => {
       stationSignage: 'EMPTY',
       date: '2024-01-10',
       gasoline95E5Price: null,
-    } as unknown as CreationAttributes<HistoricFuelStation>);
+    });
 
     const response = await fetch(`${testServer.baseUrl}/historic-prices?id=ES0009&startDate=2024-01-01&endDate=2024-01-31`);
 
@@ -185,5 +172,5 @@ describe('GET /historic-prices (e2e over real HTTP)', () => {
 
 afterAll(async () => {
   delete process.env.HISTORIC_DATA_MAX_RANGE;
-  await closeTestServer(testServer, sequelize);
+  await closeTestServer(testServer);
 });

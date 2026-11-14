@@ -1,9 +1,7 @@
 import * as Sentry from '@sentry/node';
-import type { Sequelize } from 'sequelize';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
-// @ts-ignore — pg ships no bundled types; @types/pg lands with the T8 cleanup.
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 
@@ -16,7 +14,7 @@ export type PersistedDb = NodePgDatabase<Record<string, never>> & {
 };
 import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
 import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
-import { getMemoryDb, getMemorySqlite, markPersistedDbInitialized, setPersistedDb } from '@/models/db/memory-db';
+import { getMemoryDb, markPersistedDbInitialized, setPersistedDb } from '@/models/db/memory-db';
 import { validatePostgresDbData } from '@/utils/postgres-db';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { pgMigrations } from '@/models/db/Migrations';
@@ -51,16 +49,16 @@ export class DatabaseService {
     // replacing Sequelize's sync({ alter: true }).
     logger.info("✅ Memory DB initialized")
 
-    // Kept as interface-compatible calls; the adapters' init creates the
-    // tables (and swaps in a fresh :memory: database).
+    // Kept as interface-compatible calls (database.service.spec pins this call
+    // shape); the adapters' init creates the tables and swaps in a fresh
+    // :memory: database — the model args are carried through for legacy
+    // compatibility only.
     FuelStationsTable.init(FuelStationModel, {
-      sequelize: getMemorySqlite() as unknown as Sequelize,
       modelName: 'FuelStation',
       timestamps: false,
     });
 
     LastUpdated.init(LastUpdatedModel, {
-      sequelize: getMemorySqlite() as unknown as Sequelize,
       modelName: 'LastUpdated',
       timestamps: false,
     })

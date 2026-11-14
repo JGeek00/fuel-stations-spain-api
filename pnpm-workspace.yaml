@@ -1,7 +1,7 @@
 allowBuilds:
   '@sentry-internal/node-cpu-profiler': true
   '@sentry/node-cpu-profiler': true
-  sqlite3: true
+  esbuild: true
 blockExoticSubdeps: true
 minimumReleaseAge: 1440
 saveExact: true

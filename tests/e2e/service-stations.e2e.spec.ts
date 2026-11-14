@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CreationAttributes } from 'sequelize';
 
 vi.mock('@/utils/logger', () => ({
   logger: {
@@ -12,24 +11,22 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
-import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
-import { createSqlite, listenApp, closeTestServer, type TestServer } from './setup';
-
-const sequelize = createSqlite();
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;
 
-// FuelStation's interface does not declare `id`, so the seeded primary key needs a cast.
-const seedRow = (stationId: string, latitude: number, longitude: number, municipalityId: number): CreationAttributes<FuelStationsTable> =>
-  ({
-    id: crypto.randomUUID(),
-    stationId,
-    latitude,
-    longitude,
-    municipalityId,
-    locality: 'Madrid',
-  }) as unknown as CreationAttributes<FuelStationsTable>;
+// FuelStation's interface does not declare `id`, so the seeded primary key is
+// set directly (the adapter accepts a plain row object).
+const seedRow = (stationId: string, latitude: number, longitude: number, municipalityId: number) => ({
+  id: crypto.randomUUID(),
+  stationId,
+  latitude,
+  longitude,
+  municipalityId,
+  locality: 'Madrid',
+});
 
 const seedStations = () => FuelStationsTable.bulkCreate([
   seedRow('ES0001', 40.4268, -3.6038, 28079),
@@ -56,17 +53,8 @@ const contractResultKeys = [
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init(FuelStationModel, {
-    sequelize,
-    modelName: 'FuelStation',
-    timestamps: false,
-  });
-  LastUpdated.init(LastUpdatedModel, {
-    sequelize,
-    modelName: 'LastUpdated',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
+  FuelStationsTable.init();
+  LastUpdated.init();
 
   testServer = await listenApp(initExpress());
 });
@@ -227,5 +215,5 @@ describe('GET /service-stations (e2e over real HTTP)', () => {
 });
 
 afterAll(async () => {
-  await closeTestServer(testServer, sequelize);
+  await closeTestServer(testServer);
 });

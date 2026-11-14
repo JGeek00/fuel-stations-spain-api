@@ -1,25 +1,33 @@
 import type BetterSqlite3 from 'better-sqlite3';
-import { count as drizzleCount } from 'drizzle-orm';
-import { DataTypes, Model } from "sequelize";
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { getMemoryDb, getMemorySqlite, MemoryRow } from './memory-db';
+import { count as drizzleCount, getTableColumns } from 'drizzle-orm';
+import { getMemoryDb, getMemorySqlite, lastUpdatedTable, MemoryRow } from './memory-db';
 
 export interface LastUpdatedAttributes {
   lastUpdated: Date;
 }
 
-export class LastUpdated extends Model<LastUpdatedAttributes> {}
+/**
+ * Typing shell replacing the removed Sequelize `Model` base: every member is
+ * declaration-only, and the Drizzle adapter Object.assign'd below provides the
+ * real behavior over the shared `:memory:` database.
+ */
+export class LastUpdated {
+  declare dataValues: LastUpdatedAttributes;
+  declare get: (options?: { plain?: boolean }) => LastUpdatedAttributes;
+  declare getDataValue: <K extends keyof LastUpdatedAttributes>(key: K) => LastUpdatedAttributes[K];
 
-export const LastUpdatedModel = {
-  lastUpdated: {
-    type: DataTypes.DATE,
-    primaryKey: true
-  }
+  declare static init: (...args: unknown[]) => void;
+  declare static findAll: () => Promise<LastUpdated[]>;
+  declare static findOne: () => Promise<LastUpdated | null>;
+  declare static count: () => Promise<number>;
+  declare static truncate: () => Promise<void>;
+  declare static create: (values: { lastUpdated: Date }) => Promise<LastUpdated>;
 }
 
-const lastUpdatedTable = sqliteTable('last_updated', {
-  lastUpdated: text('lastUpdated').primaryKey(),
-});
+// Legacy column map kept only so DatabaseService keeps passing the model into
+// the adapter's init() (database.service.spec pins that call shape); the real
+// table definition is the single source of truth in memory-db.ts.
+export const LastUpdatedModel = getTableColumns(lastUpdatedTable);
 
 const ensureLastUpdatedTable = (sqlite: BetterSqlite3.Database): void => {
   sqlite.exec('CREATE TABLE IF NOT EXISTS last_updated (lastUpdated TEXT PRIMARY KEY)');

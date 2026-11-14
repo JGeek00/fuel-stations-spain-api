@@ -40,7 +40,9 @@
     "@types/luxon": "3.7.6",
     "@types/morgan": "1.9.10",
     "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
     "@vitest/coverage-v8": "5.1.0",
+    "drizzle-kit": "0.31.11",
     "javascript-obfuscator": "5.10.1",
     "nodemon": "3.1.14",
     "tsc-alias": "1.9.10",
@@ -65,8 +67,6 @@
     "luxon": "3.7.2",
     "morgan": "1.12.1",
     "pg": "8.23.1",
-    "sequelize": "6.37.8",
-    "sqlite3": "6.0.1",
     "typia": "15.4.0",
     "zod": "4.6.7"
   },
