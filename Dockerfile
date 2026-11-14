@@ -10,6 +10,7 @@ COPY package*.json ./
 COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
 COPY tsconfig.json ./
+COPY tsconfig.build.json ./
 
 # Copy source code
 COPY src ./src
@@ -43,9 +44,6 @@ RUN npm install -g pnpm@latest
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
-
-# Copy prepare script from builder
-COPY --from=builder /app/scripts/prepare.js ./scripts/prepare.js
 
 # Install production dependencies only
 COPY package*.json ./
