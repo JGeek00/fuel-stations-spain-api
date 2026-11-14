@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { Mock } from 'vitest';
-import { keysToCamel } from '@/utils/case-keys';
+import { keysToCamel } from '@/shared/utils/case-keys';
 
 // ─── Shared vi.mock definitions ─────────────────────────────────────────────
 // These vi.mock calls are hoisted by Vitest. Import this file FIRST in any
@@ -10,7 +10,7 @@ vi.mock('@sentry/node', () => ({
   captureException: vi.fn(),
 }));
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 
-vi.mock('@/utils/error-handler', () => ({
+vi.mock('@/shared/errors/error-handler', () => ({
   createValidationError: vi.fn((message, details) => ({
     error: { message, code: 'VALIDATION_ERROR', details },
   })),
@@ -57,7 +57,7 @@ vi.mock('express-validator', () => ({
   })),
 }));
 
-vi.mock('@/utils/calculate-distance', () => ({
+vi.mock('@/shared/utils/calculate-distance', () => ({
   calculateBoundingBox: vi.fn(
     (lat: number, lon: number, radius: number) => ({
       minLat: lat - radius / 111.32,
@@ -68,7 +68,7 @@ vi.mock('@/utils/calculate-distance', () => ({
   ),
 }));
 
-vi.mock('@/utils/case-keys', () => ({
+vi.mock('@/shared/utils/case-keys', () => ({
   keysToCamel: vi.fn((obj) => {
     if (Array.isArray(obj)) return obj.map(keysToCamel);
     if (obj && typeof obj === 'object') {
@@ -82,12 +82,12 @@ vi.mock('@/utils/case-keys', () => ({
   }),
 }));
 
-vi.mock('@/utils/historic-data-limit', () => ({
+vi.mock('@/shared/utils/historic-data-limit', () => ({
   getHistoricDataMaxRangeMonths: vi.fn(() => null),
   formatRange: vi.fn((months) => `${months} months`),
 }));
 
-vi.mock('@/config/config.json', () => ({
+vi.mock('@/shared/config/config.json', () => ({
   default: {
     defaults: {
       query: {

@@ -36,7 +36,7 @@ MCP server for Fuel Stations Spain API. Query real-time fuel prices, historical 
 
 Compare a specific fuel type price across multiple stations. Filter by station IDs, municipality, or get the cheapest options. Returns stations sorted by the selected fuel price (ascending).
 
-*Source: `src/mcp/tools/compare-fuel-prices.ts`*
+*Source: `src/interfaces/mcp/tools/compare-fuel-prices.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -56,7 +56,7 @@ Compare a specific fuel type price across multiple stations. Filter by station I
 
 Find the N cheapest stations for a specific fuel type. Can search globally or within a geographic radius. Results sorted from cheapest to most expensive.
 
-*Source: `src/mcp/tools/find-cheapest-fuel.ts`*
+*Source: `src/interfaces/mcp/tools/find-cheapest-fuel.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -77,7 +77,7 @@ Find the N cheapest stations for a specific fuel type. Can search globally or wi
 
 Check the status of both databases (SQLite realtime and PostgreSQL historic). Returns the last update timestamp, total station count, and PostgreSQL connectivity status.
 
-*Source: `src/mcp/tools/get-database-status.ts`*
+*Source: `src/interfaces/mcp/tools/get-database-status.ts`*
 
 ### `get_station_info`
 
@@ -85,7 +85,7 @@ Check the status of both databases (SQLite realtime and PostgreSQL historic). Re
 
 Get complete details of a specific fuel station by its ID. Returns all available information including address, coordinates, opening hours, and all current fuel prices.
 
-*Source: `src/mcp/tools/get-station-info.ts`*
+*Source: `src/interfaces/mcp/tools/get-station-info.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -102,7 +102,7 @@ Get complete details of a specific fuel station by its ID. Returns all available
 
 List Spanish municipalities with optional filters for province, region, or text search. Returns municipality IDs, names, province, and autonomous community (region).
 
-*Source: `src/mcp/tools/list-municipalities.ts`*
+*Source: `src/interfaces/mcp/tools/list-municipalities.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -121,7 +121,7 @@ List Spanish municipalities with optional filters for province, region, or text 
 
 Search for fuel stations in Spain by ID, municipality, province, or region. Returns current fuel prices and station information. Use limit and offset for pagination.
 
-*Source: `src/mcp/tools/query-fuel-stations.ts`*
+*Source: `src/interfaces/mcp/tools/query-fuel-stations.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -143,7 +143,7 @@ Search for fuel stations in Spain by ID, municipality, province, or region. Retu
 
 Query historical fuel prices for a specific station over a date range. Returns a time series of prices sorted chronologically. Maximum date range is 1 year. Optionally includes current prices.
 
-*Source: `src/mcp/tools/query-historic-prices.ts`*
+*Source: `src/interfaces/mcp/tools/query-historic-prices.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -163,7 +163,7 @@ Query historical fuel prices for a specific station over a date range. Returns a
 
 Find fuel stations within a geographic radius. Provides the center coordinates (latitude, longitude) and a distance in kilometers (10-50 km). Returns all stations inside the search area with their current fuel prices.
 
-*Source: `src/mcp/tools/search-by-location.ts`*
+*Source: `src/interfaces/mcp/tools/search-by-location.ts`*
 
 <details>
 <summary>Parameters</summary>
@@ -190,4 +190,4 @@ Find fuel stations within a geographic radius. Provides the center coordinates (
 
 ---
 
-*Generated on 2026-05-15T00:26:44.667Z from source files in `src/mcp/`*
+*Generated on 2026-05-15T00:26:44.667Z from source files in `src/interfaces/mcp/`*

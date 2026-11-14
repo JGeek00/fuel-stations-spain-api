@@ -4,7 +4,7 @@ import type { Application } from 'express';
 
 /**
  * Shared e2e boot helpers. Each spec file runs against the shared better-sqlite3
- * `:memory:` database from `src/models/db/memory-db.ts` (vitest isolates files
+ * `:memory:` database from `src/infrastructure/persistence/memory-db.ts` (vitest isolates files
  * by default) and must never import `@/server` or call `databaseService.init()`.
  *
  * Since the layered-architecture refactor, seeds reset the schema with

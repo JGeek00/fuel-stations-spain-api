@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DateTime } from 'luxon';
-import { ListaEESSPrecio } from '@/dto/ServiceStations.dto';
+import { ListaEESSPrecio } from '@/infrastructure/providers/minetur/dto/ServiceStations.dto';
 
 // Mock Sentry
 vi.mock('@sentry/node', () => ({
@@ -16,7 +16,7 @@ vi.mock('cron/dist/job', () => ({
 }));
 
 // Mock logger
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -24,16 +24,16 @@ vi.mock('@/utils/logger', () => ({
     debug: vi.fn(),
   },
 }));
-vi.mock('@/utils/numbers', () => ({
+vi.mock('@/shared/utils/numbers', () => ({
   twoDigits: vi.fn((n) => String(n).padStart(2, '0')),
 }));
-vi.mock('@/utils/sleep', () => ({
+vi.mock('@/shared/utils/sleep', () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock DataProviderApiService
 const mockGetStationsHistoric = vi.fn();
-vi.mock('@/services/data-provider-api.service', () => ({
+vi.mock('@/infrastructure/providers/minetur/data-provider-api.service', () => ({
   DataProviderApiService: {
     getStationsHistoric: mockGetStationsHistoric,
   },
@@ -46,7 +46,7 @@ const mockMap = vi.fn((stations) =>
     signage: s.Rótulo,
   }))
 );
-vi.mock('@/mapper', () => ({
+vi.mock('@/infrastructure/mappers', () => ({
   FuelStationsMapper: {
     map: mockMap,
   },
@@ -84,8 +84,8 @@ describe('PersistedDataService', () => {
     it('returns early when DB is not initialized', async () => {
       mockIsReady.mockReturnValue(false);
 
-      const { logger } = await import('@/utils/logger');
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.error).toHaveBeenCalledWith('❌ Persistent DB not initialized.');
@@ -95,8 +95,8 @@ describe('PersistedDataService', () => {
     it('returns early when no data exists in DB', async () => {
       mockGetExistingDates.mockResolvedValue([]);
 
-      const { logger } = await import('@/utils/logger');
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.error).toHaveBeenCalledWith(
@@ -112,8 +112,8 @@ describe('PersistedDataService', () => {
 
       mockGetExistingDates.mockResolvedValue([yesterday as string, today as string]);
 
-      const { logger } = await import('@/utils/logger');
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       expect(logger.info).toHaveBeenCalledWith('🗓️ No new dates to fetch for the historic');
@@ -132,7 +132,7 @@ describe('PersistedDataService', () => {
       });
       mockMap.mockReturnValue([{ stationId: 'ES001', signage: 'Test' }]);
 
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       // Should have fetched the missing dates and saved the batch through the repository
@@ -154,8 +154,8 @@ describe('PersistedDataService', () => {
       });
       mockMap.mockReturnValue([{ stationId: 'ES001', signage: 'Test' }]);
 
-      const { persistedDataService } = await import('@/services/persisted-data.service');
-      const { sleep } = await import('@/utils/sleep');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
+      const { sleep } = await import('@/shared/utils/sleep');
       await persistedDataService.loadStationsHistoric();
 
       // 14 missing dates → 2 full batches of 7, sleep only between batches
@@ -177,7 +177,7 @@ describe('PersistedDataService', () => {
       });
       mockMap.mockReturnValue([]);
 
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       // every hole (4 days since date1) returns empty → all marked as no-data
@@ -194,7 +194,7 @@ describe('PersistedDataService', () => {
       mockGetNoDataDates.mockResolvedValue([noDataDate as string]);
       mockGetStationsHistoric.mockResolvedValue(null);
 
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadStationsHistoric();
 
       // Should not fetch the no-data date
@@ -208,8 +208,8 @@ describe('PersistedDataService', () => {
     it('calls loadStationsHistoric', async () => {
       mockIsReady.mockReturnValue(false);
 
-      const { logger } = await import('@/utils/logger');
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadAll();
 
       // loadStationsHistoric should have run (and returned early: DB not initialized)
@@ -219,8 +219,8 @@ describe('PersistedDataService', () => {
     it('catches errors from loadStationsHistoric', async () => {
       mockGetExistingDates.mockRejectedValue(new Error('DB error'));
 
-      const { logger } = await import('@/utils/logger');
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       await persistedDataService.loadAll();
 
       // Should have logged the error
@@ -230,7 +230,7 @@ describe('PersistedDataService', () => {
 
   describe('registerProgrammedTask', () => {
     it('registers a cron job with schedule 0 1 * * *', async () => {
-      const { persistedDataService } = await import('@/services/persisted-data.service');
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
       persistedDataService.registerProgrammedTask();
 
       expect(mockCronJobFrom).toHaveBeenCalledWith(

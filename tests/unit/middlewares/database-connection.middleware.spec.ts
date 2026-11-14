@@ -18,7 +18,7 @@ vi.mock('@/infrastructure/persistence/HistoricRepository', () => ({
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
-import { databaseConnectionMiddleware } from '@/middlewares/database-connection.middleware';
+import { databaseConnectionMiddleware } from '@/interfaces/http/middlewares/database-connection.middleware';
 import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
 
 const mockIsReady = historicRepository.isReady as unknown as ReturnType<typeof vi.fn<() => boolean>>;

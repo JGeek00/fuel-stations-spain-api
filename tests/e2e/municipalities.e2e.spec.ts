@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -12,7 +12,7 @@ vi.mock('@/utils/logger', () => ({
 
 import { initExpress } from '@/express';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
-import type { Municipality } from '@/models/entities/Municipality.model';
+import type { Municipality } from '@/domain/entities/Municipality.model';
 import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;

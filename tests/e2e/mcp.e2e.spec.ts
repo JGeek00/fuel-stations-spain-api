@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -15,10 +15,10 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { McpServerManager } from '@/mcp/manager';
+import { McpServerManager } from '@/interfaces/mcp/manager';
 import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
-import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
-import type { DatabaseService } from '@/services/database.service';
+import { fuelStationsTable, getMemoryDb } from '@/infrastructure/persistence/memory-db';
+import type { DatabaseService } from '@/infrastructure/database/database.service';
 
 let server: Server;
 let baseUrl: string;

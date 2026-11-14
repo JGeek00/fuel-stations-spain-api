@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -12,7 +12,7 @@ vi.mock('@/utils/logger', () => ({
 
 import { initExpress } from '@/express';
 import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
-import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/models/db/memory-db';
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/infrastructure/persistence/memory-db';
 import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;

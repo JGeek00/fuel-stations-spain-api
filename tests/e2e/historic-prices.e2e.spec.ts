@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -18,7 +18,7 @@ import {
   getMemoryDb,
   historicFuelStationsTable,
   markPersistedDbInitialized,
-} from '@/models/db/memory-db';
+} from '@/infrastructure/persistence/memory-db';
 import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;

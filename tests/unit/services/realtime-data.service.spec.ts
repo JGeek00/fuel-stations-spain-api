@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock logger
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('cron', () => ({
 // Mock DataProviderApiService (the real module, shim re-exports from it)
 const mockGetStations = vi.fn();
 const mockGetMunicipalities = vi.fn();
-vi.mock('@/services/data-provider-api.service', () => ({
+vi.mock('@/infrastructure/providers/minetur/data-provider-api.service', () => ({
   DataProviderApiService: {
     getStations: mockGetStations,
     getMunicipalities: mockGetMunicipalities,
@@ -35,7 +35,7 @@ vi.mock('@/services/data-provider-api.service', () => ({
 
 // Mock FuelStationsMapper
 const mockMap = vi.fn();
-vi.mock('@/mapper', () => ({
+vi.mock('@/infrastructure/mappers', () => ({
   FuelStationsMapper: {
     map: mockMap,
   },
@@ -119,7 +119,7 @@ describe('RealtimeDataService', () => {
       mockGetStations.mockResolvedValue(mockApiData);
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       await realtimeDataService.loadStations();
 
       expect(mockGetStations).toHaveBeenCalled();
@@ -132,7 +132,7 @@ describe('RealtimeDataService', () => {
     it('handles null response from API gracefully', async () => {
       mockGetStations.mockResolvedValue(null);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       await realtimeDataService.loadStations();
 
       expect(mockGetStations).toHaveBeenCalled();
@@ -148,8 +148,8 @@ describe('RealtimeDataService', () => {
       mockGetStations.mockResolvedValue(duplicatedApiData);
       mockMap.mockReturnValue([{ stationId: 'ES001' }, { stationId: 'ES001' }]);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
-      const { logger } = await import('@/utils/logger');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
+      const { logger } = await import('@/shared/utils/logger');
       await realtimeDataService.loadStations();
 
       expect(logger.warn).toHaveBeenCalledWith('⚠️ Duplicated IDs found: ES001');
@@ -160,8 +160,8 @@ describe('RealtimeDataService', () => {
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
       mockReplaceAll.mockRejectedValue(new Error('DB error'));
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
-      const { logger } = await import('@/utils/logger');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
+      const { logger } = await import('@/shared/utils/logger');
       await realtimeDataService.loadStations();
 
       expect(mockReplaceAll).toHaveBeenCalled();
@@ -178,7 +178,7 @@ describe('RealtimeDataService', () => {
 
       mockGetMunicipalities.mockResolvedValue(mockMunicipalities);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       await realtimeDataService.loadMunicipalities();
 
       expect(mockGetMunicipalities).toHaveBeenCalled();
@@ -190,7 +190,7 @@ describe('RealtimeDataService', () => {
     it('handles null response from API gracefully', async () => {
       mockGetMunicipalities.mockResolvedValue(null);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       await realtimeDataService.loadMunicipalities();
 
       expect(mockGetMunicipalities).toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe('RealtimeDataService', () => {
 
       mockGetMunicipalities.mockResolvedValue(mockMunicipalities);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       await realtimeDataService.loadMunicipalities();
 
       const saved = (mockMunicipalitiesReplaceAll.mock.calls[0][0] as Record<string, unknown>[])[0];
@@ -228,7 +228,7 @@ describe('RealtimeDataService', () => {
       mockGetMunicipalities.mockResolvedValue([]);
       mockMap.mockReturnValue([]);
 
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       await realtimeDataService.loadAll();
 
       expect(mockGetStations).toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe('RealtimeDataService', () => {
 
   describe('registerProgrammedTask', () => {
     it('registers a cron job with default schedule', async () => {
-      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
       realtimeDataService.registerProgrammedTask();
 
       expect(mockCronJobFrom).toHaveBeenCalledWith(

@@ -1,6 +1,6 @@
 import { CronJob } from 'cron';
-import { realtimeDataService } from '@/services/realtime-data.service';
-import { logger } from '@/utils/logger';
+import { realtimeDataService } from '@/infrastructure/sync/realtime-data.service';
+import { logger } from '@/shared/utils/logger';
 
 /** Scheduled realtime sync — owns the cron, delegates loading to the service. */
 export function registerRealtimeJob(): void {

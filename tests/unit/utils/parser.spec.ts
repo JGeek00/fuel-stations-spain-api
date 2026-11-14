@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseStringToFloat } from '@/utils/parser';
+import { parseStringToFloat } from '@/shared/utils/parser';
 
 describe('parseStringToFloat', () => {
   it('parses a simple decimal number (dot is stripped as thousands separator)', () => {

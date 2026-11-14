@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
-import { Municipality } from '@/models/entities';
+import { Municipality } from '@/domain/entities';
 
 describe('MunicipalitiesRepository', () => {
   beforeEach(() => {

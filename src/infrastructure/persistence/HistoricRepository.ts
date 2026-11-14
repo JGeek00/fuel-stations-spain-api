@@ -7,9 +7,9 @@ import {
   historicFuelStationsTable,
   historicNoDataTable,
   isPersistedDbInitialized,
-} from '@/models/db/memory-db';
+} from '@/infrastructure/persistence/memory-db';
 import { pgHistoricData, pgHistoricNoData } from './pg-tables';
-import type { HistoricPrice } from '@/models/entities/HistoricPrice.model';
+import type { HistoricPrice } from '@/domain/entities/HistoricPrice.model';
 import { HISTORIC_PRICE_COLUMNS } from './fuel-fields';
 import type { IHistoricRepository } from '@/application/ports/repositories';
 

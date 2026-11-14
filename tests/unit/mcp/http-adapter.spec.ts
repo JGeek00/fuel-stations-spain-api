@@ -24,7 +24,7 @@ vi.mock('@modelcontextprotocol/sdk/server/streamableHttp.js', () => {
   return { StreamableHTTPServerTransport };
 });
 
-vi.mock('@/services/database.service', () => {
+vi.mock('@/infrastructure/database/database.service', () => {
   class DatabaseService {
     persistedDbInstance = { authenticate: vi.fn().mockResolvedValue(undefined) };
     memoryDbInstance = {};
@@ -32,7 +32,7 @@ vi.mock('@/services/database.service', () => {
   return { DatabaseService };
 });
 
-vi.mock('@/mcp/server', () => {
+vi.mock('@/interfaces/mcp/server', () => {
   class McpServer {
     server = { connect: vi.fn() };
     registerTool = vi.fn();
@@ -43,15 +43,15 @@ vi.mock('@/mcp/server', () => {
   };
 });
 
-vi.mock('@/utils/mcp', () => ({
+vi.mock('@/shared/utils/mcp', () => ({
   parseCsvEnv: vi.fn().mockReturnValue([]),
   parseSessionId: vi.fn((header) => (header ? header : undefined)),
 }));
 
 // ── Import after mocks ───────────────────────────────────────────────────────
-import { McpServerManager } from '@/mcp/manager';
-import { createMcpRouter } from '@/mcp/http-adapter';
-import { DatabaseService } from '@/services/database.service';
+import { McpServerManager } from '@/interfaces/mcp/manager';
+import { createMcpRouter } from '@/interfaces/mcp/http-adapter';
+import { DatabaseService } from '@/infrastructure/database/database.service';
 import type { Request, Response } from 'express';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { Municipality } from '@/models/entities/Municipality.model';
+import { Municipality } from '@/domain/entities/Municipality.model';
 import type { IMunicipalitiesRepository } from '@/application/ports/repositories';
 
 /** In-memory municipalities store (owned by the data layer, S1). */

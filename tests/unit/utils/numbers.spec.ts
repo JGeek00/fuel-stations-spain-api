@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { twoDigits } from '@/utils/numbers';
+import { twoDigits } from '@/shared/utils/numbers';
 
 describe('twoDigits', () => {
   it('pads single-digit numbers with leading zero', () => {

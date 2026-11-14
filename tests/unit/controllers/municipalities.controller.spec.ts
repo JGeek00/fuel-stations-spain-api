@@ -10,10 +10,10 @@ import {
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
-import { municipalitiesController } from '@/controllers/municipalities.controller';
-import { logger } from '@/utils/logger';
+import { municipalitiesController } from '@/interfaces/http/controllers/municipalities.controller';
+import { logger } from '@/shared/utils/logger';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
-import { sendApiError } from '@/utils/error-handler';
+import { sendApiError } from '@/shared/errors/error-handler';
 
 const mockLoggerError = vi.mocked(logger.error);
 const mockSendApiError = vi.mocked(sendApiError);

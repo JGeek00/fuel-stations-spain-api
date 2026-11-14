@@ -1,10 +1,10 @@
 import { DateTime } from 'luxon';
 import { DateTime as LuxonDateTime } from 'luxon';
-import { keysToCamel } from '@/utils/case-keys';
-import { createBadRequestError, createValidationError } from '@/utils/error-handler';
-import { formatRange, getHistoricDataMaxRangeMonths } from '@/utils/historic-data-limit';
+import { keysToCamel } from '@/shared/utils/case-keys';
+import { createBadRequestError, createValidationError } from '@/shared/errors/error-handler';
+import { formatRange, getHistoricDataMaxRangeMonths } from '@/shared/utils/historic-data-limit';
 import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
-import type { HistoricPrice } from '@/models/entities/HistoricPrice.model';
+import type { HistoricPrice } from '@/domain/entities/HistoricPrice.model';
 
 export interface GetHistoricPricesInput {
   id: string | string[];

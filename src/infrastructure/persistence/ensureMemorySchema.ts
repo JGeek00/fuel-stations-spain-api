@@ -1,5 +1,5 @@
 import type BetterSqlite3 from 'better-sqlite3';
-import { getMemorySqlite, resetMemoryDb } from '@/models/db/memory-db';
+import { getMemorySqlite, resetMemoryDb } from '@/infrastructure/persistence/memory-db';
 
 const FUEL_STATIONS_DDL = `CREATE TABLE IF NOT EXISTS fuel_stations (
   id TEXT PRIMARY KEY,

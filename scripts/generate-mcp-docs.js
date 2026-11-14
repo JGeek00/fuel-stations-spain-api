@@ -419,7 +419,7 @@ function generateMarkdown(spec) {
   // ── Footer ─────────────────────────────────────────────────────────────
   l('---');
   l('');
-  l(`*Generated on ${spec.generatedAt} from source files in \`src/mcp/\`*`);
+  l(`*Generated on ${spec.generatedAt} from source files in ` + '`src/interfaces/mcp/`' + `*`);
 
   return lines.join('\n');
 }
@@ -428,9 +428,9 @@ function generateMarkdown(spec) {
 
 function main() {
   const root = path.resolve(__dirname, '..');
-  const toolsDir = path.join(root, 'src', 'mcp', 'tools');
-  const resourcesDir = path.join(root, 'src', 'mcp', 'resources');
-  const serverFile = path.join(root, 'src', 'mcp', 'server.ts');
+  const toolsDir = path.join(root, 'src', 'interfaces', 'mcp', 'tools');
+  const resourcesDir = path.join(root, 'src', 'interfaces', 'mcp', 'resources');
+  const serverFile = path.join(root, 'src', 'interfaces', 'mcp', 'server.ts');
   const docsDir = path.join(root, 'docs');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
 

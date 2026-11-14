@@ -15,8 +15,8 @@ vi.mock('@/infrastructure/persistence/StationRepository', () => ({
   },
 }));
 
-import { healthcheckController } from '@/controllers/healthcheck.controller';
-import { logger } from '@/utils/logger';
+import { healthcheckController } from '@/interfaces/http/controllers/healthcheck.controller';
+import { logger } from '@/shared/utils/logger';
 import { stationRepository } from '@/infrastructure/persistence/StationRepository';
 
 const mockLoggerError = vi.mocked(logger.error);

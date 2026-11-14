@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -19,10 +19,10 @@ vi.mock('typia', () => ({
   },
 }));
 
-import { realtimeDataService } from '@/services/realtime-data.service';
-import { municipalitiesController } from '@/controllers/municipalities.controller';
+import { realtimeDataService } from '@/infrastructure/sync/realtime-data.service';
+import { municipalitiesController } from '@/interfaces/http/controllers/municipalities.controller';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
-import { logger } from '@/utils/logger';
+import { logger } from '@/shared/utils/logger';
 import { municipalitiesResponse, stubProviderFetch } from './helpers';
 
 const next: NextFunction = () => {};

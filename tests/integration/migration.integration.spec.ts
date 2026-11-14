@@ -2,9 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { asc } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { pgMigrations } from '@/models/db/Migrations';
+import { pgMigrations } from '@/infrastructure/persistence/Migrations';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 
-import { migrationService } from '@/services/migration.service';
+import { migrationService } from '@/infrastructure/database/migration.service';
 import {
   createPreMigrationSchema,
   dropMigrationSurface,

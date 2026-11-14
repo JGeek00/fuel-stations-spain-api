@@ -9,8 +9,8 @@ import {
   createMockRequest,
 } from '@tests/test-utils/controller-mocks';
 
-vi.mock('@/models/db/memory-db', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
+vi.mock('@/infrastructure/persistence/memory-db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/infrastructure/persistence/memory-db')>();
   return {
     ...actual,
     getMemoryDb: vi.fn(),
@@ -21,11 +21,11 @@ vi.mock('@/models/db/memory-db', async (importOriginal) => {
 
 import * as Sentry from '@sentry/node';
 import { validationResult } from 'express-validator';
-import { serviceStationsController } from '@/controllers/service-stations.controller';
-import { logger } from '@/utils/logger';
-import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/models/db/memory-db';
-import { sendApiError } from '@/utils/error-handler';
+import { serviceStationsController } from '@/interfaces/http/controllers/service-stations.controller';
+import { logger } from '@/shared/utils/logger';
+import { calculateBoundingBox } from '@/shared/utils/calculate-distance';
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/infrastructure/persistence/memory-db';
+import { sendApiError } from '@/shared/errors/error-handler';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -23,15 +23,15 @@ vi.mock('@sentry/node', () => ({
 }));
 
 // Never wait real 60s between batches; the tests keep batches <= 1 anyway
-vi.mock('@/utils/sleep', () => ({
+vi.mock('@/shared/utils/sleep', () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { asc, count } from 'drizzle-orm';
-import { persistedDataService } from '@/services/persisted-data.service';
-import { logger } from '@/utils/logger';
-import type { HistoricNoData, HistoricPrice } from '@/models/entities';
-import { getMemoryDb, historicFuelStationsTable, historicNoDataTable } from '@/models/db/memory-db';
+import { persistedDataService } from '@/infrastructure/sync/persisted-data.service';
+import { logger } from '@/shared/utils/logger';
+import type { HistoricNoData, HistoricPrice } from '@/domain/entities';
+import { getMemoryDb, historicFuelStationsTable, historicNoDataTable } from '@/infrastructure/persistence/memory-db';
 import {
   initHistoricSchema,
   stationEntry,

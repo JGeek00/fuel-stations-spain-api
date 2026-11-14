@@ -10,7 +10,7 @@ vi.mock('@/application/usecases/GetDatabaseStatus.usecase', () => ({
   getDatabaseStatusUseCase: vi.fn(),
 }));
 
-vi.mock('@/services/database.service', () => {
+vi.mock('@/infrastructure/database/database.service', () => {
   class DatabaseService {
     persistedDbInstance = { authenticate: vi.fn().mockResolvedValue(undefined) };
     memoryDbInstance = {};
@@ -18,7 +18,7 @@ vi.mock('@/services/database.service', () => {
   return { DatabaseService };
 });
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
@@ -55,8 +55,8 @@ import {
   registerStationsSchemaResource,
   registerDatabaseInfoResource,
   registerMunicipalitiesResource,
-} from '@/mcp/resources';
-import { DatabaseService } from '@/services/database.service';
+} from '@/interfaces/mcp/resources';
+import { DatabaseService } from '@/infrastructure/database/database.service';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
 

@@ -3,11 +3,11 @@ import '@/bootstrap';
 
 import packageJson from '../package.json';
 import { initExpress } from '@/express';
-import { databaseService } from '@/services/database.service';
+import { databaseService } from '@/infrastructure/database/database.service';
 import { startScheduledJobs } from '@/jobs/scheduler';
-import { McpServerManager } from '@/mcp/manager';
-import { logger } from '@/utils/logger';
-import { validateHistoricDataMaxRange } from '@/utils/historic-data-limit';
+import { McpServerManager } from '@/interfaces/mcp/manager';
+import { logger } from '@/shared/utils/logger';
+import { validateHistoricDataMaxRange } from '@/shared/utils/historic-data-limit';
 
 const step = (label: string, status: '✓' | '⚠' | '✗', detail?: string): void => {
   const paddedLabel = label.padEnd(36, '.');

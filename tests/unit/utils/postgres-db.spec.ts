@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { validatePostgresDbData } from '@/utils/postgres-db';
+import { validatePostgresDbData } from '@/shared/utils/postgres-db';
 
 describe('validatePostgresDbData', () => {
   const originalEnv = { ...process.env };

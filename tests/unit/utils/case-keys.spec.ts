@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { snakeToCamel, camelToSnake, keysToCamel, keysToSnake } from '@/utils/case-keys';
+import { snakeToCamel, camelToSnake, keysToCamel, keysToSnake } from '@/shared/utils/case-keys';
 
 describe('snakeToCamel', () => {
   it('converts a simple snake_case string', () => {

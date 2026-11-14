@@ -9,15 +9,15 @@ import {
 } from '@tests/test-utils/controller-mocks';
 
 // ── Test-specific mocks (hoisted by Vitest) ─────────────────────────────────
-vi.mock('@/services/sentry.service', () => ({
+vi.mock('@/infrastructure/observability/sentry.service', () => ({
   sentryEnabled: false,
 }));
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
 import * as Sentry from '@sentry/node';
-import { errorHandlerMiddleware } from '@/middlewares/error-handler.middleware';
-import { logger } from '@/utils/logger';
+import { errorHandlerMiddleware } from '@/interfaces/http/middlewares/error-handler.middleware';
+import { logger } from '@/shared/utils/logger';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);

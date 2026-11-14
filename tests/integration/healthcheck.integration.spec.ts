@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -11,9 +11,9 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 
-import { healthcheckController } from '@/controllers/healthcheck.controller';
+import { healthcheckController } from '@/interfaces/http/controllers/healthcheck.controller';
 import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
-import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
+import { fuelStationsTable, getMemoryDb } from '@/infrastructure/persistence/memory-db';
 
 const next: NextFunction = () => {};
 

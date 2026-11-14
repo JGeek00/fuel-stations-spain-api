@@ -22,7 +22,7 @@ vi.mock('@modelcontextprotocol/sdk/server/streamableHttp.js', () => {
   return { StreamableHTTPServerTransport };
 });
 
-vi.mock('@/services/database.service', () => {
+vi.mock('@/infrastructure/database/database.service', () => {
   class DatabaseService {
     persistedDbInstance = { authenticate: vi.fn().mockResolvedValue(undefined) };
     memoryDbInstance = {};
@@ -34,7 +34,7 @@ vi.mock('@/services/database.service', () => {
 // LastUpdated, repository/Municipalities.repository): the server now wires the
 // infrastructure repository seams, which are not invoked during registration.
 
-vi.mock('@/utils/calculate-distance', () => ({
+vi.mock('@/shared/utils/calculate-distance', () => ({
   calculateBoundingBox: vi.fn().mockReturnValue({
     minLat: 0,
     maxLat: 1,
@@ -43,21 +43,21 @@ vi.mock('@/utils/calculate-distance', () => ({
   }),
 }));
 
-vi.mock('@/utils/case-keys', () => ({
+vi.mock('@/shared/utils/case-keys', () => ({
   keysToCamel: vi.fn(),
 }));
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('@/utils/mcp', () => ({
+vi.mock('@/shared/utils/mcp', () => ({
   parseCsvEnv: vi.fn().mockReturnValue([]),
 }));
 
 // ── Import after mocks ───────────────────────────────────────────────────────
-import { createMcpServerInstance } from '@/mcp/server';
-import { DatabaseService } from '@/services/database.service';
+import { createMcpServerInstance } from '@/interfaces/mcp/server';
+import { DatabaseService } from '@/infrastructure/database/database.service';
 
 /**
  * Typed mock server — TypeScript sees the real SDK types for McpServer,

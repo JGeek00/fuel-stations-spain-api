@@ -2,7 +2,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Server } from 'node:http';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('@/utils/logger', () => ({
 
 import { initExpress } from '@/express';
 import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
-import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
+import { fuelStationsTable, getMemoryDb } from '@/infrastructure/persistence/memory-db';
 
 let server: Server;
 let baseUrl: string;

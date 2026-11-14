@@ -41,7 +41,7 @@
           "max": 200
         }
       ],
-      "sourceFile": "src/mcp/tools/compare-fuel-prices.ts"
+      "sourceFile": "src/interfaces/mcp/tools/compare-fuel-prices.ts"
     },
     {
       "name": "find_cheapest_fuel",
@@ -86,14 +86,14 @@
           "max": 200
         }
       ],
-      "sourceFile": "src/mcp/tools/find-cheapest-fuel.ts"
+      "sourceFile": "src/interfaces/mcp/tools/find-cheapest-fuel.ts"
     },
     {
       "name": "get_database_status",
       "title": "Get Database Status",
       "description": "Check the status of both databases (SQLite realtime and PostgreSQL historic). Returns the last update timestamp, total station count, and PostgreSQL connectivity status.",
       "parameters": [],
-      "sourceFile": "src/mcp/tools/get-database-status.ts"
+      "sourceFile": "src/interfaces/mcp/tools/get-database-status.ts"
     },
     {
       "name": "get_station_info",
@@ -107,7 +107,7 @@
           "description": "The unique ID of the fuel station"
         }
       ],
-      "sourceFile": "src/mcp/tools/get-station-info.ts"
+      "sourceFile": "src/interfaces/mcp/tools/get-station-info.ts"
     },
     {
       "name": "list_municipalities",
@@ -133,7 +133,7 @@
           "description": "Search by municipality name (partial match)"
         }
       ],
-      "sourceFile": "src/mcp/tools/list-municipalities.ts"
+      "sourceFile": "src/interfaces/mcp/tools/list-municipalities.ts"
     },
     {
       "name": "query_fuel_stations",
@@ -181,7 +181,7 @@
           "min": 0
         }
       ],
-      "sourceFile": "src/mcp/tools/query-fuel-stations.ts"
+      "sourceFile": "src/interfaces/mcp/tools/query-fuel-stations.ts"
     },
     {
       "name": "query_historic_prices",
@@ -214,7 +214,7 @@
           "defaultValue": "false"
         }
       ],
-      "sourceFile": "src/mcp/tools/query-historic-prices.ts"
+      "sourceFile": "src/interfaces/mcp/tools/query-historic-prices.ts"
     },
     {
       "name": "search_stations_by_location",
@@ -243,7 +243,7 @@
           "defaultValue": "30`"
         }
       ],
-      "sourceFile": "src/mcp/tools/search-by-location.ts"
+      "sourceFile": "src/interfaces/mcp/tools/search-by-location.ts"
     }
   ],
   "resources": [
@@ -252,35 +252,35 @@
       "uri": "fuelstations://info/status",
       "mimeType": "application/json",
       "description": "Current status of the databases: connection state, total station count, and last update timestamp.",
-      "sourceFile": "src/mcp/resources/database-info.ts"
+      "sourceFile": "src/interfaces/mcp/resources/database-info.ts"
     },
     {
       "name": "fuel-types",
       "uri": "fuelstations://info/fuel-types",
       "mimeType": "application/json",
       "description": "List of all available fuel types with their field names, Spanish names, and units. Use the field names when querying prices via tools.",
-      "sourceFile": "src/mcp/resources/fuel-types.ts"
+      "sourceFile": "src/interfaces/mcp/resources/fuel-types.ts"
     },
     {
       "name": "historic-schema",
       "uri": "fuelstations://schema/historic",
       "mimeType": "application/json",
       "description": "Schema definition of the HistoricFuelStation table (persistent historic data). Shows all available fields with their types and descriptions.",
-      "sourceFile": "src/mcp/resources/historic-schema.ts"
+      "sourceFile": "src/interfaces/mcp/resources/historic-schema.ts"
     },
     {
       "name": "municipalities-list",
       "uri": "fuelstations://municipalities/all",
       "mimeType": "application/json",
       "description": "Complete list of all Spanish municipalities with their IDs, province, and autonomous community (region).",
-      "sourceFile": "src/mcp/resources/municipalities-list.ts"
+      "sourceFile": "src/interfaces/mcp/resources/municipalities-list.ts"
     },
     {
       "name": "stations-schema",
       "uri": "fuelstations://schema/stations",
       "mimeType": "application/json",
       "description": "Schema definition of the FuelStation table (realtime data). Shows all available fields with their types and descriptions.",
-      "sourceFile": "src/mcp/resources/stations-schema.ts"
+      "sourceFile": "src/interfaces/mcp/resources/stations-schema.ts"
     }
   ]
 }

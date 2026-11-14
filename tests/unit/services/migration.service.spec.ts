@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock logger
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -27,7 +27,7 @@ const mockMigration002 = {
   down: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock('@/migrations', () => ({
+vi.mock('@/infrastructure/migrations', () => ({
   MIGRATIONS: [mockMigration001, mockMigration002],
 }));
 
@@ -72,7 +72,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
 
   describe('run', () => {
     it('applies pending migrations', async () => {
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.run(mockDb);
 
       expect(mockDb.transaction).toHaveBeenCalledTimes(2);
@@ -84,7 +84,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     it('skips already applied migrations', async () => {
       mockDb.appliedRows.push({ version: '001', name: 'baseline', appliedAt: new Date() });
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.run(mockDb);
 
       expect(mockMigration001.up).not.toHaveBeenCalled();
@@ -98,7 +98,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
         { version: '002', name: 'unique_station_date', appliedAt: new Date() },
       );
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.run(mockDb);
 
       expect(mockMigration001.up).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     });
 
     it('inserts the applied version and name on the migrations table', async () => {
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.run(mockDb);
 
       const firstInsert = (mockDb.insert.mock.results[0].value as any).values.mock.calls[0][0];
@@ -124,7 +124,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
         { version: '002', name: 'unique_station_date', appliedAt: new Date() },
       );
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.rollback(mockDb, 1);
 
       expect(mockMigration002.down).toHaveBeenCalledWith(mockDb);
@@ -138,7 +138,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
         { version: '002', name: 'unique_station_date', appliedAt: new Date() },
       );
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.rollback(mockDb, 2);
 
       expect(mockMigration002.down).toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     });
 
     it('does nothing when no migrations to rollback', async () => {
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.rollback(mockDb, 1);
 
       expect(mockMigration001.down).not.toHaveBeenCalled();
@@ -158,7 +158,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     it('skips migrations not found in registry', async () => {
       mockDb.appliedRows.push({ version: '999', name: 'unknown', appliedAt: new Date() });
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       await migrationService.rollback(mockDb, 1);
 
       expect(mockDb.delete).not.toHaveBeenCalled();
@@ -169,7 +169,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     it('returns status for all migrations', async () => {
       mockDb.appliedRows.push({ version: '001', name: 'baseline', appliedAt: new Date() });
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const status = await migrationService.status(mockDb);
 
       expect(status).toEqual([
@@ -179,7 +179,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     });
 
     it('marks all as not applied when none are applied', async () => {
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const status = await migrationService.status(mockDb);
 
       expect(status).toEqual([
@@ -193,7 +193,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     it('returns true when no tables exist', async () => {
       mockDb.execute = vi.fn(async () => ({ rows: [{ has_tables: false }] }));
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const result = await migrationService.isDbEmpty(mockDb);
 
       expect(result).toBe(true);
@@ -203,7 +203,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
     it('returns false when tables exist', async () => {
       mockDb.execute = vi.fn(async () => ({ rows: [{ has_tables: true }] }));
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const result = await migrationService.isDbEmpty(mockDb);
 
       expect(result).toBe(false);
@@ -217,14 +217,14 @@ describe('MigrationService (Drizzle pg seam)', () => {
         { version: '002', name: 'unique_station_date', appliedAt: new Date() },
       );
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const result = await migrationService.getLastAppliedVersion(mockDb);
 
       expect(result).toBe('002');
     });
 
     it('returns null when no migrations are applied', async () => {
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const result = await migrationService.getLastAppliedVersion(mockDb);
 
       expect(result).toBeNull();
@@ -239,7 +239,7 @@ describe('MigrationService (Drizzle pg seam)', () => {
         })),
       }));
 
-      const { migrationService } = await import('@/services/migration.service');
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
       const status = await migrationService.status(mockDb);
 
       // All should be unapplied

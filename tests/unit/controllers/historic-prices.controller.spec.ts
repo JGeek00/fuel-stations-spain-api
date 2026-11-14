@@ -10,8 +10,8 @@ import {
   createMockRequest as _createMockRequest,
 } from '@tests/test-utils/controller-mocks';
 
-vi.mock('@/models/db/memory-db', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
+vi.mock('@/infrastructure/persistence/memory-db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/infrastructure/persistence/memory-db')>();
   return {
     ...actual,
     getMemoryDb: vi.fn(),
@@ -21,11 +21,11 @@ vi.mock('@/models/db/memory-db', async (importOriginal) => {
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
 import * as Sentry from '@sentry/node';
-import { historicPricesController } from '@/controllers/historic-prices.controller';
-import { logger } from '@/utils/logger';
-import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/models/db/memory-db';
-import { getHistoricDataMaxRangeMonths, formatRange } from '@/utils/historic-data-limit';
-import { GetHistoricPricesQueryParams } from '@/models/in/GetHistoricPricesQueryParams.model';
+import { historicPricesController } from '@/interfaces/http/controllers/historic-prices.controller';
+import { logger } from '@/shared/utils/logger';
+import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/infrastructure/persistence/memory-db';
+import { getHistoricDataMaxRangeMonths, formatRange } from '@/shared/utils/historic-data-limit';
+import { GetHistoricPricesQueryParams } from '@/interfaces/http/dto/in/GetHistoricPricesQueryParams.model';
 
 // Type-safe request factory for this controller
 function createMockRequest(overrides: Record<string, unknown> = {}): Request<{}, {}, {}, GetHistoricPricesQueryParams> {

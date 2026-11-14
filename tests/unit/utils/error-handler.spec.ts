@@ -6,7 +6,7 @@ import {
   createInternalServerError,
   sendApiError,
   errorStatus,
-} from '@/utils/error-handler';
+} from '@/shared/errors/error-handler';
 
 describe('createValidationError', () => {
   it('creates a validation error with message only', () => {

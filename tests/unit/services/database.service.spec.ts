@@ -6,7 +6,7 @@ vi.mock('@sentry/node', () => ({
 }));
 
 // Mock logger
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('@/utils/logger', () => ({
 
 // Mock validatePostgresDbData
 const mockValidatePostgresDbData = vi.fn(() => false);
-vi.mock('@/utils/postgres-db/postgres-db', () => ({
+vi.mock('@/shared/utils/postgres-db/postgres-db', () => ({
   validatePostgresDbData: mockValidatePostgresDbData,
 }));
 
@@ -67,12 +67,12 @@ const mockMigrationService = {
   isDbEmpty: vi.fn().mockResolvedValue(true),
   run: vi.fn().mockResolvedValue(undefined),
 };
-vi.mock('@/services/migration.service', () => ({
+vi.mock('@/infrastructure/database/migration.service', () => ({
   migrationService: mockMigrationService,
 }));
 
 // Mock MIGRATIONS
-vi.mock('@/migrations', () => ({
+vi.mock('@/infrastructure/migrations', () => ({
   MIGRATIONS: [
     { version: '001', name: 'baseline' },
     { version: '002', name: 'unique_station_date' },
@@ -84,7 +84,7 @@ const mockRealtimeDataService = {
   loadAll: vi.fn(),
   registerProgrammedTask: vi.fn(),
 };
-vi.mock('@/services/realtime-data.service', () => ({
+vi.mock('@/infrastructure/sync/realtime-data.service', () => ({
   realtimeDataService: mockRealtimeDataService,
 }));
 
@@ -93,7 +93,7 @@ const mockPersistedDataService = {
   loadAll: vi.fn(),
   registerProgrammedTask: vi.fn(),
 };
-vi.mock('@/services/persisted-data.service', () => ({
+vi.mock('@/infrastructure/sync/persisted-data.service', () => ({
   persistedDataService: mockPersistedDataService,
 }));
 
@@ -111,7 +111,7 @@ describe('DatabaseService', () => {
 
   describe('memoryDbInstance getter', () => {
     it('throws error when not initialized', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
 
       expect(() => service.memoryDbInstance).toThrow(
@@ -122,7 +122,7 @@ describe('DatabaseService', () => {
 
   describe('persistedDbInstance getter', () => {
     it('throws error when not initialized', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
 
       expect(() => service.persistedDbInstance).toThrow(
@@ -133,7 +133,7 @@ describe('DatabaseService', () => {
 
   describe('initMemoryDb', () => {
     it('ensures the memory schema via the infrastructure helper', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -141,7 +141,7 @@ describe('DatabaseService', () => {
     });
 
     it('ensures a fresh memory schema on every init', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
       await service.init();
       await service.init();
@@ -151,8 +151,8 @@ describe('DatabaseService', () => {
     });
 
     it('exposes the shared memory Drizzle instance', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
-      const { getMemoryDb } = await import('@/models/db/memory-db');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
+      const { getMemoryDb } = await import('@/infrastructure/persistence/memory-db');
       const service = new DatabaseService();
       await service.init();
 
@@ -160,7 +160,7 @@ describe('DatabaseService', () => {
     });
 
     it('does NOT load data or register crons (jobs owned by scheduler)', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
       await service.init();
       await Promise.resolve(); // Allow pending microtasks to settle
@@ -170,7 +170,7 @@ describe('DatabaseService', () => {
     });
 
     it('returns a defined memoryDbInstance after init', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -180,7 +180,7 @@ describe('DatabaseService', () => {
 
   describe('initPersistedDb', () => {
     it('skips initialization when validatePostgresDbData returns false', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -191,7 +191,7 @@ describe('DatabaseService', () => {
 
   describe('init', () => {
     it('initializes both memory and persisted DBs in parallel', async () => {
-      const { DatabaseService } = await import('@/services/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
       const service = new DatabaseService();
       await service.init();
 
@@ -203,8 +203,8 @@ describe('DatabaseService', () => {
 
   describe('databaseService singleton', () => {
     it('exports a singleton instance', async () => {
-      const { databaseService } = await import('@/services/database.service');
-      const { DatabaseService } = await import('@/services/database.service');
+      const { databaseService } = await import('@/infrastructure/database/database.service');
+      const { DatabaseService } = await import('@/infrastructure/database/database.service');
 
       expect(databaseService).toBeInstanceOf(DatabaseService);
     });
@@ -252,39 +252,39 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
 
     vi.doMock('pg', () => ({ Pool: freshPool }));
     vi.doMock('drizzle-orm/node-postgres', () => ({ drizzle: freshDrizzle }));
-    vi.doMock('@/utils/postgres-db/postgres-db', () => ({
+    vi.doMock('@/shared/utils/postgres-db/postgres-db', () => ({
       validatePostgresDbData: vi.fn(() => freshValidate),
     }));
-    vi.doMock('@/utils/logger', () => ({
+    vi.doMock('@/shared/utils/logger', () => ({
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }));
     vi.doMock('@/infrastructure/persistence/ensureMemorySchema', () => ({
       ensureMemorySchema: vi.fn(),
     }));
-    vi.doMock('@/services/migration.service', () => ({
+    vi.doMock('@/infrastructure/database/migration.service', () => ({
       migrationService: {
         isDbEmpty: vi.fn().mockResolvedValue(freshIsDbEmpty),
         run: vi.fn().mockResolvedValue(undefined),
       },
     }));
-    vi.doMock('@/migrations', () => ({
+    vi.doMock('@/infrastructure/migrations', () => ({
       MIGRATIONS: [
         { version: '001', name: 'baseline' },
         { version: '002', name: 'unique_station_date' },
       ],
     }));
-    vi.doMock('@/services/realtime-data.service', () => ({
+    vi.doMock('@/infrastructure/sync/realtime-data.service', () => ({
       realtimeDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
     }));
-    vi.doMock('@/services/persisted-data.service', () => ({
+    vi.doMock('@/infrastructure/sync/persisted-data.service', () => ({
       persistedDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
     }));
     vi.doMock('@sentry/node', () => ({ captureException: vi.fn() }));
 
-    const { DatabaseService } = await import('@/services/database.service');
+    const { DatabaseService } = await import('@/infrastructure/database/database.service');
     const service = new DatabaseService();
     await service.init();
-    const migrationModuleRef = (await import('@/services/migration.service')).migrationService;
+    const migrationModuleRef = (await import('@/infrastructure/database/migration.service')).migrationService;
 
     return { freshPool, freshDrizzle, freshDb, service, migrationModuleRef };
   };

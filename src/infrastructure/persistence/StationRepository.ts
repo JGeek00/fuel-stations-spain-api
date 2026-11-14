@@ -1,6 +1,6 @@
 import { and, asc, between, count, eq, inArray, type SQL } from 'drizzle-orm';
-import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/models/db/memory-db';
-import { calculateBoundingBox } from '@/utils/calculate-distance';
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/infrastructure/persistence/memory-db';
+import { calculateBoundingBox } from '@/shared/utils/calculate-distance';
 import type { CompareQuery, CheapestQuery, IStationRepository, StationFilters } from '@/application/ports/repositories';
 
 /**

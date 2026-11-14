@@ -16,7 +16,7 @@ vi.mock('@/application/usecases/GetDatabaseStatus.usecase', () => ({
   getDatabaseStatusUseCase: vi.fn(),
 }));
 
-vi.mock('@/services/database.service', () => {
+vi.mock('@/infrastructure/database/database.service', () => {
   class DatabaseService {
     persistedDbInstance = { authenticate: vi.fn().mockResolvedValue(undefined) };
     memoryDbInstance = {};
@@ -24,11 +24,11 @@ vi.mock('@/services/database.service', () => {
   return { DatabaseService };
 });
 
-vi.mock('@/utils/case-keys', () => ({
+vi.mock('@/shared/utils/case-keys', () => ({
   keysToCamel: vi.fn((obj) => obj),
 }));
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
@@ -65,12 +65,12 @@ import {
   listMunicipalitiesTool,
   getDatabaseStatusTool,
   queryHistoricPricesTool,
-} from '@/mcp/tools';
-import { DatabaseService } from '@/services/database.service';
+} from '@/interfaces/mcp/tools';
+import { DatabaseService } from '@/infrastructure/database/database.service';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
 import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
-import { keysToCamel } from '@/utils/case-keys';
+import { keysToCamel } from '@/shared/utils/case-keys';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 type McpResponse = { content: Array<{ type: string; text: string }>; isError?: boolean };

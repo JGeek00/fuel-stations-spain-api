@@ -1,6 +1,6 @@
 import { CronJob } from 'cron/dist/job';
-import { persistedDataService } from '@/services/persisted-data.service';
-import { logger } from '@/utils/logger';
+import { persistedDataService } from '@/infrastructure/sync/persisted-data.service';
+import { logger } from '@/shared/utils/logger';
 
 /** Scheduled historic backfill — owns the cron, delegates loading to the service. */
 export function registerHistoricBackfillJob(): void {

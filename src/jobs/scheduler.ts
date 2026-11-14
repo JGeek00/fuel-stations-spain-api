@@ -1,4 +1,4 @@
-import { isPersistedDbInitialized } from '@/models/db/memory-db';
+import { isPersistedDbInitialized } from '@/infrastructure/persistence/memory-db';
 import { registerRealtimeJob, runRealtimeSyncNow } from './RealtimeSync.job';
 import { registerHistoricBackfillJob, runHistoricBackfillNow } from './HistoricBackfill.job';
 

@@ -1,6 +1,6 @@
-import config from '@/config/config.json';
-import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { createBadRequestError, createValidationError } from '@/utils/error-handler';
+import config from '@/shared/config/config.json';
+import { calculateBoundingBox } from '@/shared/utils/calculate-distance';
+import { createBadRequestError, createValidationError } from '@/shared/errors/error-handler';
 import { stationRepository } from '@/infrastructure/persistence/StationRepository';
 
 export interface GetStationsInput {

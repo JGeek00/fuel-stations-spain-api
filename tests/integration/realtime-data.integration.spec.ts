@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -19,11 +19,11 @@ vi.mock('typia', () => ({
 }));
 
 import { asc, count } from 'drizzle-orm';
-import { realtimeDataService } from '@/services/realtime-data.service';
-import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/models/db/memory-db';
-import type { FuelStation } from '@/models/entities';
+import { realtimeDataService } from '@/infrastructure/sync/realtime-data.service';
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/infrastructure/persistence/memory-db';
+import type { FuelStation } from '@/domain/entities';
 import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
-import { logger } from '@/utils/logger';
+import { logger } from '@/shared/utils/logger';
 import {
   initMemorySchema,
   municipalitiesResponse,

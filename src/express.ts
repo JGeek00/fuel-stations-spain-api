@@ -3,11 +3,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import * as Sentry from '@sentry/node';
-import ApiRouter from '@/routes/api.routes';
-import McpRouter from '@/routes/mcp.routes';
-import { sentryEnabled } from '@/services/sentry.service';
-import { McpServerManager } from '@/mcp/manager';
-import { errorHandlerMiddleware } from '@/middlewares/error-handler.middleware';
+import ApiRouter from '@/interfaces/http/routes/api.routes';
+import McpRouter from '@/interfaces/mcp/routes/mcp.routes';
+import { sentryEnabled } from '@/infrastructure/observability/sentry.service';
+import { McpServerManager } from '@/interfaces/mcp/manager';
+import { errorHandlerMiddleware } from '@/interfaces/http/middlewares/error-handler.middleware';
 
 export const initExpress = (mcpManager?: McpServerManager): Application => {
   const app = express();

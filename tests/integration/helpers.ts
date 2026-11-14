@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { vi } from 'vitest';
 import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
-import { markPersistedDbInitialized } from '@/models/db/memory-db';
+import { markPersistedDbInitialized } from '@/infrastructure/persistence/memory-db';
 
 /**
  * Fresh `:memory:` schema for realtime specs: ensureMemorySchema() swaps in a

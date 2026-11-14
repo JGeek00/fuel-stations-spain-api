@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
 
 // Stub modules before importing middleware
-vi.mock('@/utils/mcp', () => ({
+vi.mock('@/shared/utils/mcp', () => ({
   parseCsvEnv: vi.fn(),
 }));
-vi.mock('@/utils/logger', () => ({
+vi.mock('@/shared/utils/logger', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -14,9 +14,9 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 
-import { mcpSecurityMiddleware } from '@/middlewares/mcp-security.middleware';
-import { parseCsvEnv } from '@/utils/mcp';
-import { logger } from '@/utils/logger';
+import { mcpSecurityMiddleware } from '@/interfaces/http/middlewares/mcp-security.middleware';
+import { parseCsvEnv } from '@/shared/utils/mcp';
+import { logger } from '@/shared/utils/logger';
 
 const mockParseCsvEnv = vi.mocked(parseCsvEnv);
 const mockLoggerWarn = vi.mocked(logger.warn);

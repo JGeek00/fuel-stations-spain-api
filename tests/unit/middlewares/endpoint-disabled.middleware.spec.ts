@@ -10,7 +10,7 @@ import {
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
-import { endpointDisabledMiddleware } from '@/middlewares/endpoint-disabled.middleware';
+import { endpointDisabledMiddleware } from '@/interfaces/http/middlewares/endpoint-disabled.middleware';
 
 describe('endpointDisabledMiddleware', () => {
   const originalEnv = { ...process.env };
