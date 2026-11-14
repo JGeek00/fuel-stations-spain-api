@@ -108,10 +108,10 @@ import {
   getStationInfoTool,
   queryFuelStationsTool,
   searchByLocationTool,
-} from '../tools';
-import { DatabaseService } from '../../services/database.service';
-import { FuelStationsTable } from '../../models/db/FuelStations';
-import { calculateBoundingBox } from '../../utils/calculate-distance';
+} from '@/mcp/tools';
+import { DatabaseService } from '@/services/database.service';
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { calculateBoundingBox } from '@/utils/calculate-distance';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 type McpResponse = { content: Array<{ type: string; text: string }>; isError?: boolean };

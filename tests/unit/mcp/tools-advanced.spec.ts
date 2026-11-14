@@ -107,13 +107,13 @@ import {
   listMunicipalitiesTool,
   getDatabaseStatusTool,
   queryHistoricPricesTool,
-} from '../tools';
-import { DatabaseService } from '../../services/database.service';
-import { FuelStationsTable } from '../../models/db/FuelStations';
-import { HistoricFuelStation } from '../../models/db/HistoricFuelStation';
-import { LastUpdated } from '../../models/db/LastUpdated';
-import MunicipalitiesRepository from '../../repository/Municipalities.repository';
-import { keysToCamel } from '../../utils/case-keys';
+} from '@/mcp/tools';
+import { DatabaseService } from '@/services/database.service';
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { keysToCamel } from '@/utils/case-keys';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 type McpResponse = { content: Array<{ type: string; text: string }>; isError?: boolean };

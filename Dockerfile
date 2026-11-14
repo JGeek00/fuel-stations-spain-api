@@ -1,7 +1,7 @@
 #################
 ## BUILD STAGE ##
 #################
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN pnpm run build:prod
 ######################
 ## PRODUCTION STAGE ##
 ######################
-FROM node:24-alpine
+FROM node:26-alpine
 LABEL org.opencontainers.image.source="https://github.com/jgeek00/fuel-stations-spain-api"
 
 WORKDIR /app

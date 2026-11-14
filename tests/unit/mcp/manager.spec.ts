@@ -52,8 +52,8 @@ vi.mock('@/utils/mcp', () => ({
 }));
 
 // ── Import after mocks ───────────────────────────────────────────────────────
-import { McpServerManager } from '../manager';
-import { DatabaseService } from '../../services/database.service';
+import { McpServerManager } from '@/mcp/manager';
+import { DatabaseService } from '@/services/database.service';
 
 function createManager(overrides = {}) {
   const dbService = new DatabaseService();

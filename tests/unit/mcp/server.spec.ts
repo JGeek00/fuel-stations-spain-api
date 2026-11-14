@@ -88,8 +88,8 @@ vi.mock('@/utils/mcp', () => ({
 }));
 
 // ── Import after mocks ───────────────────────────────────────────────────────
-import { createMcpServerInstance } from '../server';
-import { DatabaseService } from '../../services/database.service';
+import { createMcpServerInstance } from '@/mcp/server';
+import { DatabaseService } from '@/services/database.service';
 
 /**
  * Typed mock server — TypeScript sees the real SDK types for McpServer,

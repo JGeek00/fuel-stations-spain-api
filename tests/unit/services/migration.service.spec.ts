@@ -48,7 +48,7 @@ describe('MigrationService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockSequelize = new Sequelize('sqlite::memory:', { logging: false });
+    mockSequelize = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
     mockSequelize.transaction = vi.fn().mockImplementation(async (callback) => {
       const mockTransaction = { id: 'mock-tx' };
       return callback(mockTransaction);

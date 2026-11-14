@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Op } from 'sequelize';
 
 // ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
-import '@/test-utils/controller-mocks';
+import '@tests/test-utils/controller-mocks';
 import {
   createMockResponse,
   createMockNext,
   createMockRequest,
   createMockRow,
   createMockLastUpdated,
-} from '@/test-utils/controller-mocks';
+} from '@tests/test-utils/controller-mocks';
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 

@@ -6,7 +6,6 @@
       "ES2021"
     ],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -28,6 +27,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@tests/*": [
+        "./tests/*"
       ]
     },
     "plugins": [
@@ -38,6 +40,7 @@
   },
   "include": [
     "src/**/*",
+    "tests/**/*",
     "**/*.spec.ts",
     "**/*.test.ts",
   ],

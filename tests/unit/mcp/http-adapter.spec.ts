@@ -49,9 +49,10 @@ vi.mock('@/utils/mcp', () => ({
 }));
 
 // ── Import after mocks ───────────────────────────────────────────────────────
-import { McpServerManager } from '../manager';
-import { createMcpRouter } from '../http-adapter';
-import { DatabaseService } from '../../services/database.service';
+import { McpServerManager } from '@/mcp/manager';
+import { createMcpRouter } from '@/mcp/http-adapter';
+import { DatabaseService } from '@/services/database.service';
+import type { Request, Response } from 'express';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function createMockReq(overrides: Record<string, unknown> = {}) {
@@ -59,7 +60,7 @@ function createMockReq(overrides: Record<string, unknown> = {}) {
     headers: {},
     body: {},
     ...overrides,
-  } as never;
+  } as unknown as Request;
 }
 
 function createMockRes() {
@@ -68,7 +69,7 @@ function createMockRes() {
     json: vi.fn(),
     sendStatus: vi.fn(),
   };
-  return res as never;
+  return res as unknown as Response;
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ describe('createMcpRouter', () => {
 
       // Force transport to not have sessionId
       const session = manager.createSession();
-      session.transport.sessionId = undefined;
+      (session.transport as { sessionId: string | undefined }).sessionId = undefined;
       manager.setSession('orphan-session', session);
 
       // Now create another session without header

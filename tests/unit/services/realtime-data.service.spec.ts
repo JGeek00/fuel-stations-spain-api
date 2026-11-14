@@ -144,7 +144,7 @@ describe('RealtimeDataService', () => {
       mockLastUpdatedCreate.mockResolvedValue({});
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadStations();
 
       expect(mockGetStations).toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe('RealtimeDataService', () => {
     it('handles null response from API gracefully', async () => {
       mockGetStations.mockResolvedValue(null);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadStations();
 
       expect(mockGetStations).toHaveBeenCalled();
@@ -179,8 +179,8 @@ describe('RealtimeDataService', () => {
       mockLastUpdatedCreate.mockResolvedValue({});
       mockMap.mockReturnValue([{ stationId: 'ES001' }, { stationId: 'ES001' }]);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
-      const { logger } = await import('../../utils/logger');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
+      const { logger } = await import('@/utils/logger');
       await realtimeDataService.loadStations();
 
       expect(logger.warn).toHaveBeenCalledWith('⚠️ Duplicated IDs found: ES001');
@@ -203,7 +203,7 @@ describe('RealtimeDataService', () => {
       mockLastUpdatedCreate.mockResolvedValue({});
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadStations();
 
       // Should have tried bulkCreate twice (once for new, once for restore)
@@ -219,7 +219,7 @@ describe('RealtimeDataService', () => {
 
       mockGetMunicipalities.mockResolvedValue(mockMunicipalities);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadMunicipalities();
 
       expect(mockGetMunicipalities).toHaveBeenCalled();
@@ -233,7 +233,7 @@ describe('RealtimeDataService', () => {
     it('handles null response from API gracefully', async () => {
       mockGetMunicipalities.mockResolvedValue(null);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadMunicipalities();
 
       expect(mockGetMunicipalities).toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('RealtimeDataService', () => {
 
       mockGetMunicipalities.mockResolvedValue(mockMunicipalities);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadMunicipalities();
 
       const saved = mockMunicipalitiesRepo.data[0];
@@ -277,7 +277,7 @@ describe('RealtimeDataService', () => {
       mockLastUpdatedCreate.mockResolvedValue({});
       mockMap.mockReturnValue([]);
 
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadAll();
 
       expect(mockGetStations).toHaveBeenCalled();
@@ -287,7 +287,7 @@ describe('RealtimeDataService', () => {
 
   describe('registerProgrammedTask', () => {
     it('registers a cron job with default schedule', async () => {
-      const { realtimeDataService } = await import('../realtime-data.service');
+      const { realtimeDataService } = await import('@/services/realtime-data.service');
       realtimeDataService.registerProgrammedTask();
 
       expect(mockCronJobFrom).toHaveBeenCalledWith(

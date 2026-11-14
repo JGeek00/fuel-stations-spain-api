@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
-import '@/test-utils/controller-mocks';
+import '@tests/test-utils/controller-mocks';
 import {
   createMockResponse,
   createMockRequest,
-} from '@/test-utils/controller-mocks';
+} from '@tests/test-utils/controller-mocks';
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 

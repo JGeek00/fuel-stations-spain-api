@@ -28,28 +28,28 @@ describe('sentry.service', () => {
     it('is falsy when SENTRY_DSN is not set', async () => {
       delete process.env.SENTRY_DSN;
       process.env.PRODUCTION = 'true';
-      const { sentryEnabled } = await import('../sentry.service');
+      const { sentryEnabled } = await import('@/services/sentry.service');
       expect(sentryEnabled).toBeFalsy();
     });
 
     it('is false when PRODUCTION is not true', async () => {
       process.env.SENTRY_DSN = 'https://test@sentry.io/123';
       process.env.PRODUCTION = 'false';
-      const { sentryEnabled } = await import('../sentry.service');
+      const { sentryEnabled } = await import('@/services/sentry.service');
       expect(sentryEnabled).toBe(false);
     });
 
     it('is false when PRODUCTION is not set', async () => {
       process.env.SENTRY_DSN = 'https://test@sentry.io/123';
       delete process.env.PRODUCTION;
-      const { sentryEnabled } = await import('../sentry.service');
+      const { sentryEnabled } = await import('@/services/sentry.service');
       expect(sentryEnabled).toBe(false);
     });
 
     it('is true when both SENTRY_DSN and PRODUCTION=true are set', async () => {
       process.env.SENTRY_DSN = 'https://test@sentry.io/123';
       process.env.PRODUCTION = 'true';
-      const { sentryEnabled } = await import('../sentry.service');
+      const { sentryEnabled } = await import('@/services/sentry.service');
       expect(sentryEnabled).toBe(true);
     });
   });
@@ -59,14 +59,14 @@ describe('sentry.service', () => {
       process.env.SENTRY_DSN = 'https://test@sentry.io/123';
       process.env.PRODUCTION = 'true';
 
-      const { loadSentry } = await import('../sentry.service');
+      const { loadSentry } = await import('@/services/sentry.service');
       const result = loadSentry();
 
       expect(mockSentryInit).toHaveBeenCalledWith({
         dsn: 'https://test@sentry.io/123',
         integrations: [expect.any(Object)],
         tracesSampleRate: 1.0,
-        profilesSampleRate: 1.0,
+        profileSessionSampleRate: 1.0,
       });
       expect(result).not.toBeNull();
     });
@@ -75,7 +75,7 @@ describe('sentry.service', () => {
       delete process.env.SENTRY_DSN;
       process.env.PRODUCTION = 'false';
 
-      const { loadSentry } = await import('../sentry.service');
+      const { loadSentry } = await import('@/services/sentry.service');
       const result = loadSentry();
 
       expect(mockSentryInit).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe('sentry.service', () => {
       process.env.SENTRY_DSN = 'https://test@sentry.io/123';
       process.env.PRODUCTION = 'true';
 
-      const { loadSentry } = await import('../sentry.service');
+      const { loadSentry } = await import('@/services/sentry.service');
       loadSentry();
 
       expect(mockNodeProfilingIntegration).toHaveBeenCalled();

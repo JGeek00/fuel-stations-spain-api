@@ -11,7 +11,7 @@ export const loadSentry = () => {
         nodeProfilingIntegration(),
       ],
       tracesSampleRate: 1.0,
-      profilesSampleRate: 1.0,
+      profileSessionSampleRate: 1.0,
     });
 
     return Sentry;

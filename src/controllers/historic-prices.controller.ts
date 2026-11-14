@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { validationResult } from "express-validator";
 import { DateTime } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { Op } from "sequelize";
@@ -19,6 +20,12 @@ import { formatRange, getHistoricDataMaxRangeMonths } from "@/utils/historic-dat
 
 export const historicPricesController = async (req: Request<{}, {}, {}, GetHistoricPricesQueryParams>, res: Response<GetHistoricPricesResponse>, next: NextFunction): Promise<void> => {
   try {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      throw createValidationError('Validation failed', errors.array());
+    }
+
     let startDate: DateTime;
     try {
       startDate = DateTime.fromSQL(req.query.startDate as string);

@@ -3,18 +3,18 @@ import type { Request } from 'express';
 import { Op } from 'sequelize';
 
 // ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
-import '@/test-utils/controller-mocks';
+import '@tests/test-utils/controller-mocks';
 import {
   createMockResponse,
   createMockNext,
   createMockRequest as _createMockRequest,
   createMockRow,
-} from '@/test-utils/controller-mocks';
+} from '@tests/test-utils/controller-mocks';
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
 import * as Sentry from '@sentry/node';
-import { historicPricesController } from '../historic-prices.controller';
+import { historicPricesController } from '@/controllers/historic-prices.controller';
 import { logger } from '@/utils/logger';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { FuelStationsTable } from '@/models/db/FuelStations';

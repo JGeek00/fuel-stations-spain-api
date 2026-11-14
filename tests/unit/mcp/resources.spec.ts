@@ -73,11 +73,11 @@ import {
   registerStationsSchemaResource,
   registerDatabaseInfoResource,
   registerMunicipalitiesResource,
-} from '../resources';
-import { DatabaseService } from '../../services/database.service';
-import { FuelStationsTable } from '../../models/db/FuelStations';
-import { LastUpdated } from '../../models/db/LastUpdated';
-import MunicipalitiesRepository from '../../repository/Municipalities.repository';
+} from '@/mcp/resources';
+import { DatabaseService } from '@/services/database.service';
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function getReadCallback(calls: ReturnType<typeof createMockMcpServer>['calls'], name: string) {
