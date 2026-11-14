@@ -12,11 +12,9 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 export type PersistedDb = NodePgDatabase<Record<string, never>> & {
   authenticate: () => Promise<unknown>;
 };
-import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
-import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
 import { getMemoryDb, markPersistedDbInitialized, setPersistedDb } from '@/models/db/memory-db';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
 import { validatePostgresDbData } from '@/utils/postgres-db';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { pgMigrations } from '@/models/db/Migrations';
 import { migrationService } from '@/services/migration.service';
 import { MIGRATIONS } from '@/migrations';
@@ -48,19 +46,9 @@ export class DatabaseService {
     // replacing Sequelize's sync({ alter: true }).
     logger.info("✅ Memory DB initialized")
 
-    // Kept as interface-compatible calls (database.service.spec pins this call
-    // shape); the adapters' init creates the tables and swaps in a fresh
-    // :memory: database — the model args are carried through for legacy
-    // compatibility only.
-    FuelStationsTable.init(FuelStationModel, {
-      modelName: 'FuelStation',
-      timestamps: false,
-    });
-
-    LastUpdated.init(LastUpdatedModel, {
-      modelName: 'LastUpdated',
-      timestamps: false,
-    })
+    // Tables are created by the infrastructure memory-schema helper
+    // (fresh :memory: database per init, same isolation the specs pin).
+    ensureMemorySchema();
 
     this._memoryDbInstance = getMemoryDb();
 
@@ -129,18 +117,6 @@ export class DatabaseService {
 
         markPersistedDbInitialized();
         setPersistedDb(this._persistedDbInstance);
-        // The connection middleware reads HistoricFuelStation.sequelize; point
-        // it at a liveness seam over the real pool (same shape the memory
-        // adapter uses for its stub).
-        Object.defineProperty(HistoricFuelStation, 'sequelize', {
-          value: {
-            authenticate: async () => {
-              await pool.query('select 1');
-            },
-          },
-          writable: true,
-          configurable: true,
-        });
 
         // Scheduled jobs are owned by src/jobs/scheduler.ts (called from server.ts),
         // never by the DB wiring.

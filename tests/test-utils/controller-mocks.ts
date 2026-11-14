@@ -110,44 +110,10 @@ vi.mock('@/config/config.json', () => ({
   },
 }));
 
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findAndCountAll: vi.fn(),
-    findOne: vi.fn(() => Promise.resolve(null)),
-  },
-  FuelStationModel: {},
-}));
-
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    findAll: vi.fn(),
-  },
-  LastUpdatedModel: {},
-}));
-
-vi.mock('@/models/db/HistoricFuelStation', () => {
-  const mockAuthenticate = vi.fn(() => Promise.resolve());
-  return {
-    HistoricFuelStation: {
-      sequelize: { authenticate: mockAuthenticate },
-      findAll: vi.fn(() => Promise.resolve([])),
-    },
-  };
-});
-
-vi.mock('@/repository/Municipalities.repository', () => {
-  const repo = {
-    data: [],
-  };
-  Object.defineProperty(repo, 'data', {
-    value: [],
-    writable: true,
-    configurable: true,
-  });
-  return {
-    default: repo,
-  };
-});
+// Legacy module mocks removed (models/db/FuelStations, LastUpdated,
+// HistoricFuelStation, repository/Municipalities.repository): controllers now
+// go through the infrastructure repository seams, which each spec mocks or
+// uses directly.
 
 // ─── Shared helper factories ────────────────────────────────────────────────
 

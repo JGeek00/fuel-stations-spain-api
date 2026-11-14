@@ -12,12 +12,13 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { healthcheckController } from '@/controllers/healthcheck.controller';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
+import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
 
 const next: NextFunction = () => {};
 
 // FuelStation's interface does not declare `id`, so the seeded primary key is
-// set directly (the adapter accepts a plain row object).
+// set directly (a plain row object inserts fine).
 const seedRow = () => ({
   id: crypto.randomUUID(),
   stationId: 'ES0001',
@@ -31,15 +32,11 @@ const createMockRes = (): Response => {
   return res;
 };
 
-const seed = () => FuelStationsTable.bulkCreate([seedRow()]);
+const seed = () => getMemoryDb().insert(fuelStationsTable).values([seedRow()]);
 
 describe('healthcheckController (integration, real in-memory sqlite)', () => {
-  beforeAll(async () => {
-    FuelStationsTable.init();
-  });
-
-  beforeEach(async () => {
-    await FuelStationsTable.truncate();
+  beforeEach(() => {
+    ensureMemorySchema();
   });
 
   it('returns 200 when the table has rows', async () => {

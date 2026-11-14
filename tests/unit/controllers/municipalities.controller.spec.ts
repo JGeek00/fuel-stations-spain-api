@@ -12,7 +12,7 @@ import {
 
 import { municipalitiesController } from '@/controllers/municipalities.controller';
 import { logger } from '@/utils/logger';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { sendApiError } from '@/utils/error-handler';
 
 const mockLoggerError = vi.mocked(logger.error);
@@ -30,42 +30,17 @@ describe('municipalitiesController', () => {
   });
 
   afterEach(() => {
-    // Always reset repository data to a plain writable array after each test
-    Object.defineProperty(MunicipalitiesRepository, 'data', {
-      value: [],
-      writable: true,
-      configurable: true,
-    });
+    // Reset the repository store through its setter (module-level state).
+    municipalitiesRepository.data = [];
   });
 
   describe('DISABLE_MUNICIPALITIES flag', () => {
-    it('returns 500 with INTERNAL_ERROR when DISABLE_MUNICIPALITIES is true', async () => {
-      Object.defineProperty(MunicipalitiesRepository, 'data', {
-        get: () => {
-          if (process.env.DISABLE_MUNICIPALITIES === 'true') {
-            throw { error: { message: 'Municipalities endpoint disabled', code: 'INTERNAL_ERROR' } };
-          }
-          return [];
-        },
-        configurable: true,
-      });
-      process.env.DISABLE_MUNICIPALITIES = 'true';
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const next = createMockNext();
-
-      await municipalitiesController(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
-        })
-      );
-    });
+    // The disabled-endpoint 404/500 behavior moved to the endpoint-disabled
+    // middleware (tests/unit/middlewares/endpoint-disabled.middleware.spec.ts);
+    // the controller itself never short-circuits on the flag.
 
     it('does not block when DISABLE_MUNICIPALITIES is false', async () => {
-      MunicipalitiesRepository.data = [
+      municipalitiesRepository.data = [
         {
           municipalityId: '01',
           provinceId: '01',
@@ -89,7 +64,7 @@ describe('municipalitiesController', () => {
     });
 
     it('proceeds normally by default', async () => {
-      MunicipalitiesRepository.data = [];
+      municipalitiesRepository.data = [];
       const req = createMockRequest();
       const res = createMockResponse();
       const next = createMockNext();
@@ -120,7 +95,7 @@ describe('municipalitiesController', () => {
           region: 'Cataluña',
         },
       ];
-      MunicipalitiesRepository.data = municipalities;
+      municipalitiesRepository.data = municipalities;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -134,7 +109,7 @@ describe('municipalitiesController', () => {
     });
 
     it('returns empty municipalities array when no data', async () => {
-      MunicipalitiesRepository.data = [];
+      municipalitiesRepository.data = [];
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -172,7 +147,7 @@ describe('municipalitiesController', () => {
           region: 'Andalucía',
         },
       ];
-      MunicipalitiesRepository.data = municipalities;
+      municipalitiesRepository.data = municipalities;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -187,13 +162,17 @@ describe('municipalitiesController', () => {
   });
 
   describe('error handling', () => {
-    it('sends INTERNAL_ERROR (500) for INTERNAL_ERROR errors', async () => {
-      Object.defineProperty(MunicipalitiesRepository, 'data', {
-        get: () => {
-          throw { error: { message: 'Internal error', code: 'INTERNAL_ERROR' } };
-        },
-        configurable: true,
+    // The controller reads through listMunicipalitiesUseCase -> repository.list();
+    // failures are simulated by making list() throw.
+    function makeListThrow(value: unknown) {
+      const listSpy = vi.spyOn(municipalitiesRepository, 'list').mockImplementation(() => {
+        throw value;
       });
+      return listSpy;
+    }
+
+    it('sends INTERNAL_ERROR (500) for INTERNAL_ERROR errors', async () => {
+      const listSpy = makeListThrow({ error: { message: 'Internal error', code: 'INTERNAL_ERROR' } });
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -202,15 +181,11 @@ describe('municipalitiesController', () => {
       await municipalitiesController(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(500);
+      listSpy.mockRestore();
     });
 
     it('handles unexpected errors by logging and passing to next', async () => {
-      // Simulate an unexpected error by throwing from within the try block.
-      // We can do this by making MunicipalitiesRepository.data getter throw.
-      Object.defineProperty(MunicipalitiesRepository, 'data', {
-        get: () => { throw new Error('Unexpected repository error'); },
-        configurable: true,
-      });
+      const listSpy = makeListThrow(new Error('Unexpected repository error'));
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -227,13 +202,11 @@ describe('municipalitiesController', () => {
           error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
         })
       );
+      listSpy.mockRestore();
     });
 
     it('handles non-Error unexpected exceptions (string)', async () => {
-      Object.defineProperty(MunicipalitiesRepository, 'data', {
-        get: () => { throw 'String error'; },
-        configurable: true,
-      });
+      const listSpy = makeListThrow('String error');
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -246,13 +219,11 @@ describe('municipalitiesController', () => {
         { error: 'String error' }
       );
       expect(next).toHaveBeenCalled();
+      listSpy.mockRestore();
     });
 
     it('handles null unexpected exceptions', async () => {
-      Object.defineProperty(MunicipalitiesRepository, 'data', {
-        get: () => { throw null; },
-        configurable: true,
-      });
+      const listSpy = makeListThrow(null);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -262,13 +233,11 @@ describe('municipalitiesController', () => {
 
       expect(mockLoggerError).toHaveBeenCalled();
       expect(next).toHaveBeenCalled();
+      listSpy.mockRestore();
     });
 
     it('handles undefined unexpected exceptions', async () => {
-      Object.defineProperty(MunicipalitiesRepository, 'data', {
-        get: () => { throw undefined; },
-        configurable: true,
-      });
+      const listSpy = makeListThrow(undefined);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -278,6 +247,7 @@ describe('municipalitiesController', () => {
 
       expect(mockLoggerError).toHaveBeenCalled();
       expect(next).toHaveBeenCalled();
+      listSpy.mockRestore();
     });
   });
 
@@ -301,7 +271,7 @@ describe('municipalitiesController', () => {
           region: 'Comunidad de Madrid',
         },
       ];
-      MunicipalitiesRepository.data = municipalities;
+      municipalitiesRepository.data = municipalities;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -333,7 +303,7 @@ describe('municipalitiesController', () => {
           region: 'País Vasco',
         },
       ];
-      MunicipalitiesRepository.data = municipalities;
+      municipalitiesRepository.data = municipalities;
 
       const req = createMockRequest();
       const res = createMockResponse();

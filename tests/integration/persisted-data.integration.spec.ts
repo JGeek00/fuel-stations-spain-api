@@ -27,13 +27,13 @@ vi.mock('@/utils/sleep', () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { asc, count } from 'drizzle-orm';
 import { persistedDataService } from '@/services/persisted-data.service';
 import { logger } from '@/utils/logger';
 import type { HistoricNoData, HistoricPrice } from '@/models/entities';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
-import { HistoricNoDataTable } from '@/models/db/HistoricNoData';
+import { getMemoryDb, historicFuelStationsTable, historicNoDataTable } from '@/models/db/memory-db';
 import {
-  initHistoricModelsDrizzle,
+  initHistoricSchema,
   stationEntry,
   stubProviderFetch,
 } from './helpers';
@@ -50,17 +50,25 @@ const seedHistoricRow = async (
   date: string,
   gasoilAPrice: number
 ) =>
-  HistoricFuelStation.create({
+  getMemoryDb().insert(historicFuelStationsTable).values({
     id: crypto.randomUUID(),
     stationId,
     stationSignage: 'Test',
     date,
     gasoilAPrice,
-  } as unknown as Record<string, unknown>);
+  });
+
+const countOf = async (table: typeof historicFuelStationsTable | typeof historicNoDataTable): Promise<number> => {
+  const [row] = await getMemoryDb().select({ value: count() }).from(table);
+  return row.value as number;
+};
+
+const historicCount = () => countOf(historicFuelStationsTable);
+const noDataCount = () => countOf(historicNoDataTable);
 
 describe('PersistedDataService.loadStationsHistoric (integration, real in-memory sqlite)', () => {
-  beforeEach(async () => {
-    await initHistoricModelsDrizzle();
+  beforeEach(() => {
+    initHistoricSchema();
     // Fixed "today" (2024-06-15) so the date-range logic is deterministic:
     // seeded data = 2024-06-12 and 2024-06-14, leaving 2024-06-13 as the only hole
     vi.useFakeTimers({ now: new Date('2024-06-15T12:00:00'), toFake: ['Date'] });
@@ -87,9 +95,10 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
       expect.anything()
     );
 
-    const rows = (await HistoricFuelStation.findAll({ order: [['date', 'ASC']] })).map(
-      (r) => r.get({ plain: true }) as unknown as HistoricPrice
-    );
+    const rows = (await getMemoryDb()
+      .select()
+      .from(historicFuelStationsTable)
+      .orderBy(asc(historicFuelStationsTable.date))) as HistoricPrice[];
     expect(rows).toHaveLength(3);
     const fetched = rows.find((r) => r.date === '2024-06-13');
     expect(fetched).toBeDefined();
@@ -97,7 +106,7 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
     expect(fetched?.gasoilAPrice).toBe(1.5);
     expect(fetched?.stationSignage).toBe('Test');
 
-    expect(await HistoricNoDataTable.count()).toBe(0);
+    expect(await noDataCount()).toBe(0);
   });
 
   it('deduplicates a batch that carries duplicate (stationId, date) rows: conflict-ignore now applies on sqlite too (Drizzle onConflictDoNothing), matching the postgres semantics the old option targeted', async () => {
@@ -110,8 +119,8 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
     await persistedDataService.loadAll();
 
     // the duplicate row was ignored, the first one was kept
-    expect(await HistoricFuelStation.count()).toBe(3);
-    expect(await HistoricNoDataTable.count()).toBe(0);
+    expect(await historicCount()).toBe(3);
+    expect(await noDataCount()).toBe(0);
     expect(logger.error).not.toHaveBeenCalled();
   });
 
@@ -124,10 +133,8 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
 
     await persistedDataService.loadAll();
 
-    expect(await HistoricFuelStation.count()).toBe(2);
-    const noData = (await HistoricNoDataTable.findAll()).map(
-      (r) => r.get({ plain: true }) as unknown as HistoricNoData
-    );
+    expect(await historicCount()).toBe(2);
+    const noData = (await getMemoryDb().select().from(historicNoDataTable)) as HistoricNoData[];
     expect(noData).toHaveLength(1);
     expect(noData[0].date).toBe('2024-06-13');
   });
@@ -138,6 +145,6 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
     await persistedDataService.loadAll();
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(await HistoricNoDataTable.count()).toBe(0);
+    expect(await noDataCount()).toBe(0);
   });
 });

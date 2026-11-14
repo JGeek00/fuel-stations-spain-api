@@ -7,11 +7,10 @@ import type { Application } from 'express';
  * `:memory:` database from `src/models/db/memory-db.ts` (vitest isolates files
  * by default) and must never import `@/server` or call `databaseService.init()`.
  *
- * Since the Drizzle + better-sqlite3 migration, the memory tables
- * (FuelStationsTable/LastUpdated/HistoricFuelStation) are seeded through the
- * model adapters (implemented with Drizzle `insert().values()` / `delete()`):
- * `init()` swaps in a fresh `:memory:` database and recreates the tables, so no
- * standalone sqlite instance is needed.
+ * Since the layered-architecture refactor, seeds reset the schema with
+ * `ensureMemorySchema()` (infrastructure) and write through direct Drizzle
+ * `insert().values()` / `delete()` over the memory tables plus the
+ * repositories: no adapter layer exists anymore.
  */
 
 export interface TestServer {

@@ -8,8 +8,7 @@ import {
   historicNoDataTable,
   isPersistedDbInitialized,
 } from '@/models/db/memory-db';
-import { pgHistoricData } from '@/models/db/HistoricFuelStation';
-import { pgHistoricNoData } from '@/models/db/HistoricNoData';
+import { pgHistoricData, pgHistoricNoData } from './pg-tables';
 import type { HistoricPrice } from '@/models/entities/HistoricPrice.model';
 import { HISTORIC_PRICE_COLUMNS } from './fuel-fields';
 import type { IHistoricRepository } from '@/application/ports/repositories';
@@ -68,6 +67,16 @@ class HistoricRepository implements IHistoricRepository {
   async markNoDataDate(date: string): Promise<void> {
     const { db, noDataTable } = this.backend();
     await db.insert(noDataTable).values({ date });
+  }
+
+  /** Liveness check for the historic backend (middleware seam). */
+  async ping(): Promise<void> {
+    const { db } = this.backend();
+    if (typeof db.authenticate === 'function') {
+      await db.authenticate();
+      return;
+    }
+    await db.select({ date: historicFuelStationsTable.date }).from(historicFuelStationsTable).limit(1);
   }
 
   async queryRange(stationId: string, startDate: string, endDate: string): Promise<Record<string, unknown>[]> {

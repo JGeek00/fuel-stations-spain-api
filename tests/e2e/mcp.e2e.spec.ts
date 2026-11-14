@@ -16,8 +16,8 @@ vi.mock('@/utils/logger', () => ({
 
 import { initExpress } from '@/express';
 import { McpServerManager } from '@/mcp/manager';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { getMemoryDb } from '@/models/db/memory-db';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
+import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
 import type { DatabaseService } from '@/services/database.service';
 
 let server: Server;
@@ -72,14 +72,14 @@ beforeAll(async () => {
   originalApiResponseLogging = process.env.API_RESPONSE_LOGGING;
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init();
-  await FuelStationsTable.bulkCreate([
+  ensureMemorySchema();
+  await getMemoryDb().insert(fuelStationsTable).values([
     seedRow(CHEAPEST_ID, 1.43),
     seedRow(MID_ID, 1.61),
     seedRow(EXPENSIVE_ID, 1.79),
   ]);
 
-  // find_cheapest_fuel reads the global FuelStationsTable model, not the
+  // find_cheapest_fuel reads the shared memory DB (via stationRepository), not
   // DatabaseService; the stub only satisfies the constructor's type and any
   // tool touching memoryDbInstance.
   manager = new McpServerManager(

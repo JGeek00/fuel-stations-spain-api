@@ -11,7 +11,7 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import type { Municipality } from '@/models/entities/Municipality.model';
 import { listenApp, closeTestServer, type TestServer } from './setup';
 
@@ -39,9 +39,9 @@ const seededMunicipalities: Municipality[] = [
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  // MunicipalitiesRepository is a singleton whose `data` array is settable;
-  // seeding it directly keeps the response deterministic (no network fetch).
-  MunicipalitiesRepository.data = seededMunicipalities;
+  // The municipalities repository owns the in-memory store; seeding it directly
+  // keeps the response deterministic (no network fetch).
+  municipalitiesRepository.replaceAll(seededMunicipalities as unknown as Record<string, unknown>[]);
 
   testServer = await listenApp(initExpress());
 });
@@ -70,6 +70,6 @@ describe('GET /municipalities (e2e over real HTTP)', () => {
 });
 
 afterAll(async () => {
-  MunicipalitiesRepository.data = [];
+  municipalitiesRepository.replaceAll([]);
   await closeTestServer(testServer);
 });

@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 // ── Mock all dependencies shared by resources ────────────────────────────────
-vi.mock('@/repository/Municipalities.repository', () => ({
-  default: {
-    listAllMunicipalities: vi.fn().mockResolvedValue([]),
-    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
-    data: [],
-  },
-}));
-
+// The municipalities resource reads through the real in-memory
+// municipalitiesRepository (`.data` setter seeds it per test).
 // database-info uses the status use case. Its src body currently has a broken
 // merged state (duplicate declarations), so mock the use case seam here and
 // test the resource presentation; the src gap is reported to the parent.
@@ -63,7 +57,7 @@ import {
   registerMunicipalitiesResource,
 } from '@/mcp/resources';
 import { DatabaseService } from '@/services/database.service';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -445,7 +439,10 @@ describe('registerDatabaseInfoResource', () => {
 });
 
 describe('registerMunicipalitiesResource', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (municipalitiesRepository as any).data = [];
+  });
 
   it('exports a function', () => {
     expect(typeof registerMunicipalitiesResource).toBe('function');
@@ -453,7 +450,7 @@ describe('registerMunicipalitiesResource', () => {
 
   it('registers resource with correct name and URI', () => {
     const { instance, calls } = createMockMcpServer();
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const call = getReadCallback(calls, 'municipalities-list');
     expect(call.name).toBe('municipalities-list');
     expect(call.uri).toBe('fuelstations://municipalities/all');
@@ -461,7 +458,7 @@ describe('registerMunicipalitiesResource', () => {
 
   it('registers with correct metadata', () => {
     const { instance, calls } = createMockMcpServer();
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const call = getReadCallback(calls, 'municipalities-list');
     expect(call.config.mimeType).toBe('application/json');
     expect(call.config.description).toContain('municipalities');
@@ -469,8 +466,8 @@ describe('registerMunicipalitiesResource', () => {
 
   it('readCallback returns empty municipalities when data is empty', async () => {
     const { instance, calls } = createMockMcpServer();
-    (MunicipalitiesRepository as any).data = [];
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    (municipalitiesRepository as any).data = [];
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const { readCallback } = getReadCallback(calls, 'municipalities-list');
     const result = await readCallback();
 
@@ -481,11 +478,11 @@ describe('registerMunicipalitiesResource', () => {
 
   it('readCallback returns municipalities with count', async () => {
     const { instance, calls } = createMockMcpServer();
-    (MunicipalitiesRepository as any).data = [
+    (municipalitiesRepository as any).data = [
       { id: 1, name: 'Madrid' },
       { id: 2, name: 'Barcelona' },
     ];
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const { readCallback } = getReadCallback(calls, 'municipalities-list');
     const result = await readCallback();
 
@@ -496,8 +493,8 @@ describe('registerMunicipalitiesResource', () => {
 
   it('readCallback returns correct structure with count and municipalities keys', async () => {
     const { instance, calls } = createMockMcpServer();
-    (MunicipalitiesRepository as any).data = [{ id: 1 }];
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    (municipalitiesRepository as any).data = [{ id: 1 }];
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const { readCallback } = getReadCallback(calls, 'municipalities-list');
     const result = await readCallback();
 
@@ -508,8 +505,8 @@ describe('registerMunicipalitiesResource', () => {
 
   it('readCallback returns correct URI and mimeType', async () => {
     const { instance, calls } = createMockMcpServer();
-    (MunicipalitiesRepository as any).data = [];
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    (municipalitiesRepository as any).data = [];
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const { readCallback } = getReadCallback(calls, 'municipalities-list');
     const result = await readCallback();
 
@@ -519,8 +516,8 @@ describe('registerMunicipalitiesResource', () => {
 
   it('readCallback output is valid pretty-printed JSON', async () => {
     const { instance, calls } = createMockMcpServer();
-    (MunicipalitiesRepository as any).data = [{ id: 1 }];
-    registerMunicipalitiesResource(instance as never, MunicipalitiesRepository);
+    (municipalitiesRepository as any).data = [{ id: 1 }];
+    registerMunicipalitiesResource(instance as never, municipalitiesRepository);
     const { readCallback } = getReadCallback(calls, 'municipalities-list');
     const result = await readCallback();
 

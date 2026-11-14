@@ -9,12 +9,18 @@ import {
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
+vi.mock('@/infrastructure/persistence/StationRepository', () => ({
+  stationRepository: {
+    count: vi.fn(),
+  },
+}));
+
 import { healthcheckController } from '@/controllers/healthcheck.controller';
 import { logger } from '@/utils/logger';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { stationRepository } from '@/infrastructure/persistence/StationRepository';
 
 const mockLoggerError = vi.mocked(logger.error);
-const mockFindAndCountAll = FuelStationsTable.findAndCountAll as unknown as ReturnType<typeof vi.fn<() => Promise<{ rows: unknown[]; count: number | null | undefined }>>>;
+const mockCount = stationRepository.count as unknown as ReturnType<typeof vi.fn<() => Promise<number>>>;
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -24,37 +30,25 @@ describe('healthcheckController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
-    mockFindAndCountAll.mockResolvedValue({ rows: [], count: 0 });
+    mockCount.mockResolvedValue(0);
   });
 
   describe('healthy response', () => {
     it('returns 200 when realtimeStations count > 0', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [
-          { stationId: 'ES0001', name: 'Shell Madrid' },
-        ],
-        count: 15000,
-      });
+      mockCount.mockResolvedValue(15000);
 
       const req = createMockRequest();
       const res = createMockResponse();
 
       await healthcheckController(req, res, () => {});
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith({ limit: 10 });
+      expect(mockCount).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.send).toHaveBeenCalled();
     });
 
     it('returns 200 with large station count', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [
-          { stationId: 'ES0001' },
-          { stationId: 'ES0002' },
-          { stationId: 'ES0003' },
-        ],
-        count: 25000,
-      });
+      mockCount.mockResolvedValue(25000);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -65,10 +59,7 @@ describe('healthcheckController', () => {
     });
 
     it('returns 200 when count is exactly 1', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [{ stationId: 'ES0001' }],
-        count: 1,
-      });
+      mockCount.mockResolvedValue(1);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -81,26 +72,20 @@ describe('healthcheckController', () => {
 
   describe('unhealthy response', () => {
     it('returns 500 when realtimeStations count is 0', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: 0,
-      });
+      mockCount.mockResolvedValue(0);
 
       const req = createMockRequest();
       const res = createMockResponse();
 
       await healthcheckController(req, res, () => {});
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith({ limit: 10 });
+      expect(mockCount).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.send).toHaveBeenCalled();
     });
 
     it('returns 500 when count is null', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: null,
-      });
+      mockCount.mockResolvedValue(null as unknown as number);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -111,10 +96,7 @@ describe('healthcheckController', () => {
     });
 
     it('returns 500 when count is undefined', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: undefined,
-      });
+      mockCount.mockResolvedValue(undefined as unknown as number);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -126,8 +108,8 @@ describe('healthcheckController', () => {
   });
 
   describe('error handling', () => {
-    it('returns 500 when findAndCountAll throws an error', async () => {
-      mockFindAndCountAll.mockRejectedValue(new Error('Database connection failed'));
+    it('returns 500 when stationRepository.count throws an error', async () => {
+      mockCount.mockRejectedValue(new Error('Database connection failed'));
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -142,8 +124,8 @@ describe('healthcheckController', () => {
       );
     });
 
-    it('returns 500 when findAndCountAll throws a non-Error', async () => {
-      mockFindAndCountAll.mockRejectedValue('String error');
+    it('returns 500 when stationRepository.count throws a non-Error', async () => {
+      mockCount.mockRejectedValue('String error');
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -157,8 +139,8 @@ describe('healthcheckController', () => {
       );
     });
 
-    it('returns 500 when findAndCountAll throws null', async () => {
-      mockFindAndCountAll.mockRejectedValue(null);
+    it('returns 500 when stationRepository.count throws null', async () => {
+      mockCount.mockRejectedValue(null);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -169,8 +151,8 @@ describe('healthcheckController', () => {
       expect(mockLoggerError).toHaveBeenCalled();
     });
 
-    it('returns 500 when findAndCountAll throws undefined', async () => {
-      mockFindAndCountAll.mockRejectedValue(undefined);
+    it('returns 500 when stationRepository.count throws undefined', async () => {
+      mockCount.mockRejectedValue(undefined);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -182,7 +164,7 @@ describe('healthcheckController', () => {
     });
 
     it('logs error details for database timeout', async () => {
-      mockFindAndCountAll.mockRejectedValue(new Error('Query timeout after 30000ms'));
+      mockCount.mockRejectedValue(new Error('Query timeout after 30000ms'));
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -196,7 +178,7 @@ describe('healthcheckController', () => {
     });
 
     it('logs error details for connection refused', async () => {
-      mockFindAndCountAll.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432'));
+      mockCount.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432'));
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -211,25 +193,19 @@ describe('healthcheckController', () => {
   });
 
   describe('query behavior', () => {
-    it('calls findAndCountAll with limit of 10', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [{ stationId: 'ES0001' }],
-        count: 1,
-      });
+    it('calls stationRepository.count without arguments', async () => {
+      mockCount.mockResolvedValue(1);
 
       const req = createMockRequest();
       const res = createMockResponse();
 
       await healthcheckController(req, res, () => {});
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith({ limit: 10 });
+      expect(mockCount).toHaveBeenCalledTimes(1);
     });
 
     it('does not use request query parameters', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [{ stationId: 'ES0001' }],
-        count: 1,
-      });
+      mockCount.mockResolvedValue(1);
 
       const req = createMockRequest({
         query: { someParam: 'value' },
@@ -238,18 +214,15 @@ describe('healthcheckController', () => {
 
       await healthcheckController(req, res, () => {});
 
-      // Controller ignores query params, uses hardcoded limit: 10
-      expect(mockFindAndCountAll).toHaveBeenCalledWith({ limit: 10 });
+      // Controller ignores query params; it only calls stationRepository.count()
+      expect(mockCount).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('edge cases', () => {
     it('handles count as string number (falsy check)', async () => {
       // In JavaScript, "0" > 0 is false
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: 0,
-      });
+      mockCount.mockResolvedValue('0' as unknown as number);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -262,10 +235,7 @@ describe('healthcheckController', () => {
 
     it('handles count as string number greater than 0', async () => {
       // "15000" > 0 is true in JavaScript (coerced to number)
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [{ stationId: 'ES0001' }],
-        count: 15000,
-      });
+      mockCount.mockResolvedValue(15000);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -277,10 +247,7 @@ describe('healthcheckController', () => {
 
     it('handles empty rows but positive count', async () => {
       // Count is what matters for healthcheck, not rows
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: 15000,
-      });
+      mockCount.mockResolvedValue(15000);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -292,10 +259,7 @@ describe('healthcheckController', () => {
 
     it('handles negative count (should be unhealthy)', async () => {
       // Negative count should fail the > 0 check
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: -1,
-      });
+      mockCount.mockResolvedValue(-1);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -306,10 +270,7 @@ describe('healthcheckController', () => {
     });
 
     it('handles NaN count (should be unhealthy)', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [],
-        count: NaN,
-      });
+      mockCount.mockResolvedValue(NaN);
 
       const req = createMockRequest();
       const res = createMockResponse();

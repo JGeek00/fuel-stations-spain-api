@@ -12,8 +12,13 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
+import {
+  fuelStationsTable,
+  getMemoryDb,
+  historicFuelStationsTable,
+  markPersistedDbInitialized,
+} from '@/models/db/memory-db';
 import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;
@@ -43,18 +48,20 @@ beforeAll(async () => {
   // its parsed result for the lifetime of this module graph.
   process.env.HISTORIC_DATA_MAX_RANGE = '6m';
 
-  FuelStationsTable.init();
-  HistoricFuelStation.init();
+  ensureMemorySchema();
+  // The connection middleware gates on the persisted-initialized seam (previously
+  // set by the HistoricFuelStation adapter's init()).
+  markPersistedDbInitialized();
 
   testServer = await listenApp(initExpress());
 });
 
 beforeEach(async () => {
-  await FuelStationsTable.truncate();
-  await HistoricFuelStation.truncate();
-  await FuelStationsTable.create(fuelRow());
-  currentRowPk = ((await FuelStationsTable.findOne())!.dataValues as unknown as { id: string }).id;
-  await HistoricFuelStation.bulkCreate([
+  await getMemoryDb().delete(fuelStationsTable);
+  await getMemoryDb().delete(historicFuelStationsTable);
+  await getMemoryDb().insert(fuelStationsTable).values(fuelRow());
+  currentRowPk = ((await getMemoryDb().select().from(fuelStationsTable))[0] as { id: string }).id;
+  await getMemoryDb().insert(historicFuelStationsTable).values([
     historicRow('2024-01-20', 1.6),
     historicRow('2024-01-15', 1.55),
     historicRow('2024-01-15', 1.4, 'ES0002'),
@@ -93,7 +100,7 @@ describe('GET /historic-prices (e2e over real HTTP)', () => {
   });
 
   it('200 empty price: the empty gasoline95E5Price is returned as null, not 0', async () => {
-    await HistoricFuelStation.create({
+    await getMemoryDb().insert(historicFuelStationsTable).values({
       id: crypto.randomUUID(),
       stationId: 'ES0009',
       stationSignage: 'EMPTY',

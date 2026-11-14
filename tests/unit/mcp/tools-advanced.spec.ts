@@ -1,14 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-// ── Mock the data seams: legacy municipalities store + historic repository ──
-vi.mock('@/repository/Municipalities.repository', () => ({
-  default: {
-    listAllMunicipalities: vi.fn().mockResolvedValue([]),
-    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
-    data: [],
-  },
-}));
-
+// ── Mock the data seams: historic repository (municipalities repo is the real
+// in-memory store, seeded through its `.data` setter per test) ──────────────
 vi.mock('@/infrastructure/persistence/HistoricRepository', () => ({
   historicRepository: {
     queryRange: vi.fn(),
@@ -74,7 +67,7 @@ import {
   queryHistoricPricesTool,
 } from '@/mcp/tools';
 import { DatabaseService } from '@/services/database.service';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
 import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
 import { keysToCamel } from '@/utils/case-keys';
@@ -102,7 +95,7 @@ describe('listMunicipalitiesTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (MunicipalitiesRepository as any).data = sampleData;
+    (municipalitiesRepository as any).data = sampleData;
   });
 
   it('exports a function', () => {
@@ -111,7 +104,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('registers tool with correct name and metadata', () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const tool = getToolCallback(calls, 'list_municipalities');
     expect(tool.name).toBe('list_municipalities');
     expect(tool.config.title).toBe('List Municipalities');
@@ -119,7 +112,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback returns all municipalities when no filter', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
@@ -129,7 +122,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback filters by province', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ province: 'Madrid' });
 
@@ -140,7 +133,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback filters by province case-insensitive', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ province: 'madrid' });
 
@@ -150,7 +143,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback filters by region', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ region: 'Andalucía' });
 
@@ -161,7 +154,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback filters by search with partial match', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ search: 'Bar' });
 
@@ -172,7 +165,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback combines province and region filters', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ province: 'Barcelona', region: 'Cataluña' });
 
@@ -183,7 +176,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback returns empty when no match', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ search: 'ZooCity' });
 
@@ -193,8 +186,8 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback returns empty array when data is empty', async () => {
     const { instance, calls } = createMockMcpServer();
-    (MunicipalitiesRepository as any).data = [];
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    (municipalitiesRepository as any).data = [];
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
@@ -204,7 +197,7 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback result has municipalities key', async () => {
     const { instance, calls } = createMockMcpServer();
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
@@ -214,16 +207,16 @@ describe('listMunicipalitiesTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    // Force an error by making data a getter that throws
-    Object.defineProperty(MunicipalitiesRepository, 'data', {
-      get: () => { throw new Error('simulated error'); },
-      configurable: true,
+    // Force an error by making the repository list() throw
+    const listSpy = vi.spyOn(municipalitiesRepository, 'list').mockImplementation(() => {
+      throw new Error('simulated error');
     });
-    listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
     expect(result).toHaveProperty('isError', true);
+    listSpy.mockRestore();
   });
 });
 

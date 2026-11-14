@@ -1,32 +1,42 @@
-import legacyMunicipalities from '@/repository/Municipalities.repository';
+import { Municipality } from '@/models/entities/Municipality.model';
 import type { IMunicipalitiesRepository } from '@/application/ports/repositories';
 
+/** In-memory municipalities store (owned by the data layer, S1). */
+let data: Municipality[] = [];
+
 /**
- * Municipalities repository — wraps the legacy singleton store so existing
- * tests pinning `MunicipalitiesRepository.data` keep passing, while adding
- * the query methods controllers and MCP tools need.
+ * Municipalities repository — owns the in-memory store.
+ * Replaces the legacy `src/repository/Municipalities.repository.ts` singleton.
  */
 class MunicipalitiesRepository implements IMunicipalitiesRepository {
+  /** Legacy-compatible accessor (tests/seeds set `.data` directly). */
+  get data(): Municipality[] {
+    return data;
+  }
+
+  set data(value: Municipality[]) {
+    data = value;
+  }
+
   list(filters?: { province?: string; region?: string; search?: string }): Record<string, unknown>[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let data = (legacyMunicipalities as any).data as Record<string, unknown>[];
-    if (!filters) return data;
+    let result: Record<string, unknown>[] = data as unknown as Record<string, unknown>[];
+    if (!filters) return result;
     const { province, region, search } = filters;
-    return data.filter((m) => {
-      if (province && !String((m as Record<string, unknown>).province ?? '').toLowerCase().includes(province.toLowerCase())) return false;
-      if (region && !String((m as Record<string, unknown>).region ?? '').toLowerCase().includes(region.toLowerCase())) return false;
+    return result.filter((m) => {
+      if (province && !String(m.province ?? '').toLowerCase().includes(province.toLowerCase())) return false;
+      if (region && !String(m.region ?? '').toLowerCase().includes(region.toLowerCase())) return false;
       if (search) {
-        const hay = `${String((m as Record<string, unknown>).municipality ?? '')} ${String((m as Record<string, unknown>).province ?? '')}`.toLowerCase();
+        const hay = `${String(m.municipality ?? '')} ${String(m.province ?? '')}`.toLowerCase();
         if (!hay.includes(search.toLowerCase())) return false;
       }
       return true;
     });
   }
 
-  replaceAll(data: Record<string, unknown>[]): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (legacyMunicipalities as any).data = data;
+  replaceAll(next: Record<string, unknown>[]): void {
+    data = next as unknown as Municipality[];
   }
 }
 
 export const municipalitiesRepository = new MunicipalitiesRepository();
+export default municipalitiesRepository;

@@ -1,41 +1,26 @@
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { vi } from 'vitest';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
-import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
-import { HistoricNoDataTable } from '@/models/db/HistoricNoData';
-import {
-  installHistoricFuelStationAdapter,
-  installHistoricNoDataAdapter,
-  resetMemoryDb,
-} from '@/models/db/memory-db';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
+import { markPersistedDbInitialized } from '@/models/db/memory-db';
 
 /**
- * Drizzle-memory version of initMemoryModels: FuelStationsTable.init() swaps in
- * a fresh better-sqlite3 `:memory:` database and recreates the tables, then
- * LastUpdated.init() ensures its table on the active database.
+ * Fresh `:memory:` schema for realtime specs: ensureMemorySchema() swaps in a
+ * new database and creates fuel_stations + last_updated (it also ensures the
+ * historic tables, so seeding either side is always safe).
  */
-// The model adapters' init() takes no arguments; cast past Sequelize's static typing.
-const initModel = (model: unknown): void => (model as { init: () => void }).init();
-
-export const initMemoryModelsDrizzle = async (): Promise<void> => {
-  initModel(FuelStationsTable);
-  initModel(LastUpdated);
+export const initMemorySchema = (): void => {
+  ensureMemorySchema();
 };
 
 /**
- * Drizzle-memory version of initHistoricModels: fresh memory database with the
- * historic tables ensured, then the HistoricFuelStation/HistoricNoDataTable
- * adapters installed so their statics read/write the same tables the persisted
- * data service queries via Drizzle.
+ * Historic/persisted variant: same fresh schema plus the persisted-initialized
+ * seam the persisted data service early-exits on (previously set by the
+ * HistoricFuelStation adapter's init()).
  */
-export const initHistoricModelsDrizzle = async (): Promise<void> => {
-  resetMemoryDb();
-  installHistoricFuelStationAdapter();
-  installHistoricNoDataAdapter();
-  initModel(HistoricFuelStation);
-  initModel(HistoricNoDataTable);
+export const initHistoricSchema = (): void => {
+  ensureMemorySchema();
+  markPersistedDbInitialized();
 };
 
 // ── Postgres helpers (migration integration) ────────────────────────────────

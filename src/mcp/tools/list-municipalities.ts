@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import type municipalitiesRepository from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { listMunicipalitiesUseCase } from '@/application/usecases/ListMunicipalities.usecase';
 import { logger } from '@/utils/logger';
 
-export function listMunicipalitiesTool(server: McpServer, _municipalitiesRepository: typeof MunicipalitiesRepository): void {
+export function listMunicipalitiesTool(server: McpServer, _municipalitiesRepository: typeof municipalitiesRepository): void {
   server.registerTool(
     'list_municipalities',
     {

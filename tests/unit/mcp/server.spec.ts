@@ -30,41 +30,9 @@ vi.mock('@/services/database.service', () => {
   return { DatabaseService };
 });
 
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findStationById: vi.fn(),
-    getStationByCif: vi.fn(),
-    getStationByNif: vi.fn(),
-    getAllStations: vi.fn(),
-    getStationByProvinceAndMunicipality: vi.fn(),
-    findAll: vi.fn().mockResolvedValue([]),
-    count: vi.fn().mockResolvedValue(0),
-  },
-}));
-
-vi.mock('@/models/db/HistoricFuelStation', () => ({
-  HistoricFuelStation: {
-    getHistoricPricesForStation: vi.fn(),
-    getHistoricPricesForStationInRange: vi.fn(),
-    getHistoricPriceForStationAndDate: vi.fn(),
-    getHistoricPricesByMunicipality: vi.fn(),
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    get: vi.fn(),
-    findOne: vi.fn().mockResolvedValue(null),
-  },
-}));
-
-vi.mock('@/repository/Municipalities.repository', () => ({
-  default: {
-    listAllMunicipalities: vi.fn().mockResolvedValue([]),
-    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
-  },
-}));
+// Legacy module mocks removed (models/db/FuelStations, HistoricFuelStation,
+// LastUpdated, repository/Municipalities.repository): the server now wires the
+// infrastructure repository seams, which are not invoked during registration.
 
 vi.mock('@/utils/calculate-distance', () => ({
   calculateBoundingBox: vi.fn().mockReturnValue({

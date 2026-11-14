@@ -13,13 +13,14 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
+import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
 
 let server: Server;
 let baseUrl: string;
 
 // FuelStation's interface does not declare `id`, so the seeded primary key is
-// set directly (the adapter accepts a plain row object).
+// set directly (a plain row object inserts fine).
 const seedRow = () => ({
   id: crypto.randomUUID(),
   stationId: 'ES0001',
@@ -29,7 +30,7 @@ const seedRow = () => ({
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init();
+  ensureMemorySchema();
 
   const app = initExpress();
   await new Promise<void>((resolve) => {
@@ -39,8 +40,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await FuelStationsTable.truncate();
-  await FuelStationsTable.bulkCreate([seedRow()]);
+  await getMemoryDb().delete(fuelStationsTable);
+  await getMemoryDb().insert(fuelStationsTable).values([seedRow()]);
 });
 
 describe('health endpoints (e2e over real HTTP)', () => {
@@ -51,7 +52,7 @@ describe('health endpoints (e2e over real HTTP)', () => {
   });
 
   it('GET /healthcheck returns 500 when the table is empty', async () => {
-    await FuelStationsTable.truncate();
+    await getMemoryDb().delete(fuelStationsTable);
 
     const response = await fetch(`${baseUrl}/healthcheck`);
 

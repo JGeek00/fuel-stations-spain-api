@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
 import '@tests/test-utils/controller-mocks';
@@ -8,30 +8,32 @@ import {
   createMockRequest,
 } from '@tests/test-utils/controller-mocks';
 
+// ── Seam mock (hoisted by Vitest) ───────────────────────────────────────────
+vi.mock('@/infrastructure/persistence/HistoricRepository', () => ({
+  historicRepository: {
+    isReady: vi.fn(),
+    ping: vi.fn(),
+  },
+}));
+
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
 import { databaseConnectionMiddleware } from '@/middlewares/database-connection.middleware';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
 
-const mockAuthenticate = (HistoricFuelStation.sequelize! as any).authenticate as ReturnType<typeof vi.fn>;
-const mockSequelize = HistoricFuelStation.sequelize! as any;
+const mockIsReady = historicRepository.isReady as unknown as ReturnType<typeof vi.fn<() => boolean>>;
+const mockPing = historicRepository.ping as unknown as ReturnType<typeof vi.fn<() => Promise<void>>>;
 
 describe('databaseConnectionMiddleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Restore sequelize reference
-    (HistoricFuelStation as any).sequelize = mockSequelize;
-    mockAuthenticate.mockResolvedValue(undefined);
+    mockIsReady.mockReturnValue(true);
+    mockPing.mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
-    // Ensure sequelize is restored even if a test crashes
-    (HistoricFuelStation as any).sequelize = mockSequelize;
-  });
-
-  describe('sequelize not initialized', () => {
-    it('returns 500 when HistoricFuelStation.sequelize is null', async () => {
-      (HistoricFuelStation as any).sequelize = null;
+  describe('historic backend not ready', () => {
+    it('returns 500 when historicRepository.isReady() is false', async () => {
+      mockIsReady.mockReturnValue(false);
       const middleware = databaseConnectionMiddleware();
       const req = createMockRequest();
       const res = createMockResponse();
@@ -46,30 +48,12 @@ describe('databaseConnectionMiddleware', () => {
         })
       );
       expect(next).not.toHaveBeenCalled();
-      expect(mockAuthenticate).not.toHaveBeenCalled();
-    });
-
-    it('returns 500 when HistoricFuelStation.sequelize is undefined', async () => {
-      (HistoricFuelStation as any).sequelize = undefined;
-      const middleware = databaseConnectionMiddleware();
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const next = createMockNext();
-
-      await middleware(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
-        })
-      );
-      expect(next).not.toHaveBeenCalled();
+      expect(mockPing).not.toHaveBeenCalled();
     });
   });
 
-  describe('successful authentication', () => {
-    it('calls next() when sequelize.authenticate resolves', async () => {
+  describe('successful ping', () => {
+    it('calls next() when historicRepository.ping() resolves', async () => {
       const middleware = databaseConnectionMiddleware();
       const req = createMockRequest();
       const res = createMockResponse();
@@ -77,15 +61,16 @@ describe('databaseConnectionMiddleware', () => {
 
       await middleware(req, res, next);
 
-      expect(mockAuthenticate).toHaveBeenCalled();
+      expect(mockIsReady).toHaveBeenCalled();
+      expect(mockPing).toHaveBeenCalled();
       expect(next).toHaveBeenCalled();
       expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  describe('authentication failure', () => {
-    it('passes error to next() when sequelize.authenticate rejects', async () => {
-      mockAuthenticate.mockRejectedValue(new Error('Connection refused'));
+  describe('ping failure', () => {
+    it('passes error to next() when historicRepository.ping() rejects', async () => {
+      mockPing.mockRejectedValue(new Error('Connection refused'));
       const middleware = databaseConnectionMiddleware();
       const req = createMockRequest();
       const res = createMockResponse();
@@ -93,13 +78,13 @@ describe('databaseConnectionMiddleware', () => {
 
       await middleware(req, res, next);
 
-      expect(mockAuthenticate).toHaveBeenCalled();
+      expect(mockPing).toHaveBeenCalled();
       expect(next).toHaveBeenCalledWith(new Error('Connection refused'));
       expect(res.status).not.toHaveBeenCalled();
     });
 
     it('passes non-Error rejection to next()', async () => {
-      mockAuthenticate.mockRejectedValue('String error');
+      mockPing.mockRejectedValue('String error');
       const middleware = databaseConnectionMiddleware();
       const req = createMockRequest();
       const res = createMockResponse();
@@ -111,7 +96,7 @@ describe('databaseConnectionMiddleware', () => {
     });
 
     it('passes null rejection to next()', async () => {
-      mockAuthenticate.mockRejectedValue(null);
+      mockPing.mockRejectedValue(null);
       const middleware = databaseConnectionMiddleware();
       const req = createMockRequest();
       const res = createMockResponse();
@@ -123,7 +108,7 @@ describe('databaseConnectionMiddleware', () => {
     });
 
     it('passes undefined rejection to next()', async () => {
-      mockAuthenticate.mockRejectedValue(undefined);
+      mockPing.mockRejectedValue(undefined);
       const middleware = databaseConnectionMiddleware();
       const req = createMockRequest();
       const res = createMockResponse();

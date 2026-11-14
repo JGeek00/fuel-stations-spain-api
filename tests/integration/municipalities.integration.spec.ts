@@ -21,7 +21,7 @@ vi.mock('typia', () => ({
 
 import { realtimeDataService } from '@/services/realtime-data.service';
 import { municipalitiesController } from '@/controllers/municipalities.controller';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { logger } from '@/utils/logger';
 import { municipalitiesResponse, stubProviderFetch } from './helpers';
 
@@ -36,12 +36,12 @@ const createMockRes = (): Response => {
 
 describe('MunicipalitiesRepository (integration, real service + controller)', () => {
   beforeEach(() => {
-    MunicipalitiesRepository.data = [];
+    municipalitiesRepository.replaceAll([]);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    MunicipalitiesRepository.data = [];
+    municipalitiesRepository.replaceAll([]);
   });
 
   it('is populated by realtimeDataService.loadMunicipalities with renamed keys', async () => {
@@ -49,7 +49,7 @@ describe('MunicipalitiesRepository (integration, real service + controller)', ()
 
     await realtimeDataService.loadMunicipalities();
 
-    expect(MunicipalitiesRepository.data).toEqual([
+    expect(municipalitiesRepository.data).toEqual([
       {
         municipalityId: '28079',
         provinceId: '28',
@@ -63,12 +63,12 @@ describe('MunicipalitiesRepository (integration, real service + controller)', ()
 
   it('stays untouched when the provider fetch fails', async () => {
     const previous = [{ municipalityId: '1', provinceId: '1', regionId: '1', municipality: 'X', province: 'X', region: 'X' }];
-    MunicipalitiesRepository.data = previous;
+    municipalitiesRepository.replaceAll(previous);
     stubProviderFetch({ reject: new Error('Network down') });
 
     await realtimeDataService.loadMunicipalities();
 
-    expect(MunicipalitiesRepository.data).toBe(previous);
+    expect(municipalitiesRepository.data).toBe(previous);
     expect(logger.error).toHaveBeenCalled();
   });
 
@@ -79,6 +79,6 @@ describe('MunicipalitiesRepository (integration, real service + controller)', ()
     const res = createMockRes();
     await municipalitiesController({} as Request, res, next);
 
-    expect(res.send).toHaveBeenCalledWith({ municipalities: MunicipalitiesRepository.data });
+    expect(res.send).toHaveBeenCalledWith({ municipalities: municipalitiesRepository.data });
   });
 });

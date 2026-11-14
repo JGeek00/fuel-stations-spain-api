@@ -11,8 +11,8 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { LastUpdated } from '@/models/db/LastUpdated';
+import { ensureMemorySchema } from '@/infrastructure/persistence/ensureMemorySchema';
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/models/db/memory-db';
 import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;
@@ -28,7 +28,7 @@ const seedRow = (stationId: string, latitude: number, longitude: number, municip
   locality: 'Madrid',
 });
 
-const seedStations = () => FuelStationsTable.bulkCreate([
+const seedStations = () => getMemoryDb().insert(fuelStationsTable).values([
   seedRow('ES0001', 40.4268, -3.6038, 28079),
   seedRow('ES0002', 40.5168, -2.5, 28999),
   seedRow('ES0003', 41.5, -3.7038, 28079),
@@ -53,17 +53,17 @@ const contractResultKeys = [
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init();
-  LastUpdated.init();
+  ensureMemorySchema();
 
   testServer = await listenApp(initExpress());
 });
 
 beforeEach(async () => {
-  await FuelStationsTable.truncate();
-  await LastUpdated.truncate();
+  await getMemoryDb().delete(fuelStationsTable);
+  await getMemoryDb().delete(lastUpdatedTable);
   await seedStations();
-  await LastUpdated.create({ lastUpdated: new Date('2024-06-01T10:00:00.000Z') });
+  // The service stores lastUpdated as an ISO string (SQLite has no DATE type).
+  await getMemoryDb().insert(lastUpdatedTable).values({ lastUpdated: '2024-06-01T10:00:00.000Z' });
 });
 
 describe('GET /service-stations (e2e over real HTTP)', () => {
@@ -204,7 +204,7 @@ describe('GET /service-stations (e2e over real HTTP)', () => {
   });
 
   it('500 when the LastUpdated table is empty', async () => {
-    await LastUpdated.truncate();
+    await getMemoryDb().delete(lastUpdatedTable);
 
     const response = await fetch(`${testServer.baseUrl}/service-stations`);
 

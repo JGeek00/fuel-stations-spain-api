@@ -1,16 +1,13 @@
 import Database from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { and, asc, count as drizzleCount, desc, eq, inArray, type SQL } from 'drizzle-orm';
-import { integer, real, sqliteTable, text, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
-import { HistoricFuelStation } from './HistoricFuelStation';
-import { HistoricNoDataTable } from './HistoricNoData';
+import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
- * Shared better-sqlite3 `:memory:` database behind the FuelStations/LastUpdated
- * Drizzle tables. A fresh `:memory:` database is swapped in on every model
- * `init()` call, restoring the per-instance isolation Sequelize gave tests
- * (fresh `new Sequelize({ storage: ':memory:' })` per setup).
+ * Shared better-sqlite3 `:memory:` database behind the realtime Drizzle
+ * tables. `resetMemoryDb()` swaps in a fresh `:memory:` database (per-test
+ * isolation); `ensureMemorySchema()` in infrastructure also recreates the
+ * fuel_stations + last_updated tables.
  */
 export const memorySqlite: BetterSqlite3.Database = new Database(':memory:');
 
@@ -31,9 +28,9 @@ export const resetMemoryDb = (): void => {
   ensureHistoricNoDataTable(sqlite);
 };
 
-// Marks whether the persisted/historic side has been initialized (adapter init
-// today; the Drizzle pg wiring replaces this in T6). The persisted data service
-// reads it through the same seam as the memory DB.
+// Marks whether the persisted/historic side is initialized (set by
+// database.service after the PG pool authenticates, or by test seeds that
+// run against the memory historic tables).
 let persistedDbInitialized = false;
 export const markPersistedDbInitialized = (): void => {
   persistedDbInitialized = true;
@@ -51,12 +48,9 @@ export const setPersistedDb = (db: any): void => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getPersistedDb = (): any => persistedPg;
 
-export type MemoryTable = Record<string, AnySQLiteColumn>;
-
 // ── Drizzle table definitions: single source of truth ─────────────────────
-// The FuelStations.ts / LastUpdated.ts model adapters import these tables
-// (same table/column names the old Sequelize defs had) so controllers, MCP
-// tools and the adapters all query one shared definition.
+// Owned by the data layer: repositories query these tables, never raw SQL
+// in controllers, tools, services or jobs.
 export const fuelStationsTable = sqliteTable('fuel_stations', {
   id: text('id').primaryKey(),
   stationId: text('stationId'),
@@ -181,135 +175,4 @@ const ensureHistoricNoDataTable = (sqlite: BetterSqlite3.Database): void => {
 ensureHistoricTable(getMemorySqlite());
 ensureHistoricNoDataTable(getMemorySqlite());
 
-/**
- * Routes the HistoricFuelStation statics used by the historic e2e seeds
- * (init/truncate/bulkCreate) to the shared memory DB this controller reads, so
- * both sides see the same rows without touching the e2e files. The persisted
- * PG wiring stays detached until T6 wires Drizzle pg for historic_data.
- */
-export function installHistoricFuelStationAdapter(): void {
-  Object.assign(HistoricFuelStation, {
-    init: () => {
-      ensureHistoricTable(getMemorySqlite());
-      // The connection middleware reads HistoricFuelStation.sequelize; point it
-      // at a no-op stub so requests pass while the memory table is the backend.
-      Object.defineProperty(HistoricFuelStation, 'sequelize', {
-        value: { authenticate: async () => undefined },
-        writable: true,
-        configurable: true,
-      });
-      markPersistedDbInitialized();
-    },
-    truncate: async () => {
-      // Drizzle query builders are lazy promise-likes: they only run when awaited.
-      await getMemoryDb().delete(historicFuelStationsTable);
-    },
-    bulkCreate: async (values: Record<string, unknown>[]) => {
-      if (values.length === 0) return [];
-      return getMemoryDb().insert(historicFuelStationsTable).values(values).returning();
-    },
-    create: async (values: Record<string, unknown>) => {
-      const [row] = await getMemoryDb().insert(historicFuelStationsTable).values(values).returning();
-      return new MemoryRow(row as Record<string, unknown>) as unknown as HistoricFuelStation;
-    },
-    findAll: async (options: { order?: unknown[][] } = {}) => {
-      let query = getMemoryDb().select().from(historicFuelStationsTable);
-      const order = translateOrder(historicFuelStationsTable as unknown as MemoryTable, options.order);
-      if (order.length > 0) query = query.orderBy(...order);
-      return (await query).map(
-        (row: Record<string, unknown>) => new MemoryRow(row) as unknown as HistoricFuelStation
-      );
-    },
-    count: async () => {
-      const [row] = await getMemoryDb().select({ value: drizzleCount() }).from(historicFuelStationsTable);
-      return row.value as number;
-    },
-  });
-}
 
-/**
- * Routes the HistoricNoDataTable statics (used by the persisted data service
- * integration tests) to the shared memory DB. Provisional like the historic
- * adapter until T6 wires Drizzle pg for the persisted tables.
- */
-export function installHistoricNoDataAdapter(): void {
-  Object.assign(HistoricNoDataTable, {
-    init: () => {
-      ensureHistoricNoDataTable(getMemorySqlite());
-    },
-    findAll: async () =>
-      (await getMemoryDb().select().from(historicNoDataTable)).map(
-        (row: Record<string, unknown>) => new MemoryRow(row) as unknown as HistoricNoDataTable
-      ),
-    count: async () => {
-      const [row] = await getMemoryDb().select({ value: drizzleCount() }).from(historicNoDataTable);
-      return row.value as number;
-    },
-    create: async (values: { date: string }) => {
-      await getMemoryDb().insert(historicNoDataTable).values(values);
-      return new MemoryRow(values) as unknown as HistoricNoDataTable;
-    },
-  });
-}
-
-/**
- * Minimal Sequelize model-instance lookalike returned by the memory DB
- * adapters: consumers only use `dataValues`, `get({ plain: true })` and
- * `getDataValue(key)`.
- */
-export class MemoryRow<T extends Record<string, unknown>> {
-  dataValues: T;
-
-  constructor(values: T) {
-    this.dataValues = values;
-  }
-
-  get(_options?: { plain?: boolean }): T {
-    return { ...this.dataValues };
-  }
-
-  getDataValue<K extends keyof T>(key: K): T[K] {
-    return this.dataValues[key];
-  }
-}
-
-type PlainWhere = Record<string, unknown>;
-
-/**
- * Translate a plain where object ({col: value | value[]}) into Drizzle
- * conditions. No `Op.*` symbol branches: since T4 the controllers/tools build
- * plain where objects (arrays are IN filters, scalars are equality).
- */
-export function translateWhere(table: MemoryTable, where?: PlainWhere): SQL | undefined {
-  if (!where) return undefined;
-
-  const conditions: SQL[] = [];
-  for (const [key, value] of Object.entries(where)) {
-    const column = table[key];
-    if (!column) {
-      throw new Error(`Unknown column "${key}" in memory DB query`);
-    }
-    if (Array.isArray(value)) {
-      conditions.push(inArray(column, value));
-    } else if (value === null || typeof value !== 'object') {
-      conditions.push(eq(column, value as never));
-    } else {
-      throw new Error(`Unsupported memory DB where operator for column "${key}"`);
-    }
-  }
-
-  if (conditions.length === 0) return undefined;
-  return conditions.length === 1 ? conditions[0] : and(...conditions);
-}
-
-/** Translate a legacy order tuple ([col, 'ASC'|'DESC']) into Drizzle orderBy entries. */
-export function translateOrder(table: MemoryTable, order?: unknown[][]): SQL[] {
-  if (!order) return [];
-  return order.map(([column, direction]) => {
-    const col = table[column as string];
-    if (!col) {
-      throw new Error(`Unknown order column "${String(column)}" in memory DB query`);
-    }
-    return String(direction).toUpperCase() === 'DESC' ? desc(col) : asc(col);
-  });
-}

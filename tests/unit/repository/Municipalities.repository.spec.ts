@@ -1,33 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { municipalitiesRepository } from '@/infrastructure/persistence/MunicipalitiesRepository';
 import { Municipality } from '@/models/entities';
 
 describe('MunicipalitiesRepository', () => {
   beforeEach(() => {
     vi.resetModules();
+    municipalitiesRepository.data = [];
   });
 
   describe('singleton pattern', () => {
     it('returns the same instance on every import', async () => {
-      const { default: firstImport } = await import('@/repository/Municipalities.repository');
-      const { default: secondImport } = await import('@/repository/Municipalities.repository');
+      const firstImport = await import('@/infrastructure/persistence/MunicipalitiesRepository');
+      const secondImport = await import('@/infrastructure/persistence/MunicipalitiesRepository');
 
-      expect(firstImport).toBe(secondImport);
+      expect(firstImport.municipalitiesRepository).toBe(secondImport.municipalitiesRepository);
+      expect(firstImport.default).toBe(secondImport.default);
     });
   });
 
   describe('data initialization', () => {
-    it('initializes data as an empty array', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
-      expect(municipalitiesRepo.data).toEqual([]);
-      expect(Array.isArray(municipalitiesRepo.data)).toBe(true);
+    it('initializes data as an empty array', () => {
+      expect(municipalitiesRepository.data).toEqual([]);
+      expect(Array.isArray(municipalitiesRepository.data)).toBe(true);
     });
 
-    it('data is a mutable array', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
+    it('data is a mutable array', () => {
       const municipality: Municipality = {
         municipalityId: '01',
         provinceId: '01',
@@ -37,17 +34,14 @@ describe('MunicipalitiesRepository', () => {
         region: 'Comunidad de Madrid',
       };
 
-      municipalitiesRepo.data.push(municipality);
-      expect(municipalitiesRepo.data).toHaveLength(1);
-      expect(municipalitiesRepo.data[0]).toEqual(municipality);
+      municipalitiesRepository.data.push(municipality);
+      expect(municipalitiesRepository.data).toHaveLength(1);
+      expect(municipalitiesRepository.data[0]).toEqual(municipality);
     });
   });
 
   describe('data operations', () => {
-    it('allows adding multiple municipalities', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
+    it('allows adding multiple municipalities', () => {
       const municipalities: Municipality[] = [
         {
           municipalityId: '01',
@@ -67,15 +61,12 @@ describe('MunicipalitiesRepository', () => {
         },
       ];
 
-      municipalitiesRepo.data.push(...municipalities);
-      expect(municipalitiesRepo.data).toHaveLength(2);
+      municipalitiesRepository.data.push(...municipalities);
+      expect(municipalitiesRepository.data).toHaveLength(2);
     });
 
-    it('allows clearing all data', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
-      municipalitiesRepo.data.push({
+    it('allows clearing all data', () => {
+      municipalitiesRepository.data.push({
         municipalityId: '01',
         provinceId: '01',
         regionId: '01',
@@ -84,14 +75,11 @@ describe('MunicipalitiesRepository', () => {
         region: 'Comunidad de Madrid',
       });
 
-      municipalitiesRepo.data = [];
-      expect(municipalitiesRepo.data).toEqual([]);
+      municipalitiesRepository.data = [];
+      expect(municipalitiesRepository.data).toEqual([]);
     });
 
-    it('allows replacing data entirely', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
+    it('allows replacing data entirely', () => {
       const newMunicipalities: Municipality[] = [
         {
           municipalityId: '29',
@@ -103,53 +91,21 @@ describe('MunicipalitiesRepository', () => {
         },
       ];
 
-      municipalitiesRepo.data = newMunicipalities;
-      expect(municipalitiesRepo.data).toEqual(newMunicipalities);
+      municipalitiesRepository.data = newMunicipalities;
+      expect(municipalitiesRepository.data).toEqual(newMunicipalities);
     });
 
-    it('supports filtering by province', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
+    it('replaceAll replaces the whole store', () => {
+      municipalitiesRepository.data.push({
+        municipalityId: '01',
+        provinceId: '01',
+        regionId: '01',
+        municipality: 'Madrid',
+        province: 'Madrid',
+        region: 'Comunidad de Madrid',
+      });
 
-      municipalitiesRepo.data = [
-        {
-          municipalityId: '01',
-          provinceId: '01',
-          regionId: '01',
-          municipality: 'Madrid',
-          province: 'Madrid',
-          region: 'Comunidad de Madrid',
-        },
-        {
-          municipalityId: '02',
-          provinceId: '08',
-          regionId: '08',
-          municipality: 'Barcelona',
-          province: 'Barcelona',
-          region: 'Cataluña',
-        },
-      ];
-
-      const filtered = municipalitiesRepo.data.filter(
-        (m) => m.province.toLowerCase() === 'madrid'
-      );
-      expect(filtered).toHaveLength(1);
-      expect(filtered[0].municipality).toBe('Madrid');
-    });
-
-    it('supports filtering by region', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
-      municipalitiesRepo.data = [
-        {
-          municipalityId: '01',
-          provinceId: '01',
-          regionId: '01',
-          municipality: 'Madrid',
-          province: 'Madrid',
-          region: 'Comunidad de Madrid',
-        },
+      const next: Municipality[] = [
         {
           municipalityId: '29',
           provinceId: '29',
@@ -159,19 +115,63 @@ describe('MunicipalitiesRepository', () => {
           region: 'Andalucía',
         },
       ];
+      municipalitiesRepository.replaceAll(next as unknown as Record<string, unknown>[]);
 
-      const filtered = municipalitiesRepo.data.filter(
-        (m) => m.region.toLowerCase().includes('andalucía')
-      );
-      expect(filtered).toHaveLength(1);
-      expect(filtered[0].municipality).toBe('Granada');
+      expect(municipalitiesRepository.data).toEqual(next);
+      expect(municipalitiesRepository.list()).toHaveLength(1);
+      expect(municipalitiesRepository.list()[0].municipality).toBe('Granada');
+    });
+  });
+
+  describe('list filtering', () => {
+    const seed: Municipality[] = [
+      {
+        municipalityId: '01',
+        provinceId: '01',
+        regionId: '01',
+        municipality: 'Madrid',
+        province: 'Madrid',
+        region: 'Comunidad de Madrid',
+      },
+      {
+        municipalityId: '02',
+        provinceId: '08',
+        regionId: '08',
+        municipality: 'Barcelona',
+        province: 'Barcelona',
+        region: 'Cataluña',
+      },
+      {
+        municipalityId: '03',
+        provinceId: '41',
+        regionId: '51',
+        municipality: 'Sevilla',
+        province: 'Sevilla',
+        region: 'Andalucía',
+      },
+    ];
+
+    it('returns all data when no filters are given', () => {
+      municipalitiesRepository.data = seed;
+      expect(municipalitiesRepository.list()).toHaveLength(3);
     });
 
-    it('supports partial text search on municipality name', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
+    it('filters by province (case-insensitive)', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ province: 'madrid' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('Madrid');
+    });
 
-      municipalitiesRepo.data = [
+    it('filters by region (case-insensitive)', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ region: 'andalucía' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('Sevilla');
+    });
+
+    it('filters by partial text search on municipality and province', () => {
+      municipalitiesRepository.data = [
         {
           municipalityId: '01',
           provinceId: '01',
@@ -190,19 +190,26 @@ describe('MunicipalitiesRepository', () => {
         },
       ];
 
-      const filtered = municipalitiesRepo.data.filter(
-        (m) => m.municipality.toLowerCase().includes('alcalá')
-      );
+      const filtered = municipalitiesRepository.list({ search: 'alcalá' });
       expect(filtered).toHaveLength(1);
       expect(filtered[0].municipality).toBe('Alcalá de Henares');
+    });
+
+    it('combines province and region filters', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ province: 'Barcelona', region: 'Cataluña' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('Barcelona');
+    });
+
+    it('returns an empty array when nothing matches', () => {
+      municipalitiesRepository.data = seed;
+      expect(municipalitiesRepository.list({ search: 'ZooCity' })).toEqual([]);
     });
   });
 
   describe('Municipality schema', () => {
-    it('data items conform to the Municipality interface', async () => {
-      const repo = await import('@/repository/Municipalities.repository');
-      const municipalitiesRepo = repo.default;
-
+    it('data items conform to the Municipality interface', () => {
       const municipality: Municipality = {
         municipalityId: '08',
         provinceId: '08',
@@ -212,9 +219,9 @@ describe('MunicipalitiesRepository', () => {
         region: 'Cataluña',
       };
 
-      municipalitiesRepo.data.push(municipality);
+      municipalitiesRepository.data.push(municipality);
 
-      const item = municipalitiesRepo.data[0];
+      const item = municipalitiesRepository.data[0];
       expect(item).toHaveProperty('municipalityId');
       expect(item).toHaveProperty('provinceId');
       expect(item).toHaveProperty('regionId');

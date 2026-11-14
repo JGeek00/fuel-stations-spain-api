@@ -55,40 +55,11 @@ vi.mock('drizzle-orm/node-postgres', () => ({
   drizzle,
 }));
 
-// Mock FuelStationModel and FuelStationsTable
-const mockFuelStationModel = { id: 'id', stationId: 'stationId' };
-const mockFuelStationsTable = {
-  init: vi.fn(),
-};
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationModel: mockFuelStationModel,
-  FuelStationsTable: mockFuelStationsTable,
-}));
-
-// Mock LastUpdated
-const mockLastUpdatedModel = { id: 'id', lastUpdated: 'lastUpdated' };
-const mockLastUpdated = {
-  init: vi.fn(),
-};
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: mockLastUpdated,
-  LastUpdatedModel: mockLastUpdatedModel,
-}));
-
-// Mock HistoricFuelStation
-const mockHistoricFuelStationModel = {};
-const mockHistoricFuelStation = {};
-vi.mock('@/models/db/HistoricFuelStation', () => ({
-  HistoricFuelStation: mockHistoricFuelStation,
-  HistoricFuelStationModel: mockHistoricFuelStationModel,
-}));
-
-// Mock HistoricNoData
-const mockHistoricNoDataModel = {};
-const mockHistoricNoDataTable = {};
-vi.mock('@/models/db/HistoricNoData', () => ({
-  HistoricNoDataModel: mockHistoricNoDataModel,
-  HistoricNoDataTable: mockHistoricNoDataTable,
+// Mock the memory schema helper (replaces the legacy FuelStationsTable.init /
+// LastUpdated.init adapter calls the service used to make).
+const mockEnsureMemorySchema = vi.fn();
+vi.mock('@/infrastructure/persistence/ensureMemorySchema', () => ({
+  ensureMemorySchema: mockEnsureMemorySchema,
 }));
 
 // Mock migrationService
@@ -161,33 +132,22 @@ describe('DatabaseService', () => {
   });
 
   describe('initMemoryDb', () => {
-    it('initializes the shared better-sqlite3 memory database tables', async () => {
+    it('ensures the memory schema via the infrastructure helper', async () => {
       const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
-      expect(mockFuelStationsTable.init).toHaveBeenCalled();
+      expect(mockEnsureMemorySchema).toHaveBeenCalledTimes(1);
     });
 
-    it('initializes FuelStationsTable and LastUpdated models', async () => {
+    it('ensures a fresh memory schema on every init', async () => {
       const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
+      await service.init();
 
-      expect(mockFuelStationsTable.init).toHaveBeenCalledWith(
-        mockFuelStationModel,
-        expect.objectContaining({
-          modelName: 'FuelStation',
-          timestamps: false,
-        })
-      );
-      expect(mockLastUpdated.init).toHaveBeenCalledWith(
-        mockLastUpdatedModel,
-        expect.objectContaining({
-          modelName: 'LastUpdated',
-          timestamps: false,
-        })
-      );
+      // Fresh-DB-per-init semantics: the schema helper runs once per init.
+      expect(mockEnsureMemorySchema).toHaveBeenCalledTimes(2);
     });
 
     it('exposes the shared memory Drizzle instance', async () => {
@@ -236,7 +196,8 @@ describe('DatabaseService', () => {
       await service.init();
 
       // Memory DB should be initialized
-      expect(mockFuelStationsTable.init).toHaveBeenCalled();
+      expect(mockEnsureMemorySchema).toHaveBeenCalled();
+      expect(service.memoryDbInstance).toBeDefined();
     });
   });
 
@@ -297,21 +258,8 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
     vi.doMock('@/utils/logger', () => ({
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }));
-    vi.doMock('@/models/db/FuelStations', () => ({
-      FuelStationModel: {},
-      FuelStationsTable: { init: vi.fn() },
-    }));
-    vi.doMock('@/models/db/LastUpdated', () => ({
-      LastUpdated: { init: vi.fn() },
-      LastUpdatedModel: {},
-    }));
-    vi.doMock('@/models/db/HistoricFuelStation', () => ({
-      HistoricFuelStation: {},
-      HistoricFuelStationModel: {},
-    }));
-    vi.doMock('@/models/db/HistoricNoData', () => ({
-      HistoricNoDataTable: {},
-      HistoricNoDataModel: {},
+    vi.doMock('@/infrastructure/persistence/ensureMemorySchema', () => ({
+      ensureMemorySchema: vi.fn(),
     }));
     vi.doMock('@/services/migration.service', () => ({
       migrationService: {
