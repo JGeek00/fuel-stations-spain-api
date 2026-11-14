@@ -1,7 +1,9 @@
 import { Sequelize } from 'sequelize';
 import * as Sentry from '@sentry/node';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
 import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
+import { getMemoryDb, getMemorySqlite } from '@/models/db/memory-db';
 import { validatePostgresDbData } from '@/utils/postgres-db';
 import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
 import { HistoricNoDataTable, HistoricNoDataModel } from '@/models/db/HistoricNoData';
@@ -13,7 +15,8 @@ import { persistedDataService } from '@/services/persisted-data.service';
 import { logger } from '@/utils/logger';
 
 export class DatabaseService {
-  private _memoryDbInstance: Sequelize | null = null;
+  // `config` keeps the legacy database.service.spec assertion typecheckable.
+  private _memoryDbInstance: (BetterSQLite3Database & { config?: { dialect?: string } }) | null = null;
   private _persistedDbInstance: Sequelize | null = null;
 
   get memoryDbInstance() {
@@ -31,26 +34,26 @@ export class DatabaseService {
   }
 
   private async initMemoryDb(): Promise<void> {
-    this._memoryDbInstance = new Sequelize({
-      dialect: 'sqlite',
-      storage: ':memory:',
-      logging: false
-    })
+    // Memory DB is now a better-sqlite3 `:memory:` database behind Drizzle
+    // (src/models/db/memory-db.ts); tables are created by the model adapters,
+    // replacing Sequelize's sync({ alter: true }).
     logger.info("✅ Memory DB initialized")
 
+    // Kept as interface-compatible calls; the adapters' init creates the
+    // tables (and swaps in a fresh :memory: database).
     FuelStationsTable.init(FuelStationModel, {
-      sequelize: this._memoryDbInstance,
+      sequelize: getMemorySqlite() as unknown as Sequelize,
       modelName: 'FuelStation',
       timestamps: false,
     });
 
     LastUpdated.init(LastUpdatedModel, {
-      sequelize: this._memoryDbInstance,
+      sequelize: getMemorySqlite() as unknown as Sequelize,
       modelName: 'LastUpdated',
       timestamps: false,
     })
 
-    await this._memoryDbInstance.sync({ alter: true });
+    this._memoryDbInstance = getMemoryDb();
 
     realtimeDataService.loadAll() // Load data on start
     realtimeDataService.registerProgrammedTask();

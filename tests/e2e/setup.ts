@@ -7,6 +7,13 @@ import { Sequelize } from 'sequelize';
  * Shared e2e boot helpers. Each spec file owns its own in-memory SQLite instance
  * (vitest isolates files by default) and must never import `@/server` or call
  * `databaseService.init()`.
+ *
+ * Since the Drizzle + better-sqlite3 migration, the memory tables
+ * (FuelStationsTable/LastUpdated) live in the shared better-sqlite3 `:memory:`
+ * database from `src/models/db/memory-db.ts`; seeding goes through the model
+ * adapters (implemented with Drizzle `insert().values()` / `delete()`), so the
+ * instance returned here is only needed while the historic tables are still on
+ * Sequelize (historic-prices spec inits HistoricFuelStation on it).
  */
 
 export const createSqlite = (): Sequelize =>
