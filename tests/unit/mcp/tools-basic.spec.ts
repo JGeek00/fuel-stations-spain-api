@@ -268,6 +268,17 @@ describe('compareFuelPricesTool', () => {
 
     expect(result).toHaveProperty('isError', true);
   });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (stationRepository.compare as Mock).mockRejectedValue('plain failure');
+    compareFuelPricesTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'compare_fuel_prices');
+    const result = await callback({ fuelType: 'gasoilAPrice' });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error comparing fuel prices: plain failure');
+  });
 });
 
 describe('findCheapestFuelTool', () => {
@@ -396,6 +407,17 @@ describe('findCheapestFuelTool', () => {
 
     expect(result).toHaveProperty('isError', true);
   });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (stationRepository.findCheapest as Mock).mockRejectedValue('plain failure');
+    findCheapestFuelTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'find_cheapest_fuel');
+    const result = await callback({ fuelType: 'gasoilAPrice' });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error finding cheapest fuel: plain failure');
+  });
 });
 
 function outputRadiusKm(result: unknown): number {
@@ -462,6 +484,17 @@ describe('getStationInfoTool', () => {
     const result = await callback({ stationId: 's1' });
 
     expect(result).toHaveProperty('isError', true);
+  });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (stationRepository.findByStationId as Mock).mockRejectedValue('plain failure');
+    getStationInfoTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'get_station_info');
+    const result = await callback({ stationId: 's1' });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error getting station info: plain failure');
   });
 });
 
@@ -608,6 +641,17 @@ describe('queryFuelStationsTool', () => {
 
     expect(result).toHaveProperty('isError', true);
   });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (stationRepository.query as Mock).mockRejectedValue('plain failure');
+    queryFuelStationsTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'query_fuel_stations');
+    const result = await callback({});
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error querying fuel stations: plain failure');
+  });
 });
 
 describe('searchByLocationTool', () => {
@@ -681,5 +725,16 @@ describe('searchByLocationTool', () => {
     const result = await callback({ latitude: 40.4, longitude: -3.7 });
 
     expect(result).toHaveProperty('isError', true);
+  });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (stationRepository.searchByLocation as Mock).mockRejectedValue('plain failure');
+    searchByLocationTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'search_stations_by_location');
+    const result = await callback({ latitude: 40.4, longitude: -3.7 });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error searching by location: plain failure');
   });
 });

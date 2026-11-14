@@ -218,6 +218,20 @@ describe('listMunicipalitiesTool', () => {
     expect(result).toHaveProperty('isError', true);
     listSpy.mockRestore();
   });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    const listSpy = vi.spyOn(municipalitiesRepository, 'list').mockImplementation(() => {
+      throw 'plain failure';
+    });
+    listMunicipalitiesTool(instance as never, municipalitiesRepository);
+    const { callback } = getToolCallback(calls, 'list_municipalities');
+    const result = await callback({});
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error listing municipalities: plain failure');
+    listSpy.mockRestore();
+  });
 });
 
 describe('getDatabaseStatusTool', () => {
@@ -344,6 +358,17 @@ describe('getDatabaseStatusTool', () => {
     const result = await callback();
 
     expect(result).toHaveProperty('isError', true);
+  });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (getDatabaseStatusUseCase as Mock).mockRejectedValue('plain failure');
+    getDatabaseStatusTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'get_database_status');
+    const result = await callback();
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error getting database status: plain failure');
   });
 });
 
@@ -548,5 +573,94 @@ describe('queryHistoricPricesTool', () => {
     });
 
     expect(result).toHaveProperty('isError', true);
+  });
+
+  it('callback stringifies non-Error failures', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (historicRepository.queryRange as Mock).mockRejectedValue('plain failure');
+    queryHistoricPricesTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'query_historic_prices');
+    const result = await callback({
+      stationId: 's1',
+      startDate: '2025-01-01',
+      endDate: '2025-01-31',
+    });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Error querying historic prices: plain failure');
+  });
+
+  it('callback rejects when the persisted database is not available', async () => {
+    const { instance, calls } = createMockMcpServer();
+    // databaseService.persistedDbInstance throws when PG is not configured.
+    const unavailableDb = {
+      get persistedDbInstance(): never {
+        throw new Error('Persisted database not available.');
+      },
+    };
+    queryHistoricPricesTool(instance as never, unavailableDb as never);
+    const { callback } = getToolCallback(calls, 'query_historic_prices');
+    const result = await callback({
+      stationId: 's1',
+      startDate: '2025-01-01',
+      endDate: '2025-01-31',
+    });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('PostgreSQL database is not configured');
+    expect(historicRepository.queryRange).not.toHaveBeenCalled();
+  });
+
+  it('callback returns the invalid-date error when parsing throws', async () => {
+    const { instance, calls } = createMockMcpServer();
+    queryHistoricPricesTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'query_historic_prices');
+    // A non-stringable value makes DateTime.fromSQL throw (unlike 'not-a-date',
+    // which luxon turns into an invalid DateTime without throwing).
+    const result = await callback({
+      stationId: 's1',
+      startDate: Symbol('unparseable') as unknown as string,
+      endDate: '2025-01-31',
+    });
+
+    expect(result).toHaveProperty('isError', true);
+    expect(mcpText(result)).toContain('Invalid date format. Use yyyy-mm-dd.');
+  });
+
+  it('callback omits current prices when the realtime row is missing', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (historicRepository.queryRange as Mock).mockResolvedValue([
+      { date: '2025-01-01', gasoilAPrice: 1.5 },
+    ]);
+    (historicRepository.queryCurrent as Mock).mockResolvedValue(null);
+    queryHistoricPricesTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'query_historic_prices');
+    const result = await callback({
+      stationId: 's1',
+      startDate: '2025-01-01',
+      endDate: '2025-01-31',
+      includeCurrentPrices: true,
+    });
+
+    const output = mcpJson<{ count: number }>(result);
+    expect(output.count).toBe(1);
+  });
+
+  it('callback falls back to null stationId/signage when the current row lacks them', async () => {
+    const { instance, calls } = createMockMcpServer();
+    (historicRepository.queryCurrent as Mock).mockResolvedValue({ gasoilAPrice: 1.55 });
+    queryHistoricPricesTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'query_historic_prices');
+    const result = await callback({
+      stationId: 's1',
+      startDate: '2025-01-01',
+      endDate: '2025-01-31',
+      includeCurrentPrices: true,
+    });
+
+    const output = mcpJson<{ results: Array<{ stationId: unknown; stationSignage: unknown }> }>(result);
+    const current = output.results[output.results.length - 1];
+    expect(current.stationId).toBeNull();
+    expect(current.stationSignage).toBeNull();
   });
 });

@@ -171,6 +171,32 @@ describe('municipalitiesController', () => {
       return listSpy;
     }
 
+    it('sends NOT_FOUND (404) for NOT_FOUND errors', async () => {
+      const listSpy = makeListThrow({ error: { message: 'Not found', code: 'NOT_FOUND' } });
+
+      const req = createMockRequest();
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await municipalitiesController(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      listSpy.mockRestore();
+    });
+
+    it('sends 500 for an error code that is neither NOT_FOUND nor INTERNAL_ERROR', async () => {
+      const listSpy = makeListThrow({ error: { message: 'Other failure', code: 'SOME_OTHER_CODE' } });
+
+      const req = createMockRequest();
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await municipalitiesController(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      listSpy.mockRestore();
+    });
+
     it('sends INTERNAL_ERROR (500) for INTERNAL_ERROR errors', async () => {
       const listSpy = makeListThrow({ error: { message: 'Internal error', code: 'INTERNAL_ERROR' } });
 

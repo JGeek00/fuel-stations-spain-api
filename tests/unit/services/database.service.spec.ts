@@ -349,4 +349,71 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
     // persistedDbInstance should throw since it was set to null on failure
     expect(() => service.persistedDbInstance).toThrow('Persisted database not available.');
   });
+
+  it('exposes the persisted db handle through persistedDbInstance after a successful init', async () => {
+    const { freshDb, service } = await bootstrap();
+
+    expect(() => service.persistedDbInstance).not.toThrow();
+    expect(service.persistedDbInstance).toBe(freshDb);
+  });
+
+  it('falls back to port 5432 when reading POSTGRES_PORT throws', async () => {
+    configureEnv();
+    vi.resetModules();
+
+    // A throwing env getter simulates an environment read failure inside parseInt.
+    Object.defineProperty(process.env, 'POSTGRES_PORT', {
+      get() {
+        throw new Error('env read failed');
+      },
+      configurable: true,
+    });
+
+    const freshPool = vi.fn().mockImplementation(function () {
+      return {
+        query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }),
+        end: vi.fn().mockResolvedValue(undefined),
+      };
+    });
+    const freshDb = {
+      execute: vi.fn(async () => ({ rows: [{ has_tables: true }] })),
+      insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue(undefined) })),
+    };
+
+    vi.doMock('pg', () => ({ Pool: freshPool }));
+    vi.doMock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => freshDb) }));
+    // The real validatePostgresDbData also reads POSTGRES_PORT; mock it so the
+    // throwing env getter below only affects the parseInt fallback.
+    vi.doMock('@/shared/utils/postgres-db', () => ({
+      validatePostgresDbData: vi.fn(() => true),
+    }));
+    vi.doMock('@/shared/utils/postgres-db/postgres-db', () => ({
+      validatePostgresDbData: vi.fn(() => true),
+    }));
+    vi.doMock('@/shared/utils/logger', () => ({
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    }));
+    vi.doMock('@/infrastructure/persistence/ensureMemorySchema', () => ({
+      ensureMemorySchema: vi.fn(),
+    }));
+    vi.doMock('@/infrastructure/database/migration.service', () => ({
+      migrationService: { isDbEmpty: vi.fn().mockResolvedValue(true), run: vi.fn().mockResolvedValue(undefined) },
+    }));
+    vi.doMock('@/infrastructure/migrations', () => ({
+      MIGRATIONS: [{ version: '001', name: 'baseline' }],
+    }));
+    vi.doMock('@/infrastructure/sync/realtime-data.service', () => ({
+      realtimeDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
+    }));
+    vi.doMock('@/infrastructure/sync/persisted-data.service', () => ({
+      persistedDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
+    }));
+    vi.doMock('@sentry/node', () => ({ captureException: vi.fn() }));
+
+    const { DatabaseService } = await import('@/infrastructure/database/database.service');
+    const service = new DatabaseService();
+    await service.init();
+
+    expect(freshPool).toHaveBeenCalledWith(expect.objectContaining({ port: 5432 }));
+  });
 });

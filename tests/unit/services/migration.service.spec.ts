@@ -245,5 +245,23 @@ describe('MigrationService (Drizzle pg seam)', () => {
       // All should be unapplied
       expect(status.every((s) => !s.applied)).toBe(true);
     });
+
+    it('handles non-Error rejection values when reading applied migrations', async () => {
+      mockDb.select = vi.fn(() => ({
+        from: vi.fn(() => ({
+          orderBy: vi.fn().mockRejectedValue('plain string failure'),
+        })),
+      }));
+
+      const { migrationService } = await import('@/infrastructure/database/migration.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const status = await migrationService.status(mockDb);
+
+      expect(status.every((s) => !s.applied)).toBe(true);
+      expect(logger.debug).toHaveBeenCalledWith(
+        '  📋 Migrations table not found, returning empty list',
+        { error: 'plain string failure' },
+      );
+    });
   });
 });

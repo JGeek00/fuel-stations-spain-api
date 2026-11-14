@@ -132,6 +132,22 @@ describe('McpServerManager', () => {
       expect(opts?.allowedOrigins).toEqual(['http://localhost:3000']);
       expect(opts?.allowedHosts).toEqual(['localhost:3000']);
     });
+
+    it('omits allowedHosts when only origins are configured', () => {
+      const m = createManager({ allowedOrigins: ['http://localhost:3000'], allowedHosts: [] });
+      const opts = m.transportOptions;
+      expect(opts?.enableDnsRebindingProtection).toBe(true);
+      expect(opts?.allowedOrigins).toEqual(['http://localhost:3000']);
+      expect(opts?.allowedHosts).toBeUndefined();
+    });
+
+    it('omits allowedOrigins when only hosts are configured', () => {
+      const m = createManager({ allowedOrigins: [], allowedHosts: ['localhost:3000'] });
+      const opts = m.transportOptions;
+      expect(opts?.enableDnsRebindingProtection).toBe(true);
+      expect(opts?.allowedOrigins).toBeUndefined();
+      expect(opts?.allowedHosts).toEqual(['localhost:3000']);
+    });
   });
 
   describe('createSession', () => {
@@ -281,6 +297,13 @@ describe('McpServerManager', () => {
   });
 
   describe('shutdown', () => {
+    it('resolves without a cleanup timer (interval disabled)', async () => {
+      const m = createManager({ sessionTimeoutMs: 5000, cleanupIntervalMs: 0 });
+
+      await expect(m.shutdown()).resolves.toBeUndefined();
+      expect(m.activeSessionCount).toBe(0);
+    });
+
     it('clears all sessions', async () => {
       const s1 = manager.createSession();
       manager.setSession('shut-1', s1);

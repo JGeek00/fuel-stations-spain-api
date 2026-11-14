@@ -103,6 +103,30 @@ describe('createInternalServerError', () => {
   });
 });
 
+describe('createInternalServerError (production mode)', () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.resetModules();
+  });
+
+  it('hides the given message and skips the stack trace when NODE_ENV=production', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'production';
+
+    const module = await import('@/shared/errors/error-handler');
+
+    const withoutError = module.createInternalServerError('Something failed');
+    expect(withoutError.error.message).toBe('Internal server error');
+    expect(withoutError.error.details).toBeUndefined();
+
+    const withError = module.createInternalServerError('Something failed', new Error('boom'));
+    expect(withError.error.message).toBe('Internal server error');
+    expect(withError.error.details).toBeUndefined();
+  });
+});
+
 describe('sendApiError', () => {
   it('sets status code and sends JSON response', () => {
     const mockJson = vi.fn();

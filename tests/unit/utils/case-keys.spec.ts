@@ -82,6 +82,13 @@ describe('keysToCamel', () => {
   it('returns empty object unchanged', () => {
     expect(keysToCamel({})).toEqual({});
   });
+
+  it('treats objects with a null prototype as plain objects', () => {
+    const input = Object.create(null);
+    input.item_id = 1;
+
+    expect(keysToCamel(input)).toEqual({ itemId: 1 });
+  });
 });
 
 describe('keysToSnake', () => {

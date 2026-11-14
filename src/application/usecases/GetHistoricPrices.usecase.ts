@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { DateTime as LuxonDateTime } from 'luxon';
 import { keysToCamel } from '@/shared/utils/case-keys';
-import { createBadRequestError, createValidationError } from '@/shared/errors/error-handler';
+import { createBadRequestError } from '@/shared/errors/error-handler';
 import { formatRange, getHistoricDataMaxRangeMonths } from '@/shared/utils/historic-data-limit';
 import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
 import type { HistoricPrice } from '@/domain/entities/HistoricPrice.model';
@@ -19,19 +19,10 @@ export interface GetHistoricPricesInput {
  * Moved verbatim from historic-prices.controller.
  */
 export async function getHistoricPricesUseCase(input: GetHistoricPricesInput) {
-  let startDate: DateTime;
-  try {
-    startDate = DateTime.fromSQL(input.startDate as string);
-  } catch {
-    throw createValidationError('Invalid format for startDate. Must be yyyy-mm-dd.');
-  }
-
-  let endDate: DateTime;
-  try {
-    endDate = DateTime.fromSQL(input.endDate as string);
-  } catch {
-    throw createValidationError('Invalid format for endDate. Must be yyyy-mm-dd.');
-  }
+  // NOTE: luxon's DateTime.fromSQL never throws for string input — it returns
+  // an invalid DateTime. Unparsable dates surface below via the NaN check.
+  const startDate = DateTime.fromSQL(input.startDate as string);
+  const endDate = DateTime.fromSQL(input.endDate as string);
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const start = startDate.setZone(timezone);

@@ -155,6 +155,22 @@ describe('RealtimeDataService', () => {
       expect(logger.warn).toHaveBeenCalledWith('⚠️ Duplicated IDs found: ES001');
     });
 
+    it('skips entries without IDEESS when checking duplicated ids', async () => {
+      mockGetStations.mockResolvedValue({
+        ...mockApiData,
+        ListaEESSPrecio: [mockStation, { ...mockStation, IDEESS: '' }],
+      });
+      mockMap.mockReturnValue([{ stationId: 'ES001' }]);
+
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      await realtimeDataService.loadStations();
+
+      // The empty-id entry is skipped: no duplicate warning, save still happens.
+      expect(logger.warn).not.toHaveBeenCalled();
+      expect(mockReplaceAll).toHaveBeenCalledTimes(1);
+    });
+
     it('handles a failing replaceAll (restore-on-failure lives in the repository)', async () => {
       mockGetStations.mockResolvedValue(mockApiData);
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
@@ -197,6 +213,17 @@ describe('RealtimeDataService', () => {
       expect(mockMunicipalitiesReplaceAll).not.toHaveBeenCalled();
     });
 
+    it('logs the error when the municipalities fetch fails', async () => {
+      mockGetMunicipalities.mockRejectedValue(new Error('Municipalities API down'));
+
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      await realtimeDataService.loadMunicipalities();
+
+      expect(mockMunicipalitiesReplaceAll).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(expect.any(Error));
+    });
+
     it('transforms Spanish field names to camelCase', async () => {
       const mockMunicipalities = [
         { IDMunicipio: '01001', IDProvincia: '01', IDCCAA: '51', Municipio: 'Albacete', Provincia: 'ALBACETE', CCAA: 'CastillaLaMancha' },
@@ -218,6 +245,17 @@ describe('RealtimeDataService', () => {
   });
 
   describe('loadAll', () => {
+    it('logs and swallows a rejection from loadStations', async () => {
+      const { realtimeDataService } = await import('@/infrastructure/sync/realtime-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const loadStationsSpy = vi.spyOn(realtimeDataService, 'loadStations').mockRejectedValue(new Error('boom'));
+
+      await realtimeDataService.loadAll();
+
+      expect(logger.error).toHaveBeenCalledWith('RealtimeDataService.loadAll error:', expect.any(Error));
+      loadStationsSpy.mockRestore();
+    });
+
     it('calls both loadStations and loadMunicipalities in parallel', async () => {
       mockGetStations.mockResolvedValue({
         ListaEESSPrecio: [],

@@ -185,6 +185,28 @@ describe('PersistedDataService', () => {
       expect(typeof mockMarkNoDataDate.mock.calls[0][0]).toBe('string');
     });
 
+    it('skips a result without ListaEESSPrecio/Fecha as an invalid response', async () => {
+      const now = DateTime.local();
+      const date1 = now.minus({ days: 5 }).toSQLDate();
+
+      mockGetExistingDates.mockResolvedValue([date1 as string]);
+      // First fetched date returns a payload without the expected fields.
+      mockGetStationsHistoric
+        .mockResolvedValueOnce({})
+        .mockResolvedValue({
+          ListaEESSPrecio: [{ IDEESS: 'ES001', Rótulo: 'Test' }],
+          Fecha: '01/01/2024 10:00:00',
+        });
+      mockMap.mockReturnValue([{ stationId: 'ES001', signage: 'Test' }]);
+
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      await persistedDataService.loadStationsHistoric();
+
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Invalid response for date'));
+      expect(mockInsertHistoricBatch).toHaveBeenCalledTimes(1);
+    });
+
     it('skips dates already in no-data set', async () => {
       const now = DateTime.local();
       const date1 = now.minus({ days: 5 }).toSQLDate();
@@ -214,6 +236,17 @@ describe('PersistedDataService', () => {
 
       // loadStationsHistoric should have run (and returned early: DB not initialized)
       expect(logger.error).toHaveBeenCalledWith('❌ Persistent DB not initialized.');
+    });
+
+    it('catches a rejection from loadStationsHistoric itself', async () => {
+      const { persistedDataService } = await import('@/infrastructure/sync/persisted-data.service');
+      const { logger } = await import('@/shared/utils/logger');
+      const loadSpy = vi.spyOn(persistedDataService, 'loadStationsHistoric').mockRejectedValue(new Error('cron boom'));
+
+      await persistedDataService.loadAll();
+
+      expect(logger.error).toHaveBeenCalledWith('PersistedDataService.loadAll error:', expect.any(Error));
+      loadSpy.mockRestore();
     });
 
     it('catches errors from loadStationsHistoric', async () => {

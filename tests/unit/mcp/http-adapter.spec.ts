@@ -16,11 +16,20 @@ vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
 });
 
 vi.mock('@modelcontextprotocol/sdk/server/streamableHttp.js', () => {
+  // `nextSessionId = null` forces the next created transport to have NO
+  // sessionId (the default mock always assigns 'test-uuid-0000').
+  const state = { nextSessionId: undefined as string | null | undefined };
   class StreamableHTTPServerTransport {
-    sessionId: string | undefined = 'test-uuid-0000';
+    sessionId: string | undefined;
     handleRequest = vi.fn().mockResolvedValue(undefined);
     close = vi.fn().mockResolvedValue(undefined);
+    constructor() {
+      this.sessionId =
+        state.nextSessionId === null ? undefined : state.nextSessionId ?? 'test-uuid-0000';
+      state.nextSessionId = undefined;
+    }
   }
+  (StreamableHTTPServerTransport as unknown as { __state: typeof state }).__state = state;
   return { StreamableHTTPServerTransport };
 });
 
@@ -162,6 +171,12 @@ describe('createMcpRouter', () => {
     });
 
     it('does not call setSession when transport does not assign sessionId', async () => {
+      // Force the transport created inside handlePost to have no sessionId.
+      const transportModule = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+      const transportState = (transportModule.StreamableHTTPServerTransport as unknown as {
+        __state: { nextSessionId: string | null | undefined };
+      }).__state;
+
       const setSessionSpy = vi.spyOn(manager, 'setSession');
 
       // Force transport to not have sessionId
@@ -169,13 +184,21 @@ describe('createMcpRouter', () => {
       (session.transport as { sessionId: string | undefined }).sessionId = undefined;
       manager.setSession('orphan-session', session);
 
+      // The NEXT created transport (the one inside handlePost) gets no sessionId.
+      transportState.nextSessionId = null;
+
       // Now create another session without header
       const req = createMockReq({ body: { jsonrpc: '2.0', method: 'ping', id: 2 } });
       const res = createMockRes();
       await router.handlePost(req, res);
 
-      // setSession was called for the first session ('orphan-session') but not for the new one
+      // setSession was called for the first session ('orphan-session') but not for the new one:
+      // the count stays at the manually stored session plus the (unstorable) new one.
       expect(setSessionSpy).toHaveBeenCalledWith('orphan-session', session);
+      expect(setSessionSpy).toHaveBeenCalledTimes(1);
+      expect(manager.getSession('test-uuid-0000')).toBeUndefined();
+      // Only the manually stored 'orphan-session' exists.
+      expect(manager.activeSessionCount).toBe(1);
     });
   });
 

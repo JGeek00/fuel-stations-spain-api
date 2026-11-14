@@ -76,4 +76,115 @@ describe('logger', () => {
     // ISO timestamp format: YYYY-MM-DDTHH:mm:ss.sssZ
     expect(output).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
+
+  it('filters debug messages at the default level', () => {
+    logger.debug('hidden debug message');
+
+    expect(stdoutWrite).not.toHaveBeenCalled();
+  });
+
+  it('formats an Error without a stack (stack fallback)', () => {
+    const err = new Error('no stack');
+    err.stack = undefined;
+
+    logger.error(err);
+
+    const output = stdoutWrite.mock.calls[0][0];
+    expect(output).toContain('no stack');
+  });
+});
+
+// ── Env-dependent logger configurations (fresh module per import) ──────────
+
+describe('logger with LOG_FORMAT=json', () => {
+  const originalEnv = { ...process.env };
+  let stdoutWrite: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.LOG_FORMAT = 'json';
+    stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stdoutWrite.mockRestore();
+    process.env = originalEnv;
+    vi.resetModules();
+  });
+
+  it('writes JSON entries', async () => {
+    const { logger } = await import('@/shared/utils/logger');
+    logger.info('json message');
+
+    const output = stdoutWrite.mock.calls[0][0];
+    const entry = JSON.parse(output);
+    expect(entry.level).toBe('INFO');
+    expect(entry.message).toBe('json message');
+    expect(entry.timestamp).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it('banner writes JSON too', async () => {
+    const { logger } = await import('@/shared/utils/logger');
+    logger.banner('json banner');
+
+    const entry = JSON.parse(stdoutWrite.mock.calls[0][0]);
+    expect(entry.level).toBe('INFO');
+    expect(entry.message).toBe('json banner');
+  });
+});
+
+describe('logger with LOG_LEVEL filtering', () => {
+  const originalEnv = { ...process.env };
+  let stdoutWrite: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetModules();
+    // Keep text formatting; each test sets only its own LOG_LEVEL.
+    delete process.env.LOG_FORMAT;
+    delete process.env.LOG_LEVEL;
+    stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stdoutWrite.mockRestore();
+    process.env = originalEnv;
+    vi.resetModules();
+  });
+
+  it('shows debug messages when LOG_LEVEL=debug', async () => {
+    process.env.LOG_LEVEL = 'debug';
+    const { logger } = await import('@/shared/utils/logger');
+    logger.debug('verbose detail');
+
+    const output = stdoutWrite.mock.calls[0][0];
+    expect(output).toContain('[DEBUG]');
+    expect(output).toContain('verbose detail');
+  });
+
+  it('filters info messages when LOG_LEVEL=warn', async () => {
+    process.env.LOG_LEVEL = 'warn';
+    const { logger } = await import('@/shared/utils/logger');
+    logger.info('should be filtered');
+
+    expect(stdoutWrite).not.toHaveBeenCalled();
+  });
+
+  it('filters warn messages when LOG_LEVEL=error', async () => {
+    process.env.LOG_LEVEL = 'error';
+    const { logger } = await import('@/shared/utils/logger');
+    logger.warn('should be filtered');
+
+    expect(stdoutWrite).not.toHaveBeenCalled();
+  });
+
+  it('falls back to info for an unknown LOG_LEVEL', async () => {
+    process.env.LOG_LEVEL = 'bogus-level';
+    const { logger } = await import('@/shared/utils/logger');
+    logger.debug('filtered at info level');
+
+    expect(stdoutWrite).not.toHaveBeenCalled();
+
+    logger.info('info still visible');
+    expect(stdoutWrite).toHaveBeenCalledTimes(1);
+  });
 });

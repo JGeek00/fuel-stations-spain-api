@@ -206,6 +206,69 @@ describe('MunicipalitiesRepository', () => {
       municipalitiesRepository.data = seed;
       expect(municipalitiesRepository.list({ search: 'ZooCity' })).toEqual([]);
     });
+
+    it('applies no filter when the filters object is empty', () => {
+      municipalitiesRepository.data = seed;
+      expect(municipalitiesRepository.list({})).toHaveLength(3);
+    });
+
+    it('filters by province alone (region and search absent)', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ province: 'Barcelona' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('Barcelona');
+    });
+
+    it('filters by region alone (province and search absent)', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ region: 'Cataluña' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('Barcelona');
+    });
+
+    it('filters by search alone (province and region absent)', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ search: 'sevilla' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('Sevilla');
+    });
+
+    it('search matches the province part of the haystack', () => {
+      municipalitiesRepository.data = [
+        {
+          municipalityId: '01',
+          provinceId: '01',
+          regionId: '01',
+          municipality: 'ZooCity',
+          province: 'Sevilla',
+          region: 'Andalucía',
+        },
+      ];
+      // Only the province part of the haystack contains the search term.
+      const filtered = municipalitiesRepository.list({ search: 'sevi' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].municipality).toBe('ZooCity');
+    });
+
+    it('combines province and search filters (search rejects non-matching rows)', () => {
+      municipalitiesRepository.data = seed;
+      const filtered = municipalitiesRepository.list({ province: 'madrid', search: 'barcelona' });
+      expect(filtered).toEqual([]);
+    });
+
+    it('tolerates rows with missing municipality/province/region fields', () => {
+      municipalitiesRepository.data = [
+        { municipality: 'A', province: 'Madrid' } as unknown as Municipality, // no region
+        { municipality: 'Madrid' } as unknown as Municipality, // no province, no region
+        { province: 'Madrid' } as unknown as Municipality, // no municipality
+      ];
+
+      // Province filter passes but the nullish region falls back to '' and rejects the row.
+      expect(municipalitiesRepository.list({ province: 'madrid', region: 'y' })).toEqual([]);
+      // Search runs over rows missing municipality (row 3) and province (row 2);
+      // all three match through whichever haystack part exists.
+      expect(municipalitiesRepository.list({ search: 'madrid' })).toHaveLength(3);
+    });
   });
 
   describe('Municipality schema', () => {

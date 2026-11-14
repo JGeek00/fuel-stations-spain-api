@@ -9,8 +9,11 @@ import {
 } from '@tests/test-utils/controller-mocks';
 
 // ── Test-specific mocks (hoisted by Vitest) ─────────────────────────────────
+const sentryState = vi.hoisted(() => ({ enabled: false }));
 vi.mock('@/infrastructure/observability/sentry.service', () => ({
-  sentryEnabled: false,
+  get sentryEnabled() {
+    return sentryState.enabled;
+  },
 }));
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
@@ -221,6 +224,19 @@ describe('errorHandlerMiddleware', () => {
       errorHandlerMiddleware(err, req, res, next);
 
       expect(mockSentryCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('forwards the error to Sentry when sentryEnabled is true', () => {
+      sentryState.enabled = true;
+      const err = new Error('Sentry-worthy failure');
+      const req = createMockRequest();
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      errorHandlerMiddleware(err, req, res, next);
+
+      expect(mockSentryCaptureException).toHaveBeenCalledWith(err);
+      sentryState.enabled = false;
     });
   });
 

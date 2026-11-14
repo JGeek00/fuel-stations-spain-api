@@ -553,6 +553,62 @@ describe('historicPricesController', () => {
       expect(mockSentryCaptureException).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
     });
+
+    it('sends NOT_FOUND (404) when the use case rejects with a NOT_FOUND ApiError', async () => {
+      harness.state.error = { error: { message: 'Station not found', code: 'NOT_FOUND' } };
+
+      const req = createMockRequest({
+        query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
+      });
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await historicPricesController(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({ code: 'NOT_FOUND' }),
+        }),
+      );
+    });
+
+    it('sends 500 when the use case rejects with an unknown ApiError code', async () => {
+      harness.state.error = { error: { message: 'Weird failure', code: 'SOME_OTHER_CODE' } };
+
+      const req = createMockRequest({
+        query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
+      });
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await historicPricesController(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+
+    it('logs and forwards non-Error exceptions to next with a generic 500', async () => {
+      harness.state.error = 'plain string failure';
+
+      const req = createMockRequest({
+        query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
+      });
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await historicPricesController(req, res, next);
+
+      expect(mockSentryCaptureException).toHaveBeenCalledWith('plain string failure');
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        'Unexpected error in historic-prices endpoint',
+        { error: 'plain string failure' },
+      );
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
+        }),
+      );
+    });
   });
 
   describe('edge cases', () => {
