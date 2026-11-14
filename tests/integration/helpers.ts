@@ -5,6 +5,11 @@ import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
 import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
 import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
 import { HistoricNoDataTable, HistoricNoDataModel } from '@/models/db/HistoricNoData';
+import {
+  installHistoricFuelStationAdapter,
+  installHistoricNoDataAdapter,
+  resetMemoryDb,
+} from '@/models/db/memory-db';
 
 export const createSqlite = (): Sequelize =>
   new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
@@ -16,6 +21,33 @@ export const initMigrationsModel = async (sequelize: Sequelize): Promise<void> =
     timestamps: false,
   });
   await Migrations.sync({ force: true });
+};
+
+/**
+ * Drizzle-memory version of initMemoryModels: FuelStationsTable.init() swaps in
+ * a fresh better-sqlite3 `:memory:` database and recreates the tables, then
+ * LastUpdated.init() ensures its table on the active database.
+ */
+// The model adapters' init() takes no arguments; cast past Sequelize's static typing.
+const initModel = (model: unknown): void => (model as { init: () => void }).init();
+
+export const initMemoryModelsDrizzle = async (): Promise<void> => {
+  initModel(FuelStationsTable);
+  initModel(LastUpdated);
+};
+
+/**
+ * Drizzle-memory version of initHistoricModels: fresh memory database with the
+ * historic tables ensured, then the HistoricFuelStation/HistoricNoDataTable
+ * adapters installed so their statics read/write the same tables the persisted
+ * data service queries via Drizzle.
+ */
+export const initHistoricModelsDrizzle = async (): Promise<void> => {
+  resetMemoryDb();
+  installHistoricFuelStationAdapter();
+  installHistoricNoDataAdapter();
+  initModel(HistoricFuelStation);
+  initModel(HistoricNoDataTable);
 };
 
 export const initMemoryModels = async (sequelize: Sequelize): Promise<void> => {

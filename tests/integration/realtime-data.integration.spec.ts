@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CreationAttributes } from 'sequelize';
 
 vi.mock('@/utils/logger', () => ({
   logger: {
@@ -26,36 +25,31 @@ import type { FuelStation } from '@/models/entities';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { logger } from '@/utils/logger';
 import {
-  createSqlite,
-  initMemoryModels,
+  initMemoryModelsDrizzle,
   municipalitiesResponse,
   stationEntry,
   stationsResponse,
   stubProviderFetch,
 } from './helpers';
 
-let sequelize: ReturnType<typeof createSqlite>;
-
-const seedStation = async (overrides: Partial<CreationAttributes<FuelStationsTable>> = {}) => {
+const seedStation = async (overrides: Partial<FuelStation> = {}) => {
   await FuelStationsTable.create({
     id: '00000000-0000-4000-8000-000000000001',
     stationId: 'ESOLD',
     locality: 'Old town',
     ...overrides,
-  } as CreationAttributes<FuelStationsTable>);
+  } as unknown as Record<string, unknown>);
 };
 
 describe('RealtimeDataService.loadAll (integration, real in-memory sqlite)', () => {
   beforeEach(async () => {
-    sequelize = createSqlite();
-    await initMemoryModels(sequelize);
+    await initMemoryModelsDrizzle();
     MunicipalitiesRepository.data = [];
   });
 
   afterEach(async () => {
     vi.unstubAllGlobals();
     MunicipalitiesRepository.data = [];
-    await sequelize.close();
   });
 
   it('replaces station rows from the provider and stamps LastUpdated', async () => {

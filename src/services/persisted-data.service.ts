@@ -2,9 +2,13 @@ import { DateTime, Interval } from "luxon";
 import * as Sentry from '@sentry/node';
 import { randomUUID } from "crypto"
 import { CronJob } from "cron/dist/job";
-import { BulkCreateOptions } from "sequelize";
-import { HistoricFuelStation } from "@/models/db/HistoricFuelStation"
-import { HistoricNoDataTable } from "@/models/db/HistoricNoData"
+import { asc } from "drizzle-orm";
+import {
+  getMemoryDb,
+  historicFuelStationsTable,
+  historicNoDataTable,
+  isPersistedDbInitialized,
+} from "@/models/db/memory-db";
 import { DataProviderApiService } from "@/services/data-provider-api.service"
 import { logger } from "@/utils/logger"
 import { FuelStationsMapper } from "@/mapper";
@@ -16,23 +20,25 @@ import { sleep } from "@/utils/sleep";
 class PersistedDataService {
   loadStationsHistoric = async () => {
     try {
-      const sequelize = HistoricFuelStation.sequelize;
-      if (!sequelize) {
+      if (!isPersistedDbInitialized()) {
         logger.error("❌ Persistent DB not initialized.");
         return;
       }
 
-      const existingDatesResult = await HistoricFuelStation.findAll({
-        attributes: [[sequelize.fn('DISTINCT', sequelize.col('date')), 'date']],
-        order: [['date', 'ASC']]
-      });
-      const existingDatesRows = existingDatesResult.map(e => e.dataValues.date).filter(e => e != null);
+      const db = getMemoryDb();
+      const h = historicFuelStationsTable;
 
-      const existingDates = new Set(existingDatesRows);
+      // sequelize.fn('DISTINCT', col) equivalent for Drizzle.
+      const existingDatesRows: { date: string | null }[] = await db
+        .selectDistinct({ date: h.date })
+        .from(h)
+        .orderBy(asc(h.date));
+      const existingDates = new Set(existingDatesRows.map(e => e.date).filter(e => e != null));
 
-      const noDataResultRaw = await HistoricNoDataTable.findAll();
-      const noDataResult = noDataResultRaw.map(e => e.dataValues.date).filter(e => e != null);
-      const noDataDates = new Set(noDataResult);
+      const noDataResultRaw: { date: string | null }[] = await db
+        .select({ date: historicNoDataTable.date })
+        .from(historicNoDataTable);
+      const noDataDates = new Set(noDataResultRaw.map(e => e.date).filter(e => e != null));
 
       if (existingDates.size === 0) {
         logger.error("❌ Persistent DB has no data. You must import manually the data first.");
@@ -102,11 +108,13 @@ class PersistedDataService {
             continue;
           }
 
+            // `signage` has no historic column; it maps to stationSignage.
             const parsedStations = FuelStationsMapper.map(result.ListaEESSPrecio).map(station => {
+            const { signage, ...stationFields } = station;
             return <HistoricPrice>{
-              ...station,
+              ...stationFields,
               stationId: station.stationId,
-              stationSignage: station.signage,
+              stationSignage: signage,
               date: DateTime.fromFormat(result.Fecha!, "dd/MM/yyyy h:mm:ss")
                 .setZone(timezone)
                 .toSQLDate()
@@ -119,7 +127,7 @@ class PersistedDataService {
           if (parsedStations.length === 0) {
             const dateSQL = group[key].toSQLDate();
             if (dateSQL) {
-              await HistoricNoDataTable.create({ date: dateSQL });
+              await db.insert(historicNoDataTable).values({ date: dateSQL });
               logger.info(`  🚫 No data for ${dateSQL} — marked as no-data`);
             }
           }
@@ -127,20 +135,14 @@ class PersistedDataService {
 
         // Save this batch immediately to the database
         if (batchStations.length > 0) {
-          const bulkOptions: BulkCreateOptions = {
-            conflict: {
-              target: '"stationId", "date"',
-              action: 'ignore',
-            },
-          } as BulkCreateOptions;
-
-          await HistoricFuelStation.bulkCreate(
-            batchStations.map(station => ({
+          // conflict:{target, action:'ignore'} equivalent for Drizzle.
+          await db
+            .insert(h)
+            .values(batchStations.map(station => ({
               id: randomUUID(),
               ...station,
-            })),
-            bulkOptions
-          );
+            })))
+            .onConflictDoNothing();
           logger.info(`  💾 Batch ${batchIndex} saved (${batchStations.length} records)`);
         } else {
           logger.warn(`  ⚠️ Batch ${batchIndex}: no records to save`);

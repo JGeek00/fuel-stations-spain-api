@@ -41,29 +41,46 @@ vi.mock('@/mapper', () => ({
   },
 }));
 
-// Mock LastUpdated model
-const mockLastUpdatedFindAll = vi.fn();
-const mockLastUpdatedTruncate = vi.fn();
-const mockLastUpdatedCreate = vi.fn();
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    findAll: mockLastUpdatedFindAll,
-    truncate: mockLastUpdatedTruncate,
-    create: mockLastUpdatedCreate,
+// Drizzle memory DB seam (src/models/db/memory-db.ts)
+const { mockDb, fuelStationsTable, lastUpdatedTable } = vi.hoisted(() => ({
+  mockDb: {
+    select: vi.fn(),
+    delete: vi.fn(),
+    insert: vi.fn(),
   },
+  fuelStationsTable: { name: 'fuelStationsTable' },
+  lastUpdatedTable: { name: 'lastUpdatedTable' },
+}));
+vi.mock('@/models/db/memory-db', () => ({
+  getMemoryDb: () => mockDb,
+  fuelStationsTable,
+  lastUpdatedTable,
 }));
 
-// Mock FuelStationsTable
-const mockFuelStationsFindAll = vi.fn();
-const mockFuelStationsTruncate = vi.fn();
-const mockFuelStationsBulkCreate = vi.fn();
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findAll: mockFuelStationsFindAll,
-    truncate: mockFuelStationsTruncate,
-    bulkCreate: mockFuelStationsBulkCreate,
-  },
-}));
+let insertedRows: { table: unknown; values: unknown }[] = [];
+
+// Wires the mockDb chain for one scenario. `failFirstFuelInsert` simulates the
+// new-stations insert failing so the restore path runs.
+const seedDb = (options: { fuelStations?: unknown[]; lastUpdated?: unknown[]; failFirstFuelInsert?: boolean } = {}) => {
+  insertedRows = [];
+  let fuelInsertAttempts = 0;
+  mockDb.select.mockImplementation(() => ({
+    from: vi.fn(async (table: unknown) =>
+      table === fuelStationsTable ? (options.fuelStations ?? []) : (options.lastUpdated ?? [])
+    ),
+  }));
+  mockDb.delete.mockResolvedValue(undefined);
+  mockDb.insert.mockImplementation((table: unknown) => ({
+    values: vi.fn(async (values: unknown) => {
+      insertedRows.push({ table, values });
+      if (table === fuelStationsTable && options.failFirstFuelInsert) {
+        fuelInsertAttempts += 1;
+        if (fuelInsertAttempts === 1) throw new Error('DB error');
+      }
+      return [];
+    }),
+  }));
+};
 
 // Mock MunicipalitiesRepository
 const mockMunicipalitiesRepo = { data: [] };
@@ -126,6 +143,7 @@ const mockApiData = {
 describe('RealtimeDataService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    insertedRows = [];
     mockMunicipalitiesRepo.data = [];
   });
 
@@ -136,22 +154,23 @@ describe('RealtimeDataService', () => {
   describe('loadStations', () => {
     it('fetches and saves station data successfully', async () => {
       mockGetStations.mockResolvedValue(mockApiData);
-      mockFuelStationsFindAll.mockResolvedValue([]);
-      mockLastUpdatedFindAll.mockResolvedValue([]);
-      mockFuelStationsTruncate.mockResolvedValue(undefined);
-      mockLastUpdatedTruncate.mockResolvedValue(undefined);
-      mockFuelStationsBulkCreate.mockResolvedValue([]);
-      mockLastUpdatedCreate.mockResolvedValue({});
+      seedDb();
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
 
       const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadStations();
 
       expect(mockGetStations).toHaveBeenCalled();
-      expect(mockFuelStationsTruncate).toHaveBeenCalled();
-      expect(mockLastUpdatedTruncate).toHaveBeenCalled();
-      expect(mockFuelStationsBulkCreate).toHaveBeenCalled();
-      expect(mockLastUpdatedCreate).toHaveBeenCalled();
+      expect(mockDb.delete).toHaveBeenCalledWith(fuelStationsTable);
+      expect(mockDb.delete).toHaveBeenCalledWith(lastUpdatedTable);
+      expect(insertedRows).toContainEqual({
+        table: fuelStationsTable,
+        values: [{ stationId: 'ES001', id: expect.stringMatching(/^test-uuid-/) }],
+      });
+      expect(insertedRows).toContainEqual({
+        table: lastUpdatedTable,
+        values: { lastUpdated: expect.any(String) },
+      });
     });
 
     it('handles null response from API gracefully', async () => {
@@ -161,7 +180,8 @@ describe('RealtimeDataService', () => {
       await realtimeDataService.loadStations();
 
       expect(mockGetStations).toHaveBeenCalled();
-      expect(mockFuelStationsTruncate).not.toHaveBeenCalled();
+      expect(mockDb.delete).not.toHaveBeenCalled();
+      expect(insertedRows).toHaveLength(0);
     });
 
     it('logs warning for duplicated IDs', async () => {
@@ -171,12 +191,7 @@ describe('RealtimeDataService', () => {
       };
 
       mockGetStations.mockResolvedValue(duplicatedApiData);
-      mockFuelStationsFindAll.mockResolvedValue([]);
-      mockLastUpdatedFindAll.mockResolvedValue([]);
-      mockFuelStationsTruncate.mockResolvedValue(undefined);
-      mockLastUpdatedTruncate.mockResolvedValue(undefined);
-      mockFuelStationsBulkCreate.mockResolvedValue([]);
-      mockLastUpdatedCreate.mockResolvedValue({});
+      seedDb();
       mockMap.mockReturnValue([{ stationId: 'ES001' }, { stationId: 'ES001' }]);
 
       const { realtimeDataService } = await import('@/services/realtime-data.service');
@@ -187,27 +202,28 @@ describe('RealtimeDataService', () => {
     });
 
     it('restores previous data when new insert fails', async () => {
-      const previousStation = {
-        get: vi.fn(() => ({ stationId: 'ES001' })),
-      };
-      const previousLastUpdated = {
-        get: vi.fn(() => ({ lastUpdated: new Date() })),
-      };
+      const previousLastUpdated = { lastUpdated: '2024-01-01T00:00:00.000Z' };
 
       mockGetStations.mockResolvedValue(mockApiData);
-      mockFuelStationsFindAll.mockResolvedValue([previousStation]);
-      mockLastUpdatedFindAll.mockResolvedValue([previousLastUpdated]);
-      mockFuelStationsTruncate.mockResolvedValue(undefined);
-      mockLastUpdatedTruncate.mockResolvedValue(undefined);
-      mockFuelStationsBulkCreate.mockRejectedValueOnce(new Error('DB error'));
-      mockLastUpdatedCreate.mockResolvedValue({});
+      seedDb({
+        fuelStations: [{ stationId: 'ES001' }],
+        lastUpdated: [previousLastUpdated],
+        failFirstFuelInsert: true,
+      });
       mockMap.mockReturnValue([{ stationId: 'ES001' }]);
 
       const { realtimeDataService } = await import('@/services/realtime-data.service');
       await realtimeDataService.loadStations();
 
-      // Should have tried bulkCreate twice (once for new, once for restore)
-      expect(mockFuelStationsBulkCreate).toHaveBeenCalledTimes(2);
+      // Should have tried the fuel insert twice (once for new, once for restore)
+      const fuelInserts = insertedRows.filter((row) => row.table === fuelStationsTable);
+      expect(fuelInserts).toHaveLength(2);
+      expect(fuelInserts[0].values).toEqual([{ stationId: 'ES001', id: expect.any(String) }]);
+      expect(fuelInserts[1].values).toEqual([{ stationId: 'ES001' }]);
+
+      // the previous LastUpdated row was restored, no new stamp was written
+      const lastUpdatedInserts = insertedRows.filter((row) => row.table === lastUpdatedTable);
+      expect(lastUpdatedInserts).toEqual([{ table: lastUpdatedTable, values: previousLastUpdated }]);
     });
   });
 
@@ -269,12 +285,7 @@ describe('RealtimeDataService', () => {
         ResultadoConsulta: 'OK',
       });
       mockGetMunicipalities.mockResolvedValue([]);
-      mockFuelStationsFindAll.mockResolvedValue([]);
-      mockLastUpdatedFindAll.mockResolvedValue([]);
-      mockFuelStationsTruncate.mockResolvedValue(undefined);
-      mockLastUpdatedTruncate.mockResolvedValue(undefined);
-      mockFuelStationsBulkCreate.mockResolvedValue([]);
-      mockLastUpdatedCreate.mockResolvedValue({});
+      seedDb();
       mockMap.mockReturnValue([]);
 
       const { realtimeDataService } = await import('@/services/realtime-data.service');

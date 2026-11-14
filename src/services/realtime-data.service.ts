@@ -1,10 +1,9 @@
 import { CronJob } from "cron";
 import { randomUUID } from "crypto";
 import { DataProviderApiService } from "./data-provider-api.service";
-import { LastUpdated } from "@/models/db/LastUpdated";
 import { FuelStationsMapper } from "@/mapper";
 import MunicipalitiesRepository from "@/repository/Municipalities.repository";
-import { FuelStationsTable } from "@/models/db/FuelStations";
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from "@/models/db/memory-db";
 import { logger } from "@/utils/logger";
 
 class RealtimeDataService {
@@ -32,34 +31,37 @@ class RealtimeDataService {
         logger.warn(`⚠️ Duplicated IDs found: ${duplicatedIds.join(",")}`)
       }
 
+      const db = getMemoryDb()
+
       // Save previous state in case new insert fails
-      const previousStations = await FuelStationsTable.findAll()
-      const previousLastUpdated = await LastUpdated.findAll()
+      const previousStations = await db.select().from(fuelStationsTable)
+      const previousLastUpdated = await db.select().from(lastUpdatedTable)
 
       // Erase previous data
-      await FuelStationsTable.truncate()
-      await LastUpdated.truncate()
+      await db.delete(fuelStationsTable)
+      await db.delete(lastUpdatedTable)
 
       try {
         // Save new data
-        await FuelStationsTable.bulkCreate(FuelStationsMapper.map(result.ListaEESSPrecio).map(e => ({ ...e, id: randomUUID() })))
+        const stations = FuelStationsMapper.map(result.ListaEESSPrecio).map(e => ({ ...e, id: randomUUID() }))
+        if (stations.length > 0) {
+          await db.insert(fuelStationsTable).values(stations)
+        }
 
-        await LastUpdated.create({
-          lastUpdated: new Date()
+        await db.insert(lastUpdatedTable).values({
+          lastUpdated: new Date().toISOString()
         })
 
         logger.info("✅ Realtime data saved successfully")
 
       } catch (error) {
-        // Save previous data (convert model instances to plain objects)
-        if (previousStations && previousStations.length > 0) {
-          const previousStationsData = previousStations.map(s => s.get({ plain: true }))
-          await FuelStationsTable.bulkCreate(previousStationsData)
+        // Save previous data (plain rows read before the delete)
+        if (previousStations.length > 0) {
+          await db.insert(fuelStationsTable).values(previousStations)
         }
 
-        if (previousLastUpdated && previousLastUpdated.length > 0) {
-          const lastUpdatedData = previousLastUpdated[0].get({ plain: true })
-          await LastUpdated.create(lastUpdatedData)
+        if (previousLastUpdated.length > 0) {
+          await db.insert(lastUpdatedTable).values(previousLastUpdated[0])
         }
 
         logger.warn("⚠️ Restored previous data")

@@ -2,9 +2,10 @@ import Database from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { Op } from 'sequelize';
-import { and, asc, between, desc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, between, count as drizzleCount, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { integer, real, sqliteTable, text, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { HistoricFuelStation } from './HistoricFuelStation';
+import { HistoricNoDataTable } from './HistoricNoData';
 
 /**
  * Shared better-sqlite3 `:memory:` database behind the FuelStations/LastUpdated
@@ -28,7 +29,17 @@ export const resetMemoryDb = (): void => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   active = { sqlite, db: drizzle(sqlite) as any };
   ensureHistoricTable(sqlite);
+  ensureHistoricNoDataTable(sqlite);
 };
+
+// Marks whether the persisted/historic side has been initialized (adapter init
+// today; the Drizzle pg wiring replaces this in T6). The persisted data service
+// reads it through the same seam as the memory DB.
+let persistedDbInitialized = false;
+export const markPersistedDbInitialized = (): void => {
+  persistedDbInitialized = true;
+};
+export const isPersistedDbInitialized = (): boolean => persistedDbInitialized;
 
 export type MemoryTable = Record<string, AnySQLiteColumn>;
 
@@ -115,6 +126,10 @@ export const historicFuelStationsTable = sqliteTable('historic_data', {
   date: text('date'),
 });
 
+export const historicNoDataTable = sqliteTable('historic_no_data', {
+  date: text('date').primaryKey(),
+});
+
 const ensureHistoricTable = (sqlite: BetterSqlite3.Database): void => {
   sqlite.exec(`CREATE TABLE IF NOT EXISTS historic_data (
   id TEXT PRIMARY KEY,
@@ -143,12 +158,18 @@ const ensureHistoricTable = (sqlite: BetterSqlite3.Database): void => {
   renewableGasolinePrice REAL,
   hydrogenPrice REAL,
   methanolPrice REAL,
-  date TEXT
+  date TEXT,
+  UNIQUE(stationId, date)
 )`);
+};
+
+const ensureHistoricNoDataTable = (sqlite: BetterSqlite3.Database): void => {
+  sqlite.exec('CREATE TABLE IF NOT EXISTS historic_no_data (date TEXT PRIMARY KEY)');
 };
 
 // Table exists from module load so pre-init queries work too.
 ensureHistoricTable(getMemorySqlite());
+ensureHistoricNoDataTable(getMemorySqlite());
 
 /**
  * Routes the HistoricFuelStation statics used by the historic e2e seeds
@@ -167,6 +188,7 @@ export function installHistoricFuelStationAdapter(): void {
         writable: true,
         configurable: true,
       });
+      markPersistedDbInitialized();
     },
     truncate: async () => {
       // Drizzle query builders are lazy promise-likes: they only run when awaited.
@@ -175,6 +197,47 @@ export function installHistoricFuelStationAdapter(): void {
     bulkCreate: async (values: Record<string, unknown>[]) => {
       if (values.length === 0) return [];
       return getMemoryDb().insert(historicFuelStationsTable).values(values).returning();
+    },
+    create: async (values: Record<string, unknown>) => {
+      const [row] = await getMemoryDb().insert(historicFuelStationsTable).values(values).returning();
+      return new MemoryRow(row as Record<string, unknown>) as unknown as HistoricFuelStation;
+    },
+    findAll: async (options: { order?: unknown[][] } = {}) => {
+      let query = getMemoryDb().select().from(historicFuelStationsTable);
+      const order = translateOrder(historicFuelStationsTable as unknown as MemoryTable, options.order);
+      if (order.length > 0) query = query.orderBy(...order);
+      return (await query).map(
+        (row: Record<string, unknown>) => new MemoryRow(row) as unknown as HistoricFuelStation
+      );
+    },
+    count: async () => {
+      const [row] = await getMemoryDb().select({ value: drizzleCount() }).from(historicFuelStationsTable);
+      return row.value as number;
+    },
+  });
+}
+
+/**
+ * Routes the HistoricNoDataTable statics (used by the persisted data service
+ * integration tests) to the shared memory DB. Provisional like the historic
+ * adapter until T6 wires Drizzle pg for the persisted tables.
+ */
+export function installHistoricNoDataAdapter(): void {
+  Object.assign(HistoricNoDataTable, {
+    init: () => {
+      ensureHistoricNoDataTable(getMemorySqlite());
+    },
+    findAll: async () =>
+      (await getMemoryDb().select().from(historicNoDataTable)).map(
+        (row: Record<string, unknown>) => new MemoryRow(row) as unknown as HistoricNoDataTable
+      ),
+    count: async () => {
+      const [row] = await getMemoryDb().select({ value: drizzleCount() }).from(historicNoDataTable);
+      return row.value as number;
+    },
+    create: async (values: { date: string }) => {
+      await getMemoryDb().insert(historicNoDataTable).values(values);
+      return new MemoryRow(values) as unknown as HistoricNoDataTable;
     },
   });
 }

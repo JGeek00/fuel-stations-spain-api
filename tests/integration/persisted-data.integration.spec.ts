@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CreationAttributes } from 'sequelize';
 
 vi.mock('@/utils/logger', () => ({
   logger: {
@@ -34,8 +33,7 @@ import type { HistoricNoData, HistoricPrice } from '@/models/entities';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { HistoricNoDataTable } from '@/models/db/HistoricNoData';
 import {
-  createSqlite,
-  initHistoricModels,
+  initHistoricModelsDrizzle,
   stationEntry,
   stubProviderFetch,
 } from './helpers';
@@ -47,7 +45,6 @@ const historicResponse = (stations: Record<string, string>[]) => ({
   ResultadoConsulta: 'OK',
 });
 
-// HistoricPrice's interface does not declare `id`, so the seeded primary key needs a cast.
 const seedHistoricRow = async (
   stationId: string,
   date: string,
@@ -59,14 +56,11 @@ const seedHistoricRow = async (
     stationSignage: 'Test',
     date,
     gasoilAPrice,
-  } as unknown as CreationAttributes<HistoricFuelStation>);
-
-let sequelize: ReturnType<typeof createSqlite>;
+  } as unknown as Record<string, unknown>);
 
 describe('PersistedDataService.loadStationsHistoric (integration, real in-memory sqlite)', () => {
   beforeEach(async () => {
-    sequelize = createSqlite();
-    await initHistoricModels(sequelize);
+    await initHistoricModelsDrizzle();
     // Fixed "today" (2024-06-15) so the date-range logic is deterministic:
     // seeded data = 2024-06-12 and 2024-06-14, leaving 2024-06-13 as the only hole
     vi.useFakeTimers({ now: new Date('2024-06-15T12:00:00'), toFake: ['Date'] });
@@ -75,10 +69,6 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
-  });
-
-  afterEach(async () => {
-    await sequelize.close();
   });
 
   it('fetches the missing dates and persists the parsed historic rows', async () => {
@@ -110,7 +100,7 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
     expect(await HistoricNoDataTable.count()).toBe(0);
   });
 
-  it('drops the whole batch when a payload carries duplicate (stationId, date) rows: on sqlite the conflict-ignore option is not applied (postgres-only), so the unique constraint rejects and the service catches', async () => {
+  it('deduplicates a batch that carries duplicate (stationId, date) rows: conflict-ignore now applies on sqlite too (Drizzle onConflictDoNothing), matching the postgres semantics the old option targeted', async () => {
     await seedHistoricRow('ES000001', '2024-06-12', 1.4);
     await seedHistoricRow('ES000001', '2024-06-14', 1.42);
     stubProviderFetch({
@@ -119,10 +109,10 @@ describe('PersistedDataService.loadStationsHistoric (integration, real in-memory
 
     await persistedDataService.loadAll();
 
-    // the batch was rejected and swallowed by the outer catch: stored data is untouched
-    expect(await HistoricFuelStation.count()).toBe(2);
+    // the duplicate row was ignored, the first one was kept
+    expect(await HistoricFuelStation.count()).toBe(3);
     expect(await HistoricNoDataTable.count()).toBe(0);
-    expect(logger.error).toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it('marks dates with no provider data as no-data instead of storing stations', async () => {
