@@ -37,6 +37,22 @@ const seedStations = () => FuelStationsTable.bulkCreate([
   seedRow('ES0003', 41.5, -3.7038, 28079),
 ]);
 
+// GetFuelStationsResponse.results: FuelStation[] — every contract field, with
+// the raw stationId replaced by the mapped id key.
+const contractResultKeys = [
+  'id',
+  'postalCode', 'address', 'openingHours', 'latitude', 'longitude', 'locality',
+  'margin', 'municipality', 'province', 'referral', 'signage', 'saleType',
+  'percBioEthanol', 'percMethylEster', 'municipalityId', 'provinceId', 'regionId',
+  'ammoniaPrice', 'biodieselPrice', 'bioethanolPrice', 'compressedBiogasPrice',
+  'liquefiedBiogasPrice', 'renewableDieselPrice', 'cngPrice', 'lngPrice',
+  'lpgPrice', 'gasoilAPrice', 'gasoilBPrice', 'premiumGasoilPrice',
+  'gasoline95E10Price', 'gasoline95E25Price', 'gasoline95E5Price',
+  'gasoline95E5PremiumPrice', 'gasoline95E85Price', 'gasoline98E10Price',
+  'gasoline98E5Price', 'renewableGasolinePrice', 'hydrogenPrice',
+  'methanolPrice', 'adbluePrice',
+];
+
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
@@ -79,6 +95,9 @@ describe('GET /service-stations (e2e over real HTTP)', () => {
     }
     const ids = body.results.map((r: { id: string }) => r.id).sort();
     expect(ids).toEqual(['ES0001', 'ES0002', 'ES0003']);
+    // Full contract shape: every GetFuelStationsResponse/FuelStation key is
+    // present (null for unseeded columns), with stationId mapped to id.
+    expect([...Object.keys(body.results[0])].sort()).toEqual([...contractResultKeys].sort());
   });
 
   it('200 with limit and offset', async () => {

@@ -105,6 +105,24 @@ describe('GET /historic-prices (e2e over real HTTP)', () => {
     expect(current.stationSignage).toBe('REPSOL');
   });
 
+  it('200 empty price: the empty gasoline95E5Price is returned as null, not 0', async () => {
+    await HistoricFuelStation.create({
+      id: crypto.randomUUID(),
+      stationId: 'ES0009',
+      stationSignage: 'EMPTY',
+      date: '2024-01-10',
+      gasoline95E5Price: null,
+    } as unknown as CreationAttributes<HistoricFuelStation>);
+
+    const response = await fetch(`${testServer.baseUrl}/historic-prices?id=ES0009&startDate=2024-01-01&endDate=2024-01-31`);
+
+    expect(response.status).toBe(200);
+    const body: any = await response.json();
+    expect(body).toHaveLength(1);
+    expect('gasoline95E5Price' in body[0]).toBe(true);
+    expect(body[0].gasoline95E5Price).toBeNull();
+  });
+
   it('400 when id is missing', async () => {
     const response = await fetch(`${testServer.baseUrl}/historic-prices?startDate=2024-01-01&endDate=2024-01-31`);
 
