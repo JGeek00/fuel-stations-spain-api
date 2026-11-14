@@ -16,7 +16,11 @@ COPY src ./src
 COPY scripts ./scripts
 
 # Install pnpm
-RUN npm install -g pnpm@latest-10
+RUN npm install -g pnpm@latest
+
+# Native toolchain for better-sqlite3 (no prebuilds shipped: prebuild-install
+# falls back to node-gyp compile)
+RUN apk add --no-cache python3 make g++
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -35,7 +39,7 @@ LABEL org.opencontainers.image.source="https://github.com/jgeek00/fuel-stations-
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@latest-10
+RUN npm install -g pnpm@latest
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
@@ -47,7 +51,9 @@ COPY --from=builder /app/scripts/prepare.js ./scripts/prepare.js
 COPY package*.json ./
 COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+# Native toolchain: better-sqlite3 compiles from source at install time
+# (removed afterwards to keep the runtime image lean)
+RUN apk add --no-cache python3 make g++ && pnpm install --prod --frozen-lockfile && apk del python3 make g++
 
 # Start application
 CMD [ "pnpm", "start" ]
