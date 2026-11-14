@@ -1,27 +1,15 @@
-import { Sequelize } from 'sequelize';
+import { sql } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { vi } from 'vitest';
-import { Migrations, MigrationsModel } from '@/models/db/Migrations';
 import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
 import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
-import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
-import { HistoricNoDataTable, HistoricNoDataModel } from '@/models/db/HistoricNoData';
+import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { HistoricNoDataTable } from '@/models/db/HistoricNoData';
 import {
   installHistoricFuelStationAdapter,
   installHistoricNoDataAdapter,
   resetMemoryDb,
 } from '@/models/db/memory-db';
-
-export const createSqlite = (): Sequelize =>
-  new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
-
-export const initMigrationsModel = async (sequelize: Sequelize): Promise<void> => {
-  Migrations.init(MigrationsModel, {
-    sequelize,
-    modelName: 'migrations',
-    timestamps: false,
-  });
-  await Migrations.sync({ force: true });
-};
 
 /**
  * Drizzle-memory version of initMemoryModels: FuelStationsTable.init() swaps in
@@ -50,83 +38,84 @@ export const initHistoricModelsDrizzle = async (): Promise<void> => {
   initModel(HistoricNoDataTable);
 };
 
-export const initMemoryModels = async (sequelize: Sequelize): Promise<void> => {
-  FuelStationsTable.init(FuelStationModel, {
-    sequelize,
-    modelName: 'FuelStation',
-    timestamps: false,
-  });
-  LastUpdated.init(LastUpdatedModel, {
-    sequelize,
-    modelName: 'LastUpdated',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
+// ── Postgres helpers (migration integration) ────────────────────────────────
+
+export const hasPostgresEnv = Boolean(
+  process.env.POSTGRES_HOST &&
+  process.env.POSTGRES_PORT &&
+  process.env.POSTGRES_USER &&
+  process.env.POSTGRES_PASSWORD &&
+  process.env.POSTGRES_DATABASE
+);
+
+export const pgConnectionString = hasPostgresEnv
+  ? `postgres://${encodeURIComponent(process.env.POSTGRES_USER!)}:${encodeURIComponent(
+      process.env.POSTGRES_PASSWORD!
+    )}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DATABASE}`
+  : '';
+
+export const dropMigrationSurface = async (db: NodePgDatabase<Record<string, never>>): Promise<void> => {
+  await db.execute(sql`DROP TABLE IF EXISTS historic_no_data`);
+  await db.execute(sql`DROP INDEX IF EXISTS idx_historic_station_date`);
+  await db.execute(sql`DROP TABLE IF EXISTS migrations`);
+  await db.execute(sql`DROP TABLE IF EXISTS historic_data`);
 };
 
-export const initHistoricModels = async (sequelize: Sequelize): Promise<void> => {
-  HistoricFuelStation.init(HistoricFuelStationModel, {
-    sequelize,
-    modelName: 'historic_data',
-    timestamps: false,
-  });
-  HistoricNoDataTable.init(HistoricNoDataModel, {
-    sequelize,
-    modelName: 'historic_no_data',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
-};
-
-/**
- * Creates the pre-migration historic_data schema (snake_case columns) that
- * migration 001 expects to find, as raw SQL against the real database.
- */
-export const createPreMigrationSchema = async (sequelize: Sequelize): Promise<void> => {
-  await sequelize.query(`CREATE TABLE historic_data (
-    id TEXT PRIMARY KEY,
-    date TEXT,
-    "station_id" TEXT,
-    "station_signage" TEXT,
-    "adblue_price" REAL,
-    "ammonia_price" REAL,
-    "biodiesel_price" REAL,
-    "bioethanol_price" REAL,
-    "compressed_biogas_price" REAL,
-    "liquefied_biogas_price" REAL,
-    "renewable_diesel_price" REAL,
-    "cng_price" REAL,
-    "lng_price" REAL,
-    "lpg_price" REAL,
-    "gasoil_a_price" REAL,
-    "gasoil_b_price" REAL,
-    "premium_gasoil_price" REAL,
-    "gasoline_95_e10_price" REAL,
-    "gasoline_95_e25_price" REAL,
-    "gasoline_95_e5_price" REAL,
-    "gasoline_95_e5_premium_price" REAL,
-    "gasoline_95_e85_price" REAL,
-    "gasoline_98_e10_price" REAL,
-    "gasoline_98_e5_price" REAL,
-    "renewable_gasoline_price" REAL,
-    "hydrogen_price" REAL,
-    "methanol_price" REAL
+export const createPreMigrationSchema = async (db: NodePgDatabase<Record<string, never>>): Promise<void> => {
+  // Pre-migration historic_data schema (snake_case columns) that migration 001
+  // expects to find, as raw SQL against the real database.
+  await db.execute(sql`CREATE TABLE historic_data (
+    id UUID PRIMARY KEY,
+    date DATE,
+    "station_id" varchar(255),
+    "station_signage" varchar(255),
+    "adblue_price" double precision,
+    "ammonia_price" double precision,
+    "biodiesel_price" double precision,
+    "bioethanol_price" double precision,
+    "compressed_biogas_price" double precision,
+    "liquefied_biogas_price" double precision,
+    "renewable_diesel_price" double precision,
+    "cng_price" double precision,
+    "lng_price" double precision,
+    "lpg_price" double precision,
+    "gasoil_a_price" double precision,
+    "gasoil_b_price" double precision,
+    "premium_gasoil_price" double precision,
+    "gasoline_95_e10_price" double precision,
+    "gasoline_95_e25_price" double precision,
+    "gasoline_95_e5_price" double precision,
+    "gasoline_95_e5_premium_price" double precision,
+    "gasoline_95_e85_price" double precision,
+    "gasoline_98_e10_price" double precision,
+    "gasoline_98_e5_price" double precision,
+    "renewable_gasoline_price" double precision,
+    "hydrogen_price" double precision,
+    "methanol_price" double precision
   )`);
 };
 
-export const tableColumns = async (
-  sequelize: Sequelize,
-  table: string
-): Promise<string[]> => {
-  const [rows] = await sequelize.query(`PRAGMA table_info("${table}")`);
-  return (rows as Array<{ name: string }>).map((r) => r.name);
+export const initMigrationsTable = async (db: NodePgDatabase<Record<string, never>>): Promise<void> => {
+  // Same shape the Migrations pgTable declares (service inserts/reads this table).
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS migrations (
+    "version" varchar(255) PRIMARY KEY,
+    "name" varchar(255) NOT NULL,
+    "appliedAt" timestamptz DEFAULT now()
+  )`);
 };
 
-export const sqliteObjectNames = async (sequelize: Sequelize): Promise<string[]> => {
-  const [rows] = await sequelize.query(
-    `SELECT name FROM sqlite_master WHERE type IN ('table', 'index')`
+export const tableColumns = async (db: NodePgDatabase<Record<string, never>>, table: string): Promise<string[]> => {
+  const result = await db.execute<{ column_name: string }>(
+    sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${table} ORDER BY ordinal_position`
   );
-  return (rows as Array<{ name: string }>).map((r) => r.name);
+  return result.rows.map((r: { column_name: string }) => r.column_name);
+};
+
+export const objectNames = async (db: NodePgDatabase<Record<string, never>>): Promise<string[]> => {
+  const result = await db.execute<{ name: string }>(
+    sql`SELECT relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r', 'i')`
+  );
+  return result.rows.map((r: { name: string }) => r.name);
 };
 
 const jsonResponse = (data: unknown) =>

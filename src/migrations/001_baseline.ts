@@ -1,4 +1,4 @@
-import { Sequelize } from 'sequelize';
+import { sql } from 'drizzle-orm';
 import { Migration } from '@/models/entities';
 
 const RENAME_COLUMNS = [
@@ -32,19 +32,19 @@ const RENAME_COLUMNS = [
 const migration: Migration = {
   version: '001',
   name: 'baseline',
-  up: async (sequelize: Sequelize) => {
+  up: async (db) => {
     // Rename historic_data columns from snake_case to camelCase (match FuelStations schema)
     for (const [oldName, newName] of RENAME_COLUMNS) {
-      await sequelize.query(
-        `ALTER TABLE historic_data RENAME COLUMN "${oldName}" TO "${newName}"`
+      await db.execute(
+        sql`ALTER TABLE historic_data RENAME COLUMN ${sql.identifier(oldName)} TO ${sql.identifier(newName)}`
       );
     }
   },
-  down: async (sequelize: Sequelize) => {
+  down: async (db) => {
     // Reverse: rename columns back from camelCase to snake_case
     for (const [snake, camel] of [...RENAME_COLUMNS].reverse()) {
-      await sequelize.query(
-        `ALTER TABLE historic_data RENAME COLUMN "${camel}" TO "${snake}"`
+      await db.execute(
+        sql`ALTER TABLE historic_data RENAME COLUMN ${sql.identifier(camel)} TO ${sql.identifier(snake)}`
       );
     }
   },
