@@ -3,7 +3,8 @@ import { validationResult } from "express-validator";
 import { DateTime } from 'luxon';
 import * as Sentry from '@sentry/node'
 import { and, asc, between, eq } from "drizzle-orm";
-import { fuelStationsTable, getMemoryDb, historicFuelStationsTable, installHistoricFuelStationAdapter } from "@/models/db/memory-db";
+import { fuelStationsTable, getMemoryDb, getPersistedDb, historicFuelStationsTable, installHistoricFuelStationAdapter } from "@/models/db/memory-db";
+import { pgHistoricData } from "@/models/db/HistoricFuelStation";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 import { GetHistoricPricesQueryParams } from "@/models/in/GetHistoricPricesQueryParams.model";
 import { GetHistoricPricesResponse } from "@/models/out/GetHistoricPricesResponse.model";
@@ -58,8 +59,13 @@ export const historicPricesController = async (req: Request<{}, {}, {}, GetHisto
     }
 
     const stationId = Array.isArray(req.query.id) ? req.query.id[0] : (req.query.id as string)
-    const h = historicFuelStationsTable
-    const historicResult = await getMemoryDb()
+    // PG when configured, memory fallback for e2e/tests without PG (S1: same output).
+    const persisted = getPersistedDb();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db: any = persisted ?? getMemoryDb();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const h: any = persisted ? pgHistoricData : historicFuelStationsTable;
+    const historicResult = await db
       .select({
         stationId: h.stationId,
         stationSignage: h.stationSignage,

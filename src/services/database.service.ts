@@ -16,7 +16,7 @@ export type PersistedDb = NodePgDatabase<Record<string, never>> & {
 };
 import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
 import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
-import { getMemoryDb, getMemorySqlite, markPersistedDbInitialized } from '@/models/db/memory-db';
+import { getMemoryDb, getMemorySqlite, markPersistedDbInitialized, setPersistedDb } from '@/models/db/memory-db';
 import { validatePostgresDbData } from '@/utils/postgres-db';
 import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { pgMigrations } from '@/models/db/Migrations';
@@ -167,6 +167,7 @@ export class DatabaseService {
         );
 
         markPersistedDbInitialized();
+        setPersistedDb(this._persistedDbInstance);
         // The connection middleware reads HistoricFuelStation.sequelize; point
         // it at a liveness seam over the real pool (same shape the memory
         // adapter uses for its stub).

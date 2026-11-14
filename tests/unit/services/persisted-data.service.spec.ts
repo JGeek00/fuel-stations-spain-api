@@ -75,6 +75,7 @@ const {
 }));
 vi.mock('@/models/db/memory-db', () => ({
   getMemoryDb: () => mockDb,
+  getPersistedDb: () => null,
   isPersistedDbInitialized: mockIsPersistedDbInitialized,
   historicFuelStationsTable,
   historicNoDataTable,

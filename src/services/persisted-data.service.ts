@@ -5,10 +5,13 @@ import { CronJob } from "cron/dist/job";
 import { asc } from "drizzle-orm";
 import {
   getMemoryDb,
+  getPersistedDb,
   historicFuelStationsTable,
   historicNoDataTable,
   isPersistedDbInitialized,
 } from "@/models/db/memory-db";
+import { pgHistoricData } from "@/models/db/HistoricFuelStation";
+import { pgHistoricNoData } from "@/models/db/HistoricNoData";
 import { DataProviderApiService } from "@/services/data-provider-api.service"
 import { logger } from "@/utils/logger"
 import { FuelStationsMapper } from "@/mapper";
@@ -25,8 +28,14 @@ class PersistedDataService {
         return;
       }
 
-      const db = getMemoryDb();
-      const h = historicFuelStationsTable;
+      // PG when configured, memory fallback for tests without PG (S1: same output).
+      const persisted = getPersistedDb();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db: any = persisted ?? getMemoryDb();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const h: any = persisted ? pgHistoricData : historicFuelStationsTable;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const noDataTable: any = persisted ? pgHistoricNoData : historicNoDataTable;
 
       // sequelize.fn('DISTINCT', col) equivalent for Drizzle.
       const existingDatesRows: { date: string | null }[] = await db
@@ -36,8 +45,8 @@ class PersistedDataService {
       const existingDates = new Set(existingDatesRows.map(e => e.date).filter(e => e != null));
 
       const noDataResultRaw: { date: string | null }[] = await db
-        .select({ date: historicNoDataTable.date })
-        .from(historicNoDataTable);
+        .select({ date: noDataTable.date })
+        .from(noDataTable);
       const noDataDates = new Set(noDataResultRaw.map(e => e.date).filter(e => e != null));
 
       if (existingDates.size === 0) {
@@ -127,7 +136,7 @@ class PersistedDataService {
           if (parsedStations.length === 0) {
             const dateSQL = group[key].toSQLDate();
             if (dateSQL) {
-              await db.insert(historicNoDataTable).values({ date: dateSQL });
+              await db.insert(noDataTable).values({ date: dateSQL });
               logger.info(`  🚫 No data for ${dateSQL} — marked as no-data`);
             }
           }

@@ -41,6 +41,17 @@ export const markPersistedDbInitialized = (): void => {
 };
 export const isPersistedDbInitialized = (): boolean => persistedDbInitialized;
 
+// Drizzle-pg handle installed by database.service.initPersistedDb on success.
+// Null when PG is not configured/reachable: readers fall back to memory (S1).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let persistedPg: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const setPersistedDb = (db: any): void => {
+  persistedPg = db;
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const getPersistedDb = (): any => persistedPg;
+
 export type MemoryTable = Record<string, AnySQLiteColumn>;
 
 // ── Drizzle table definitions shared by controllers and MCP tools ──────────
