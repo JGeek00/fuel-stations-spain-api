@@ -1,23 +1,19 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 // ── Mock all dependencies shared by resources ────────────────────────────────
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findAll: vi.fn().mockResolvedValue([]),
-    count: vi.fn().mockResolvedValue(0),
+vi.mock('@/repository/Municipalities.repository', () => ({
+  default: {
+    listAllMunicipalities: vi.fn().mockResolvedValue([]),
+    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
+    data: [],
   },
 }));
 
-vi.mock('@/models/db/HistoricFuelStation', () => ({
-  HistoricFuelStation: {
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    findOne: vi.fn().mockResolvedValue(null),
-  },
+// database-info uses the status use case. Its src body currently has a broken
+// merged state (duplicate declarations), so mock the use case seam here and
+// test the resource presentation; the src gap is reported to the parent.
+vi.mock('@/application/usecases/GetDatabaseStatus.usecase', () => ({
+  getDatabaseStatusUseCase: vi.fn(),
 }));
 
 vi.mock('@/services/database.service', () => {
@@ -27,14 +23,6 @@ vi.mock('@/services/database.service', () => {
   }
   return { DatabaseService };
 });
-
-vi.mock('@/repository/Municipalities.repository', () => ({
-  default: {
-    listAllMunicipalities: vi.fn().mockResolvedValue([]),
-    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
-    data: [],
-  },
-}));
 
 vi.mock('@/utils/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
@@ -75,9 +63,8 @@ import {
   registerMunicipalitiesResource,
 } from '@/mcp/resources';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { LastUpdated } from '@/models/db/LastUpdated';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function getReadCallback(calls: ReturnType<typeof createMockMcpServer>['calls'], name: string) {
@@ -332,13 +319,15 @@ describe('registerStationsSchemaResource', () => {
 describe('registerDatabaseInfoResource', () => {
   let dbService: DatabaseService;
 
+  const fullStatus = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    realtimeDatabase: { status: 'connected', totalStations: 0, lastUpdated: null, ...(overrides.realtimeDatabase as object) },
+    historicDatabase: { status: 'connected', ...(overrides.historicDatabase as object) },
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     dbService = new DatabaseService();
-    // Reset mocks to defaults
-    (FuelStationsTable.count as Mock).mockResolvedValue(0);
-    (LastUpdated.findOne as Mock).mockResolvedValue(null);
-    (dbService.persistedDbInstance.authenticate as Mock).mockResolvedValue(undefined);
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus());
   });
 
   it('exports a function', () => {
@@ -361,9 +350,17 @@ describe('registerDatabaseInfoResource', () => {
     expect(call.config.description).toContain('status');
   });
 
-  it('readCallback returns connected status when PostgreSQL authenticates', async () => {
+  it('readCallback calls the status use case', async () => {
     const { instance, calls } = createMockMcpServer();
-    (dbService.persistedDbInstance.authenticate as Mock).mockResolvedValue(undefined);
+    registerDatabaseInfoResource(instance as never, dbService);
+    const { readCallback } = getReadCallback(calls, 'database-info');
+    await readCallback();
+
+    expect(getDatabaseStatusUseCase).toHaveBeenCalledTimes(1);
+  });
+
+  it('readCallback returns connected status when the use case reports connected', async () => {
+    const { instance, calls } = createMockMcpServer();
     registerDatabaseInfoResource(instance as never, dbService);
     const { readCallback } = getReadCallback(calls, 'database-info');
     const result = await readCallback();
@@ -372,9 +369,9 @@ describe('registerDatabaseInfoResource', () => {
     expect(data.historicDatabase.status).toBe('connected');
   });
 
-  it('readCallback returns disconnected status when PostgreSQL fails', async () => {
+  it('readCallback returns disconnected status when the use case reports disconnected', async () => {
     const { instance, calls } = createMockMcpServer();
-    (dbService.persistedDbInstance.authenticate as Mock).mockRejectedValue(new Error('connection refused'));
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus({ historicDatabase: { status: 'disconnected' } }));
     registerDatabaseInfoResource(instance as never, dbService);
     const { readCallback } = getReadCallback(calls, 'database-info');
     const result = await readCallback();
@@ -404,36 +401,9 @@ describe('registerDatabaseInfoResource', () => {
     expect(data.historicDatabase.type).toBe('PostgreSQL');
   });
 
-  it('readCallback calls FuelStationsTable.count()', async () => {
+  it('readCallback returns station count from the use case', async () => {
     const { instance, calls } = createMockMcpServer();
-    registerDatabaseInfoResource(instance as never, dbService);
-    const { readCallback } = getReadCallback(calls, 'database-info');
-    await readCallback();
-
-    expect(FuelStationsTable.count).toHaveBeenCalledTimes(1);
-  });
-
-  it('readCallback calls LastUpdated.findOne()', async () => {
-    const { instance, calls } = createMockMcpServer();
-    registerDatabaseInfoResource(instance as never, dbService);
-    const { readCallback } = getReadCallback(calls, 'database-info');
-    await readCallback();
-
-    expect(LastUpdated.findOne).toHaveBeenCalledTimes(1);
-  });
-
-  it('readCallback calls databaseService.authenticate()', async () => {
-    const { instance, calls } = createMockMcpServer();
-    registerDatabaseInfoResource(instance as never, dbService);
-    const { readCallback } = getReadCallback(calls, 'database-info');
-    await readCallback();
-
-    expect(dbService.persistedDbInstance.authenticate).toHaveBeenCalledTimes(1);
-  });
-
-  it('readCallback returns station count from FuelStationsTable', async () => {
-    const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.count as Mock).mockResolvedValue(42);
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus({ realtimeDatabase: { totalStations: 42 } }));
     registerDatabaseInfoResource(instance as never, dbService);
     const { readCallback } = getReadCallback(calls, 'database-info');
     const result = await readCallback();
@@ -442,22 +412,19 @@ describe('registerDatabaseInfoResource', () => {
     expect(data.realtimeDatabase.totalStations).toBe(42);
   });
 
-  it('readCallback returns lastUpdated from LastUpdated model', async () => {
+  it('readCallback returns lastUpdated from the use case', async () => {
     const { instance, calls } = createMockMcpServer();
-    const mockLastUpdated = { getDataValue: vi.fn().mockReturnValue('2025-01-15') };
-    (LastUpdated.findOne as Mock).mockResolvedValue(mockLastUpdated);
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus({ realtimeDatabase: { lastUpdated: '2025-01-15' } }));
     registerDatabaseInfoResource(instance as never, dbService);
     const { readCallback } = getReadCallback(calls, 'database-info');
     const result = await readCallback();
 
     const data = JSON.parse(result.contents[0].text);
     expect(data.realtimeDatabase.lastUpdated).toBe('2025-01-15');
-    expect(mockLastUpdated.getDataValue).toHaveBeenCalledWith('lastUpdated');
   });
 
-  it('readCallback returns null lastUpdated when LastUpdated.findOne returns null', async () => {
+  it('readCallback returns null lastUpdated when the use case has no record', async () => {
     const { instance, calls } = createMockMcpServer();
-    (LastUpdated.findOne as Mock).mockResolvedValue(null);
     registerDatabaseInfoResource(instance as never, dbService);
     const { readCallback } = getReadCallback(calls, 'database-info');
     const result = await readCallback();

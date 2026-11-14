@@ -18,16 +18,18 @@ export interface GetStationsInput {
  * Moved verbatim from service-stations.controller.
  */
 export async function getStationsUseCase(input: GetStationsInput) {
-  if (input.distance !== undefined && !input.coordinates) {
+  if (input.distance && !input.coordinates) {
     throw createValidationError('If the distance parameter is defined, the coordinates parameter is also required');
   }
 
   let limit: number | undefined;
   let offset: number | undefined;
 
+  // Truthy checks preserve the legacy controller semantics (limit=0,
+  // municipalityId=0 and distance=0 are treated as absent).
   if (!input.id && !input.coordinates && !input.distance && !input.municipalityId) {
-    limit = input.limit ?? config.defaults.query.limit;
-    offset = input.offset ?? config.defaults.query.offset;
+    limit = input.limit ? input.limit : config.defaults.query.limit;
+    offset = input.offset ? input.offset : config.defaults.query.offset;
 
     if (offset >= limit) {
       throw createBadRequestError('Offset must be lower than limit');
@@ -36,16 +38,17 @@ export async function getStationsUseCase(input: GetStationsInput) {
     limit = limit - offset > config.maximums.query.amount ? offset + config.maximums.query.amount : limit;
   }
 
-  if (input.municipalityId !== undefined) {
-    const { rows, count } = await stationRepository.query({
-      municipalityId: input.municipalityId,
-    });
+  // Precedence (legacy): id overrides coordinates, coordinates override
+  // municipalityId — each later filter replaced `where` in the controller.
+  if (input.id) {
+    const ids = Array.isArray(input.id) ? input.id : [input.id];
+    const { rows, count } = await stationRepository.query({ ids });
     return present(rows, count);
   }
 
   if (input.coordinates) {
     const [latitude, longitude] = input.coordinates.split(',');
-    let distance = input.distance ?? config.defaults.query.distance;
+    let distance = input.distance ? input.distance : config.defaults.query.distance;
     distance = distance > config.maximums.query.distance ? config.maximums.query.distance : distance;
     distance = distance < config.minimums.query.distance ? config.minimums.query.distance : distance;
     const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(parseFloat(latitude), parseFloat(longitude), distance);
@@ -55,9 +58,10 @@ export async function getStationsUseCase(input: GetStationsInput) {
     return present(rows, count);
   }
 
-  if (input.id) {
-    const ids = Array.isArray(input.id) ? input.id : [input.id];
-    const { rows, count } = await stationRepository.query({ ids });
+  if (input.municipalityId) {
+    const { rows, count } = await stationRepository.query({
+      municipalityId: input.municipalityId,
+    });
     return present(rows, count);
   }
 
@@ -67,9 +71,16 @@ export async function getStationsUseCase(input: GetStationsInput) {
 
 function present(rows: Record<string, unknown>[], count: number) {
   const mapped = rows.map((r) => ({ ...r, stationId: undefined, id: r.stationId }));
-  return stationRepository.getLastUpdated().then((lastUpdated) => ({
-    lastUpdated,
-    count,
-    results: mapped,
-  }));
+  return stationRepository.getLastUpdated().then((lastUpdated) => {
+    // Preserve legacy behavior: an empty last_updated table threw TypeError
+    // (lastUpdatedRows[0].lastUpdated) and surfaced as 500 via Sentry.
+    if (lastUpdated === null || lastUpdated === undefined) {
+      throw new Error('Cannot read properties of undefined (reading \'lastUpdated\')');
+    }
+    return {
+      lastUpdated,
+      count,
+      results: mapped,
+    };
+  });
 }

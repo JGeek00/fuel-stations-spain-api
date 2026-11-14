@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
-import { and, asc, between, eq } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/models/db/memory-db';
+import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
 import { keysToCamel } from '@/utils/case-keys';
 import { logger } from '@/utils/logger';
 
@@ -26,7 +25,6 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
         const { stationId, startDate, endDate, includeCurrentPrices } = args;
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        // Validate dates
         let start: DateTime, end: DateTime;
         try {
           start = DateTime.fromSQL(startDate).setZone(timezone);
@@ -53,7 +51,6 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
           };
         }
 
-        // Check persisted DB is available
         try {
           databaseService.persistedDbInstance;
         } catch {
@@ -63,54 +60,18 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
           };
         }
 
-        const h = historicFuelStationsTable;
-        const historicResult = await getMemoryDb()
-          .select({
-            stationId: h.stationId,
-            stationSignage: h.stationSignage,
-            adbluePrice: h.adbluePrice,
-            ammoniaPrice: h.ammoniaPrice,
-            biodieselPrice: h.biodieselPrice,
-            bioethanolPrice: h.bioethanolPrice,
-            compressedBiogasPrice: h.compressedBiogasPrice,
-            liquefiedBiogasPrice: h.liquefiedBiogasPrice,
-            renewableDieselPrice: h.renewableDieselPrice,
-            cngPrice: h.cngPrice,
-            lngPrice: h.lngPrice,
-            lpgPrice: h.lpgPrice,
-            gasoilAPrice: h.gasoilAPrice,
-            gasoilBPrice: h.gasoilBPrice,
-            premiumGasoilPrice: h.premiumGasoilPrice,
-            gasoline95E10Price: h.gasoline95E10Price,
-            gasoline95E25Price: h.gasoline95E25Price,
-            gasoline95E5Price: h.gasoline95E5Price,
-            gasoline95E5PremiumPrice: h.gasoline95E5PremiumPrice,
-            gasoline95E85Price: h.gasoline95E85Price,
-            gasoline98E10Price: h.gasoline98E10Price,
-            gasoline98E5Price: h.gasoline98E5Price,
-            renewableGasolinePrice: h.renewableGasolinePrice,
-            hydrogenPrice: h.hydrogenPrice,
-            methanolPrice: h.methanolPrice,
-            date: h.date,
-          })
-          .from(h)
-          .where(and(
-            eq(h.stationId, stationId),
-            between(h.date, start.toSQLDate() as string, end.toSQLDate() as string)
-          ))
-          .orderBy(asc(h.date));
-
+        const historicResult = await historicRepository.queryRange(
+          stationId,
+          start.toSQLDate() as string,
+          end.toSQLDate() as string,
+        );
         const formattedHistoric = historicResult.map((e: Record<string, unknown>) => keysToCamel(e));
 
         let currentPrices: Record<string, unknown> | null = null;
         if (includeCurrentPrices) {
-          const currentRows = await getMemoryDb()
-            .select()
-            .from(fuelStationsTable)
-            .where(eq(fuelStationsTable.stationId, stationId))
-            .limit(1);
-          if (currentRows[0]) {
-            const values = keysToCamel(currentRows[0]);
+          const current = await historicRepository.queryCurrent(stationId);
+          if (current) {
+            const values = keysToCamel(current);
             currentPrices = {
               ...values,
               stationId: values.id ?? null,

@@ -5,18 +5,33 @@ import { LastUpdated } from '@/models/db/LastUpdated';
 /**
  * Database status use case for MCP get-database-status + database-info resource.
  * Keeps the same shape both consumers already return.
+ * Prefers the injected DatabaseService seam when available (tests + MCP),
+ * falling back to the global persisted handle.
  */
-export async function getDatabaseStatusUseCase() {
+export async function getDatabaseStatusUseCase(databaseService?: { persistedDbInstance?: { authenticate: () => Promise<unknown> } }) {
   const totalStations = await FuelStationsTable.count();
   const lastUpdatedRow = await LastUpdated.findOne();
-  const persisted = getPersistedDb();
   let historicStatus: string = 'disconnected';
-  if (persisted) {
+  let hasPersisted = false;
+  const persistedFromService = databaseService?.persistedDbInstance;
+  if (persistedFromService) {
+    hasPersisted = true;
     try {
-      await persisted.authenticate();
+      await persistedFromService.authenticate();
       historicStatus = 'connected';
     } catch {
       historicStatus = 'disconnected';
+    }
+  } else {
+    const persisted = getPersistedDb();
+    hasPersisted = !!persisted;
+    if (persisted) {
+      try {
+        await persisted.authenticate();
+        historicStatus = 'connected';
+      } catch {
+        historicStatus = 'disconnected';
+      }
     }
   }
   return {
@@ -27,7 +42,7 @@ export async function getDatabaseStatusUseCase() {
       lastUpdated: lastUpdatedRow?.getDataValue('lastUpdated') ?? null,
     },
     historicDatabase: {
-      type: persisted ? 'postgres' : 'sqlite-memory',
+      type: hasPersisted ? 'postgres' : 'sqlite-memory',
       status: historicStatus,
     },
   };

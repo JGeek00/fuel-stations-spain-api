@@ -1,38 +1,9 @@
 import { z } from 'zod';
-import { and, asc, between, type SQL } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
+import { findCheapestFuelUseCase } from '@/application/usecases/StationQueries.usecase';
+import { FUEL_FIELD_NAMES } from '@/infrastructure/persistence/fuel-fields';
 import { logger } from '@/utils/logger';
-
-const FUEL_FIELD_NAMES = [
-  'gasoilAPrice',
-  'gasoilBPrice',
-  'premiumGasoilPrice',
-  'gasoline95E5Price',
-  'gasoline95E5PremiumPrice',
-  'gasoline95E10Price',
-  'gasoline95E25Price',
-  'gasoline95E85Price',
-  'gasoline98E5Price',
-  'gasoline98E10Price',
-  'lpgPrice',
-  'cngPrice',
-  'lngPrice',
-  'hydrogenPrice',
-  'adbluePrice',
-  'biodieselPrice',
-  'bioethanolPrice',
-  'compressedBiogasPrice',
-  'liquefiedBiogasPrice',
-  'renewableDieselPrice',
-  'renewableGasolinePrice',
-  'methanolPrice',
-  'ammoniaPrice',
-] as const;
-
-type FuelField = (typeof FUEL_FIELD_NAMES)[number];
 
 export function findCheapestFuelTool(server: McpServer, _databaseService: DatabaseService): void {
   server.registerTool(
@@ -51,65 +22,15 @@ export function findCheapestFuelTool(server: McpServer, _databaseService: Databa
     },
     async (args) => {
       try {
-        const { fuelType, latitude, longitude, distanceKm, limit } = args;
-        const t = fuelStationsTable;
-        const fuelColumn = (t as unknown as Record<string, typeof t.gasoilAPrice>)[fuelType];
-
-        let where: SQL | undefined;
-
-        if (latitude !== undefined && longitude !== undefined) {
-          const distance = distanceKm ?? 30;
-          const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(latitude, longitude, distance);
-          where = and(
-            between(t.latitude, minLat, maxLat),
-            between(t.longitude, minLon, maxLon)
-          );
-        }
-
-        // Only select relevant fields to reduce payload
-        const stations = await getMemoryDb()
-          .select({
-            id: t.id,
-            referral: t.referral,
-            signage: t.signage,
-            address: t.address,
-            municipality: t.municipality,
-            province: t.province,
-            latitude: t.latitude,
-            longitude: t.longitude,
-            [fuelType]: fuelColumn,
-          })
-          .from(t)
-          .where(where)
-          .orderBy(asc(fuelColumn))
-          .limit(limit ?? 10);
-
-        const results = stations.map((station: Record<string, unknown>) => ({
-          id: station.id,
-          referral: station.referral,
-          signage: station.signage,
-          address: station.address,
-          municipality: station.municipality,
-          province: station.province,
-          coordinates:
-            station.latitude && station.longitude
-              ? { latitude: station.latitude, longitude: station.longitude }
-              : null,
-          price: station[fuelType],
-        }));
-
-        const locationInfo =
-          latitude !== undefined && longitude !== undefined
-            ? { center: { latitude, longitude }, radiusKm: distanceKm ?? 30 }
-            : { scope: 'national' };
-
+        const result = await findCheapestFuelUseCase({
+          fuelType: args.fuelType,
+          latitude: args.latitude,
+          longitude: args.longitude,
+          distanceKm: args.distanceKm,
+          limit: args.limit,
+        });
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ fuelType, ...locationInfo, count: results.length, results }, null, 2),
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
       } catch (error) {
         logger.error('Error finding cheapest fuel', { error: error instanceof Error ? error.message : String(error) });

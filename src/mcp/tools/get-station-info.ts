@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { getStationInfoUseCase } from '@/application/usecases/StationQueries.usecase';
 import { logger } from '@/utils/logger';
 
 export function getStationInfoTool(server: McpServer, _databaseService: DatabaseService): void {
@@ -17,28 +17,17 @@ export function getStationInfoTool(server: McpServer, _databaseService: Database
     },
     async (args) => {
       try {
-        const { stationId } = args;
-
-        const station = await FuelStationsTable.findOne({
-          where: { stationId: stationId },
-        });
+        const station = await getStationInfoUseCase(args.stationId);
 
         if (!station) {
           return {
-            content: [{ type: 'text', text: `Station with ID "${stationId}" not found.` }],
+            content: [{ type: 'text', text: `Station with ID "${args.stationId}" not found.` }],
             isError: true,
           };
         }
 
-        const data = station.get({ plain: true });
-
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(data, null, 2),
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify(station, null, 2) }],
         };
       } catch (error) {
         logger.error('Error getting station info', { error: error instanceof Error ? error.message : String(error) });

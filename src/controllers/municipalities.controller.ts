@@ -4,14 +4,14 @@ import {
   createInternalServerError,
   sendApiError,
 } from '@/utils/error-handler';
-import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { logger } from '@/utils/logger';
+import { listMunicipalitiesUseCase } from '@/application/usecases/ListMunicipalities.usecase';
 
 export const municipalitiesController = async (_req: Request, res: Response<GetMunicipalitiesResponse>, next: NextFunction): Promise<void> => {
   try {
-    const data = MunicipalitiesRepository.data
+    const data = listMunicipalitiesUseCase().municipalities;
     res.send({
-      municipalities: data
+      municipalities: data as unknown as GetMunicipalitiesResponse['municipalities'],
     })
   } catch (error) {
     if (error && typeof error === 'object' && 'error' in error) {

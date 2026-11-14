@@ -1,43 +1,20 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-// ── Mock all dependencies ────────────────────────────────────────────────────
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findStationById: vi.fn(),
-    getStationByCif: vi.fn(),
-    getStationByNif: vi.fn(),
-    getAllStations: vi.fn(),
-    getStationByProvinceAndMunicipality: vi.fn(),
-    findAll: vi.fn().mockResolvedValue([]),
-    findOne: vi.fn().mockResolvedValue(null),
-    findAndCountAll: vi.fn().mockResolvedValue({ rows: [], count: 0 }),
-    count: vi.fn().mockResolvedValue(0),
+// ── Mock the data seam: tools → usecases → stationRepository ────────────────
+vi.mock('@/infrastructure/persistence/StationRepository', () => ({
+  stationRepository: {
+    query: vi.fn(),
+    findByStationId: vi.fn(),
+    findCheapest: vi.fn(),
+    compare: vi.fn(),
+    searchByLocation: vi.fn(),
   },
 }));
 
-vi.mock('@/models/db/HistoricFuelStation', () => ({
-  HistoricFuelStation: {
-    getHistoricPricesForStation: vi.fn(),
-    getHistoricPricesForStationInRange: vi.fn(),
-    getHistoricPriceForStationAndDate: vi.fn(),
-    getHistoricPricesByMunicipality: vi.fn(),
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    get: vi.fn(),
-    findOne: vi.fn().mockResolvedValue(null),
-  },
-}));
-
-vi.mock('@/models/entities/FuelStation.model', () => ({
-  FuelStation: {},
-}));
-
-vi.mock('@/models/entities/Municipality.model', () => ({
-  Municipality: {},
+// get_database_status shares the tools index; mock its usecase so this file
+// only exercises the station-query seam (see tools-advanced for status).
+vi.mock('@/application/usecases/GetDatabaseStatus.usecase', () => ({
+  getDatabaseStatusUseCase: vi.fn(),
 }));
 
 vi.mock('@/services/database.service', () => {
@@ -48,29 +25,8 @@ vi.mock('@/services/database.service', () => {
   return { DatabaseService };
 });
 
-vi.mock('@/utils/calculate-distance', () => ({
-  calculateBoundingBox: vi.fn().mockReturnValue({
-    minLat: 39,
-    maxLat: 41,
-    minLon: -3,
-    maxLon: 1,
-  }),
-}));
-
-vi.mock('@/utils/case-keys', () => ({
-  keysToCamel: vi.fn((obj) => obj),
-}));
-
 vi.mock('@/utils/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
-}));
-
-vi.mock('@/repository/Municipalities.repository', () => ({
-  default: {
-    listAllMunicipalities: vi.fn().mockResolvedValue([]),
-    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
-    data: [],
-  },
 }));
 
 // ── Mock McpServer that captures tool registrations ─────────────────────────
@@ -109,117 +65,18 @@ import {
   queryFuelStationsTool,
   searchByLocationTool,
 } from '@/mcp/tools';
-vi.mock('@/models/db/memory-db', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
-  return {
-    ...actual,
-    getMemoryDb: vi.fn(),
-  };
-});
-
 import { DatabaseService } from '@/services/database.service';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
-import { and, between, eq, inArray } from 'drizzle-orm';
-
-const mockGetMemoryDb = vi.mocked(getMemoryDb);
+import { stationRepository } from '@/infrastructure/persistence/StationRepository';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 type McpResponse = { content: Array<{ type: string; text: string }>; isError?: boolean };
 
-function createMockStation(data: Record<string, unknown>) {
-  return { get: () => data };
-}
-
-// ── Drizzle query-builder harness (tools rewritten to query Drizzle) ────────
-interface DbHarness {
-  db: () => unknown;
-  setRows: (table: unknown, rows: unknown[]) => void;
-  state: { count: number; error: unknown };
-  calls: {
-    select: unknown[];
-    from: unknown[];
-    where: unknown[];
-    orderBy: unknown[];
-    limit: unknown[];
-    offset: unknown[];
-  };
-}
-
-function makeDbHarness(): DbHarness {
-  const tables = new Map<unknown, unknown[]>();
-  const state = { count: 0, error: undefined as unknown };
-  const calls = {
-    select: [] as unknown[],
-    from: [] as unknown[],
-    where: [] as unknown[],
-    orderBy: [] as unknown[],
-    limit: [] as unknown[],
-    offset: [] as unknown[],
-  };
-
-  const db = () => {
-    const makeBuilder = (mode: 'rows' | 'count', projection: unknown) => {
-      calls.select.push(projection);
-      let fromTable: unknown;
-      const b: Record<string, any> = {
-        from: vi.fn((t: unknown) => {
-          calls.from.push(t);
-          fromTable = t;
-          return b;
-        }),
-        where: vi.fn((c: unknown) => {
-          calls.where.push(c);
-          return b;
-        }),
-        orderBy: vi.fn((...o: unknown[]) => {
-          calls.orderBy.push(...o);
-          return b;
-        }),
-        limit: vi.fn((n: unknown) => {
-          calls.limit.push(n);
-          return b;
-        }),
-        offset: vi.fn((n: unknown) => {
-          calls.offset.push(n);
-          return b;
-        }),
-      };
-      b.then = (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
-        const value =
-          mode === 'count' ? [{ value: state.count }] : (tables.get(fromTable) ?? []);
-        const pending = state.error !== undefined ? Promise.reject(state.error) : Promise.resolve(value);
-        return pending.then(onFulfilled, onRejected);
-      };
-      return b;
-    };
-    return {
-      select: vi.fn((projection?: Record<string, unknown>) =>
-        makeBuilder(projection && 'value' in projection ? 'count' : 'rows', projection)
-      ),
-    };
-  };
-
-  return {
-    db,
-    setRows: (table: unknown, rows: unknown[]) => {
-      tables.set(table, rows);
-    },
-    state,
-    calls,
-  };
-}
-
-let dbh: DbHarness;
-
-function resetDbMocks() {
-  (FuelStationsTable.findAll as Mock).mockResolvedValue([]);
-  (FuelStationsTable.findOne as Mock).mockResolvedValue(null);
-  (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
-  (FuelStationsTable.count as Mock).mockResolvedValue(0);
-  dbh = makeDbHarness();
-  mockGetMemoryDb.mockImplementation(() => dbh.db());
+function resetRepoMocks() {
+  (stationRepository.query as Mock).mockResolvedValue({ rows: [], count: 0 });
+  (stationRepository.findByStationId as Mock).mockResolvedValue(null);
+  (stationRepository.findCheapest as Mock).mockResolvedValue([]);
+  (stationRepository.compare as Mock).mockResolvedValue([]);
+  (stationRepository.searchByLocation as Mock).mockResolvedValue([]);
 }
 
 function mcpText(result: unknown): string {
@@ -238,7 +95,7 @@ describe('compareFuelPricesTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
+    resetRepoMocks();
     dbService = new DatabaseService();
   });
 
@@ -255,9 +112,9 @@ describe('compareFuelPricesTool', () => {
     expect(tool.config.description).toContain('Compare');
   });
 
-  it('callback returns sorted results by fuel price', async () => {
+  it('callback returns results for the stations the repository returns', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [
+    (stationRepository.compare as Mock).mockResolvedValue([
       {
         id: 's1',
         referral: 'Ref1',
@@ -293,7 +150,7 @@ describe('compareFuelPricesTool', () => {
 
   it('callback result has correct structure per station', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [
+    (stationRepository.compare as Mock).mockResolvedValue([
       {
         id: 's1',
         referral: 'Ref1',
@@ -323,45 +180,65 @@ describe('compareFuelPricesTool', () => {
     expect(station.price).toBe(1.6);
   });
 
-  it('callback filters by ids when provided', async () => {
+  it('callback forwards ids filter to the repository', async () => {
     const { instance, calls } = createMockMcpServer();
     compareFuelPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'compare_fuel_prices');
     await callback({ fuelType: 'gasoilAPrice', ids: ['s1', 's2'] });
 
-    expect(dbh.calls.where[0]).toEqual(inArray(fuelStationsTable.id, ['s1', 's2']));
+    expect(stationRepository.compare).toHaveBeenCalledWith({
+      fuelType: 'gasoilAPrice',
+      ids: ['s1', 's2'],
+      municipalityId: undefined,
+      limit: undefined,
+    });
   });
 
-  it('callback filters by municipalityId when provided', async () => {
+  it('callback forwards municipalityId filter to the repository', async () => {
     const { instance, calls } = createMockMcpServer();
     compareFuelPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'compare_fuel_prices');
     await callback({ fuelType: 'gasoilAPrice', municipalityId: 42 });
 
-    expect(dbh.calls.where[0]).toEqual(eq(fuelStationsTable.municipalityId, 42));
+    expect(stationRepository.compare).toHaveBeenCalledWith({
+      fuelType: 'gasoilAPrice',
+      ids: undefined,
+      municipalityId: 42,
+      limit: undefined,
+    });
   });
 
-  it('callback uses default limit of 50', async () => {
+  it('callback forwards no limit by default (repository applies the 50 default)', async () => {
     const { instance, calls } = createMockMcpServer();
     compareFuelPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'compare_fuel_prices');
     await callback({ fuelType: 'gasoilAPrice' });
 
-    expect(dbh.calls.limit[0]).toBe(50);
+    expect(stationRepository.compare).toHaveBeenCalledWith({
+      fuelType: 'gasoilAPrice',
+      ids: undefined,
+      municipalityId: undefined,
+      limit: undefined,
+    });
   });
 
-  it('callback uses custom limit when provided', async () => {
+  it('callback forwards custom limit when provided', async () => {
     const { instance, calls } = createMockMcpServer();
     compareFuelPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'compare_fuel_prices');
     await callback({ fuelType: 'gasoilAPrice', limit: 10 });
 
-    expect(dbh.calls.limit[0]).toBe(10);
+    expect(stationRepository.compare).toHaveBeenCalledWith({
+      fuelType: 'gasoilAPrice',
+      ids: undefined,
+      municipalityId: undefined,
+      limit: 10,
+    });
   });
 
   it('callback returns coordinates null when missing', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [
+    (stationRepository.compare as Mock).mockResolvedValue([
       {
         id: 's1',
         referral: 'Ref1',
@@ -384,7 +261,7 @@ describe('compareFuelPricesTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.state.error = new Error('DB error');
+    (stationRepository.compare as Mock).mockRejectedValue(new Error('DB error'));
     compareFuelPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'compare_fuel_prices');
     const result = await callback({ fuelType: 'gasoilAPrice' });
@@ -398,7 +275,7 @@ describe('findCheapestFuelTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
+    resetRepoMocks();
     dbService = new DatabaseService();
   });
 
@@ -416,7 +293,7 @@ describe('findCheapestFuelTool', () => {
 
   it('callback returns national scope when no coordinates', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [
+    (stationRepository.findCheapest as Mock).mockResolvedValue([
       {
         id: 's1',
         referral: 'Ref1',
@@ -439,7 +316,6 @@ describe('findCheapestFuelTool', () => {
 
   it('callback returns center and radius when coordinates provided', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, []);
     findCheapestFuelTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'find_cheapest_fuel');
     const result = await callback({ fuelType: 'gasoilAPrice', latitude: 40.4, longitude: -3.7, distanceKm: 20 });
@@ -449,38 +325,48 @@ describe('findCheapestFuelTool', () => {
     expect(output.radiusKm).toBe(20);
   });
 
-  it('callback uses calculateBoundingBox with coordinates', async () => {
+  it('callback forwards coordinates to the repository', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, []);
     findCheapestFuelTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'find_cheapest_fuel');
     await callback({ fuelType: 'gasoilAPrice', latitude: 40.4, longitude: -3.7, distanceKm: 25 });
 
-    expect(calculateBoundingBox).toHaveBeenCalledWith(40.4, -3.7, 25);
+    expect(stationRepository.findCheapest).toHaveBeenCalledWith({
+      fuelType: 'gasoilAPrice',
+      latitude: 40.4,
+      longitude: -3.7,
+      distanceKm: 25,
+      limit: undefined,
+    });
   });
 
   it('callback uses default distance of 30 when coordinates but no distanceKm', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, []);
     findCheapestFuelTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'find_cheapest_fuel');
-    await callback({ fuelType: 'gasoilAPrice', latitude: 40.4, longitude: -3.7 });
+    const result = await callback({ fuelType: 'gasoilAPrice', latitude: 40.4, longitude: -3.7 });
 
-    expect(calculateBoundingBox).toHaveBeenCalledWith(40.4, -3.7, 30);
+    expect(outputRadiusKm(result)).toBe(30);
   });
 
-  it('callback uses default limit of 10', async () => {
+  it('callback forwards no limit by default (repository applies the 10 default)', async () => {
     const { instance, calls } = createMockMcpServer();
     findCheapestFuelTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'find_cheapest_fuel');
     await callback({ fuelType: 'gasoilAPrice' });
 
-    expect(dbh.calls.limit[0]).toBe(10);
+    expect(stationRepository.findCheapest).toHaveBeenCalledWith({
+      fuelType: 'gasoilAPrice',
+      latitude: undefined,
+      longitude: undefined,
+      distanceKm: undefined,
+      limit: undefined,
+    });
   });
 
   it('callback returns result with correct price field', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [
+    (stationRepository.findCheapest as Mock).mockResolvedValue([
       {
         id: 's1',
         referral: 'Ref1',
@@ -503,7 +389,7 @@ describe('findCheapestFuelTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.state.error = new Error('DB error');
+    (stationRepository.findCheapest as Mock).mockRejectedValue(new Error('DB error'));
     findCheapestFuelTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'find_cheapest_fuel');
     const result = await callback({ fuelType: 'gasoilAPrice' });
@@ -512,12 +398,16 @@ describe('findCheapestFuelTool', () => {
   });
 });
 
+function outputRadiusKm(result: unknown): number {
+  return mcpJson<{ radiusKm: number }>(result).radiusKm;
+}
+
 describe('getStationInfoTool', () => {
   let dbService: DatabaseService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
+    resetRepoMocks();
     dbService = new DatabaseService();
   });
 
@@ -535,8 +425,7 @@ describe('getStationInfoTool', () => {
 
   it('callback returns station data when found', async () => {
     const { instance, calls } = createMockMcpServer();
-    const mockData = { id: 's1', signage: 'Brand1', address: 'Calle 1' };
-    (FuelStationsTable.findOne as Mock).mockResolvedValue(createMockStation(mockData));
+    (stationRepository.findByStationId as Mock).mockResolvedValue({ id: 's1', signage: 'Brand1', address: 'Calle 1' });
     getStationInfoTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_station_info');
     const result = await callback({ stationId: 's1' });
@@ -546,21 +435,17 @@ describe('getStationInfoTool', () => {
     expect(output.signage).toBe('Brand1');
   });
 
-  it('callback calls findOne with correct stationId', async () => {
+  it('callback queries the repository with the given stationId', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findOne as Mock).mockResolvedValue(null);
     getStationInfoTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_station_info');
     await callback({ stationId: 'abc123' });
 
-    expect(FuelStationsTable.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { stationId: 'abc123' } })
-    );
+    expect(stationRepository.findByStationId).toHaveBeenCalledWith('abc123');
   });
 
   it('callback returns not found when station missing', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findOne as Mock).mockResolvedValue(null);
     getStationInfoTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_station_info');
     const result = await callback({ stationId: 'nonexistent' });
@@ -571,7 +456,7 @@ describe('getStationInfoTool', () => {
 
   it('callback returns isError on DB error', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findOne as Mock).mockRejectedValue(new Error('DB error'));
+    (stationRepository.findByStationId as Mock).mockRejectedValue(new Error('DB error'));
     getStationInfoTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_station_info');
     const result = await callback({ stationId: 's1' });
@@ -585,7 +470,7 @@ describe('queryFuelStationsTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
+    resetRepoMocks();
     dbService = new DatabaseService();
   });
 
@@ -601,17 +486,14 @@ describe('queryFuelStationsTool', () => {
     expect(tool.config.title).toBe('Query Fuel Stations');
   });
 
-  it('callback uses findAndCountAll for pagination', async () => {
+  it('callback queries the repository for pagination', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({
-      rows: [createMockStation({ id: 's1' })],
-      count: 100,
-    });
+    (stationRepository.query as Mock).mockResolvedValue({ rows: [{ id: 's1' }], count: 100 });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     const result = await callback({});
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledTimes(1);
+    expect(stationRepository.query).toHaveBeenCalledTimes(1);
     const output = mcpJson<{ count: number; results: unknown[] }>(result);
     expect(output.count).toBe(100);
     expect(output.results).toHaveLength(1);
@@ -619,82 +501,91 @@ describe('queryFuelStationsTool', () => {
 
   it('callback uses default limit 30 and offset 0', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     await callback({});
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 30, offset: 0 })
-    );
+    expect(stationRepository.query).toHaveBeenCalledWith({
+      ids: undefined,
+      municipalityId: undefined,
+      limit: 30,
+      offset: 0,
+    });
   });
 
   it('callback filters by ids', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     await callback({ ids: ['s1', 's2'] });
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ id: ['s1', 's2'] }) })
+    expect(stationRepository.query).toHaveBeenCalledWith(
+      expect.objectContaining({ ids: ['s1', 's2'] })
     );
   });
 
   it('callback filters by municipalityId', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     await callback({ municipalityId: 10 });
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ municipalityId: 10 }) })
+    expect(stationRepository.query).toHaveBeenCalledWith(
+      expect.objectContaining({ municipalityId: 10 })
     );
   });
 
   it('callback filters by provinceId', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
+    (stationRepository.query as Mock).mockResolvedValue({
+      rows: [
+        { id: 'a', provinceId: 28 },
+        { id: 'b', provinceId: 99 },
+      ],
+      count: 2,
+    });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
-    await callback({ provinceId: 28 });
+    const result = await callback({ provinceId: 28 });
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ provinceId: 28 }) })
-    );
+    // Province/region filters scan unfiltered and are applied in the use case.
+    expect(stationRepository.query).toHaveBeenCalledWith({ limit: undefined, offset: undefined });
+    const output = mcpJson<{ results: Array<{ id: string }> }>(result);
+    expect(output.results).toEqual([{ id: 'a', provinceId: 28 }]);
   });
 
   it('callback filters by regionId', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
+    (stationRepository.query as Mock).mockResolvedValue({
+      rows: [
+        { id: 'a', regionId: 29 },
+        { id: 'b', regionId: 99 },
+      ],
+      count: 2,
+    });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
-    await callback({ regionId: 29 });
+    const result = await callback({ regionId: 29 });
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ regionId: 29 }) })
-    );
+    expect(stationRepository.query).toHaveBeenCalledWith({ limit: undefined, offset: undefined });
+    const output = mcpJson<{ results: Array<{ id: string }> }>(result);
+    expect(output.results).toEqual([{ id: 'a', regionId: 29 }]);
   });
 
   it('callback returns custom limit and offset', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     await callback({ limit: 50, offset: 20 });
 
-    expect(FuelStationsTable.findAndCountAll).toHaveBeenCalledWith(
+    expect(stationRepository.query).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 50, offset: 20 })
     );
   });
 
   it('callback result includes count, limit, offset, results', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({
-      rows: [createMockStation({ id: 's1' })],
-      count: 5,
-    });
+    (stationRepository.query as Mock).mockResolvedValue({ rows: [{ id: 's1' }], count: 5 });
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     const result = await callback({ limit: 10, offset: 5 });
@@ -710,7 +601,7 @@ describe('queryFuelStationsTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.findAndCountAll as Mock).mockRejectedValue(new Error('DB error'));
+    (stationRepository.query as Mock).mockRejectedValue(new Error('DB error'));
     queryFuelStationsTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_fuel_stations');
     const result = await callback({});
@@ -724,7 +615,7 @@ describe('searchByLocationTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
+    resetRepoMocks();
     dbService = new DatabaseService();
   });
 
@@ -740,43 +631,27 @@ describe('searchByLocationTool', () => {
     expect(tool.config.title).toBe('Search Stations by Location');
   });
 
-  it('callback calls calculateBoundingBox', async () => {
+  it('callback forwards center and distance to the repository', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, []);
     searchByLocationTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'search_stations_by_location');
     await callback({ latitude: 40.4, longitude: -3.7, distanceKm: 20 });
 
-    expect(calculateBoundingBox).toHaveBeenCalledWith(40.4, -3.7, 20);
+    expect(stationRepository.searchByLocation).toHaveBeenCalledWith(40.4, -3.7, 20);
   });
 
   it('callback uses default distance 30', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, []);
     searchByLocationTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'search_stations_by_location');
     await callback({ latitude: 40.4, longitude: -3.7 });
 
-    expect(calculateBoundingBox).toHaveBeenCalledWith(40.4, -3.7, 30);
-  });
-
-  it('callback queries with bounding box coordinates', async () => {
-    const { instance, calls } = createMockMcpServer();
-    searchByLocationTool(instance as never, dbService);
-    const { callback } = getToolCallback(calls, 'search_stations_by_location');
-    await callback({ latitude: 40.4, longitude: -3.7 });
-
-    expect(dbh.calls.where[0]).toEqual(
-      and(
-        between(fuelStationsTable.latitude, 39, 41),
-        between(fuelStationsTable.longitude, -3, 1)
-      )
-    );
+    expect(stationRepository.searchByLocation).toHaveBeenCalledWith(40.4, -3.7, 30);
   });
 
   it('callback returns center and radius in result', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [{ id: 's1' }]);
+    (stationRepository.searchByLocation as Mock).mockResolvedValue([{ id: 's1' }]);
     searchByLocationTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'search_stations_by_location');
     const result = await callback({ latitude: 40.4, longitude: -3.7, distanceKm: 25 });
@@ -788,7 +663,7 @@ describe('searchByLocationTool', () => {
 
   it('callback returns stations with full data', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(fuelStationsTable, [{ id: 's1', signage: 'Brand1', address: 'Calle 1' }]);
+    (stationRepository.searchByLocation as Mock).mockResolvedValue([{ id: 's1', signage: 'Brand1', address: 'Calle 1' }]);
     searchByLocationTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'search_stations_by_location');
     const result = await callback({ latitude: 40.4, longitude: -3.7 });
@@ -800,7 +675,7 @@ describe('searchByLocationTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.state.error = new Error('DB error');
+    (stationRepository.searchByLocation as Mock).mockRejectedValue(new Error('DB error'));
     searchByLocationTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'search_stations_by_location');
     const result = await callback({ latitude: 40.4, longitude: -3.7 });

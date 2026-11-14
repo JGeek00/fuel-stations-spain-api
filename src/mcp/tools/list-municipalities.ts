@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
-import { Municipality } from '@/models/entities/Municipality.model';
+import { listMunicipalitiesUseCase } from '@/application/usecases/ListMunicipalities.usecase';
 import { logger } from '@/utils/logger';
 
-export function listMunicipalitiesTool(server: McpServer, municipalitiesRepository: typeof MunicipalitiesRepository): void {
+export function listMunicipalitiesTool(server: McpServer, _municipalitiesRepository: typeof MunicipalitiesRepository): void {
   server.registerTool(
     'list_municipalities',
     {
@@ -19,26 +19,14 @@ export function listMunicipalitiesTool(server: McpServer, municipalitiesReposito
     },
     async (args) => {
       try {
-        const { province, region, search } = args;
-        let data: Municipality[] = municipalitiesRepository.data || [];
-
-        if (province) {
-          data = data.filter((m) => m.province.toLowerCase().includes(province.toLowerCase()));
-        }
-        if (region) {
-          data = data.filter((m) => m.region.toLowerCase().includes(region.toLowerCase()));
-        }
-        if (search) {
-          data = data.filter((m) => m.municipality.toLowerCase().includes(search.toLowerCase()));
-        }
-
+        const result = listMunicipalitiesUseCase({
+          province: args.province,
+          region: args.region,
+          search: args.search,
+        });
+        const municipalities = result.municipalities;
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ count: data.length, municipalities: data }, null, 2),
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify({ count: municipalities.length, municipalities }, null, 2) }],
         };
       } catch (error) {
         logger.error('Error listing municipalities', { error: error instanceof Error ? error.message : String(error) });

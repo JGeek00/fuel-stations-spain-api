@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { queryStationsUseCase } from '@/application/usecases/StationQueries.usecase';
 import { logger } from '@/utils/logger';
 
 const MAX_LIMIT = 200;
@@ -24,29 +24,16 @@ export function queryFuelStationsTool(server: McpServer, _databaseService: Datab
     },
     async (args) => {
       try {
-        const { ids, municipalityId, provinceId, regionId, limit, offset } = args;
-
-        const where: Record<string, unknown> = {};
-        if (ids) where.id = ids;
-        if (municipalityId) where.municipalityId = municipalityId;
-        if (provinceId) where.provinceId = provinceId;
-        if (regionId) where.regionId = regionId;
-
-        const { rows: stations, count } = await FuelStationsTable.findAndCountAll({
-          where,
-          limit: limit ?? 30,
-          offset: offset ?? 0,
+        const result = await queryStationsUseCase({
+          ids: args.ids,
+          municipalityId: args.municipalityId,
+          provinceId: args.provinceId,
+          regionId: args.regionId,
+          limit: args.limit,
+          offset: args.offset,
         });
-
-        const results = stations.map((s) => s.get({ plain: true }));
-
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ count, limit: limit ?? 30, offset: offset ?? 0, results }, null, 2),
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
       } catch (error) {
         logger.error('Error querying fuel stations', { error: error instanceof Error ? error.message : String(error) });

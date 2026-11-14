@@ -1,7 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { LastUpdated } from '@/models/db/LastUpdated';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
 
 export function registerDatabaseInfoResource(server: McpServer, databaseService: DatabaseService): void {
   server.registerResource(
@@ -12,27 +11,17 @@ export function registerDatabaseInfoResource(server: McpServer, databaseService:
       mimeType: 'application/json',
     },
     async () => {
-      const stationCount = await FuelStationsTable.count();
-      const lastUpdated = await LastUpdated.findOne();
-
-      let postgresConnected = false;
-      try {
-        await databaseService.persistedDbInstance.authenticate();
-        postgresConnected = true;
-      } catch {
-        postgresConnected = false;
-      }
-
-      const status = {
+      const status = await getDatabaseStatusUseCase(databaseService);
+      const legacy = {
         realtimeDatabase: {
           type: 'SQLite (in-memory)',
-          status: 'connected',
-          totalStations: stationCount,
-          lastUpdated: lastUpdated ? lastUpdated.getDataValue('lastUpdated') : null,
+          status: status.realtimeDatabase.status,
+          totalStations: status.realtimeDatabase.totalStations,
+          lastUpdated: status.realtimeDatabase.lastUpdated,
         },
         historicDatabase: {
           type: 'PostgreSQL',
-          status: postgresConnected ? 'connected' : 'disconnected',
+          status: status.historicDatabase.status,
         },
       };
 
@@ -41,7 +30,7 @@ export function registerDatabaseInfoResource(server: McpServer, databaseService:
           {
             uri: 'fuelstations://info/status',
             mimeType: 'application/json',
-            text: JSON.stringify(status, null, 2),
+            text: JSON.stringify(legacy, null, 2),
           },
         ],
       };

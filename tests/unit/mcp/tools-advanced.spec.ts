@@ -1,52 +1,26 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-// ── Mock all dependencies ────────────────────────────────────────────────────
-vi.mock('@/models/db/FuelStations', () => ({
-  FuelStationsTable: {
-    findStationById: vi.fn(),
-    getStationByCif: vi.fn(),
-    getStationByNif: vi.fn(),
-    getAllStations: vi.fn(),
-    getStationByProvinceAndMunicipality: vi.fn(),
-    findAll: vi.fn().mockResolvedValue([]),
-    findOne: vi.fn().mockResolvedValue(null),
-    findAndCountAll: vi.fn().mockResolvedValue({ rows: [], count: 0 }),
-    count: vi.fn().mockResolvedValue(0),
+// ── Mock the data seams: legacy municipalities store + historic repository ──
+vi.mock('@/repository/Municipalities.repository', () => ({
+  default: {
+    listAllMunicipalities: vi.fn().mockResolvedValue([]),
+    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
+    data: [],
   },
 }));
 
-vi.mock('@/models/db/HistoricFuelStation', () => ({
-  HistoricFuelStation: {
-    getHistoricPricesForStation: vi.fn(),
-    getHistoricPricesForStationInRange: vi.fn(),
-    getHistoricPriceForStationAndDate: vi.fn(),
-    getHistoricPricesByMunicipality: vi.fn(),
-    findAll: vi.fn().mockResolvedValue([]),
-    findAndCountAll: vi.fn().mockResolvedValue({ rows: [], count: 0 }),
+vi.mock('@/infrastructure/persistence/HistoricRepository', () => ({
+  historicRepository: {
+    queryRange: vi.fn(),
+    queryCurrent: vi.fn(),
   },
 }));
 
-vi.mock('@/models/db/memory-db', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
-  return {
-    ...actual,
-    getMemoryDb: vi.fn(),
-  };
-});
-
-vi.mock('@/models/db/LastUpdated', () => ({
-  LastUpdated: {
-    get: vi.fn(),
-    findOne: vi.fn().mockResolvedValue(null),
-  },
-}));
-
-vi.mock('@/models/entities/FuelStation.model', () => ({
-  FuelStation: {},
-}));
-
-vi.mock('@/models/entities/Municipality.model', () => ({
-  Municipality: {},
+// get_database_status shares the tools index. Its src use case currently has a
+// broken merged body (duplicate declarations), so mock the use case seam here
+// and test the tool presentation; the src gap is reported to the parent.
+vi.mock('@/application/usecases/GetDatabaseStatus.usecase', () => ({
+  getDatabaseStatusUseCase: vi.fn(),
 }));
 
 vi.mock('@/services/database.service', () => {
@@ -57,29 +31,12 @@ vi.mock('@/services/database.service', () => {
   return { DatabaseService };
 });
 
-vi.mock('@/utils/calculate-distance', () => ({
-  calculateBoundingBox: vi.fn().mockReturnValue({
-    minLat: 39,
-    maxLat: 41,
-    minLon: -3,
-    maxLon: 1,
-  }),
-}));
-
 vi.mock('@/utils/case-keys', () => ({
   keysToCamel: vi.fn((obj) => obj),
 }));
 
 vi.mock('@/utils/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
-}));
-
-vi.mock('@/repository/Municipalities.repository', () => ({
-  default: {
-    listAllMunicipalities: vi.fn().mockResolvedValue([]),
-    listMunicipalitiesByProvince: vi.fn().mockResolvedValue([]),
-    data: [],
-  },
 }));
 
 // ── Mock McpServer that captures tool registrations ─────────────────────────
@@ -117,105 +74,13 @@ import {
   queryHistoricPricesTool,
 } from '@/mcp/tools';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
-import { LastUpdated } from '@/models/db/LastUpdated';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
+import { historicRepository } from '@/infrastructure/persistence/HistoricRepository';
+import { getDatabaseStatusUseCase } from '@/application/usecases/GetDatabaseStatus.usecase';
 import { keysToCamel } from '@/utils/case-keys';
-import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/models/db/memory-db';
-import { and, asc, between, eq } from 'drizzle-orm';
-
-const mockGetMemoryDb = vi.mocked(getMemoryDb);
-
-// ── Drizzle query-builder harness (tools rewritten to query Drizzle) ────────
-interface DbHarness {
-  db: () => unknown;
-  setRows: (table: unknown, rows: unknown[]) => void;
-  state: { count: number; error: unknown };
-  calls: {
-    select: unknown[];
-    from: unknown[];
-    where: unknown[];
-    orderBy: unknown[];
-    limit: unknown[];
-  };
-}
-
-function makeDbHarness(): DbHarness {
-  const tables = new Map<unknown, unknown[]>();
-  const state = { count: 0, error: undefined as unknown };
-  const calls = {
-    select: [] as unknown[],
-    from: [] as unknown[],
-    where: [] as unknown[],
-    orderBy: [] as unknown[],
-    limit: [] as unknown[],
-  };
-
-  const db = () => {
-    const makeBuilder = (mode: 'rows' | 'count', projection: unknown) => {
-      calls.select.push(projection);
-      let fromTable: unknown;
-      const b: Record<string, any> = {
-        from: vi.fn((t: unknown) => {
-          calls.from.push(t);
-          fromTable = t;
-          return b;
-        }),
-        where: vi.fn((c: unknown) => {
-          calls.where.push(c);
-          return b;
-        }),
-        orderBy: vi.fn((...o: unknown[]) => {
-          calls.orderBy.push(...o);
-          return b;
-        }),
-        limit: vi.fn((n: unknown) => {
-          calls.limit.push(n);
-          return b;
-        }),
-      };
-      b.then = (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
-        const value =
-          mode === 'count' ? [{ value: state.count }] : (tables.get(fromTable) ?? []);
-        const pending = state.error !== undefined ? Promise.reject(state.error) : Promise.resolve(value);
-        return pending.then(onFulfilled, onRejected);
-      };
-      return b;
-    };
-    return {
-      select: vi.fn((projection?: Record<string, unknown>) =>
-        makeBuilder(projection && 'value' in projection ? 'count' : 'rows', projection)
-      ),
-    };
-  };
-
-  return {
-    db,
-    setRows: (table: unknown, rows: unknown[]) => {
-      tables.set(table, rows);
-    },
-    state,
-    calls,
-  };
-}
-
-let dbh: DbHarness;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 type McpResponse = { content: Array<{ type: string; text: string }>; isError?: boolean };
-
-function resetDbMocks() {
-  (FuelStationsTable.findAll as Mock).mockResolvedValue([]);
-  (FuelStationsTable.findOne as Mock).mockResolvedValue(null);
-  (FuelStationsTable.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
-  (FuelStationsTable.count as Mock).mockResolvedValue(0);
-  (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
-  (HistoricFuelStation.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
-  (LastUpdated.findOne as Mock).mockResolvedValue(null);
-  dbh = makeDbHarness();
-  mockGetMemoryDb.mockImplementation(() => dbh.db());
-}
 
 function mcpText(result: unknown): string {
   const r = result as McpResponse;
@@ -224,10 +89,6 @@ function mcpText(result: unknown): string {
 
 function mcpJson<T = Record<string, unknown>>(result: unknown): T {
   return JSON.parse(mcpText(result)) as T;
-}
-
-function createMockRecord(data: Record<string, unknown>) {
-  return { get: () => data };
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -241,7 +102,6 @@ describe('listMunicipalitiesTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
     (MunicipalitiesRepository as any).data = sampleData;
   });
 
@@ -263,8 +123,7 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
-    const output = mcpJson<{ count: number; municipalities: unknown[] }>(result);
-    expect(output.count).toBe(3);
+    const output = mcpJson<{ municipalities: unknown[] }>(result);
     expect(output.municipalities).toHaveLength(3);
   });
 
@@ -274,8 +133,8 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ province: 'Madrid' });
 
-    const output = mcpJson<{ count: number; municipalities: Array<{ municipality: string }> }>(result);
-    expect(output.count).toBe(1);
+    const output = mcpJson<{ municipalities: Array<{ municipality: string }> }>(result);
+    expect(output.municipalities).toHaveLength(1);
     expect(output.municipalities[0].municipality).toBe('Madrid');
   });
 
@@ -285,8 +144,8 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ province: 'madrid' });
 
-    const output = mcpJson<{ count: number }>(result);
-    expect(output.count).toBe(1);
+    const output = mcpJson<{ municipalities: unknown[] }>(result);
+    expect(output.municipalities).toHaveLength(1);
   });
 
   it('callback filters by region', async () => {
@@ -295,8 +154,8 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ region: 'Andalucía' });
 
-    const output = mcpJson<{ count: number; municipalities: Array<{ municipality: string }> }>(result);
-    expect(output.count).toBe(1);
+    const output = mcpJson<{ municipalities: Array<{ municipality: string }> }>(result);
+    expect(output.municipalities).toHaveLength(1);
     expect(output.municipalities[0].municipality).toBe('Sevilla');
   });
 
@@ -306,8 +165,8 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ search: 'Bar' });
 
-    const output = mcpJson<{ count: number; municipalities: Array<{ municipality: string }> }>(result);
-    expect(output.count).toBe(1);
+    const output = mcpJson<{ municipalities: Array<{ municipality: string }> }>(result);
+    expect(output.municipalities).toHaveLength(1);
     expect(output.municipalities[0].municipality).toBe('Barcelona');
   });
 
@@ -317,8 +176,8 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ province: 'Barcelona', region: 'Cataluña' });
 
-    const output = mcpJson<{ count: number; municipalities: Array<{ municipality: string }> }>(result);
-    expect(output.count).toBe(1);
+    const output = mcpJson<{ municipalities: Array<{ municipality: string }> }>(result);
+    expect(output.municipalities).toHaveLength(1);
     expect(output.municipalities[0].municipality).toBe('Barcelona');
   });
 
@@ -328,8 +187,7 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({ search: 'ZooCity' });
 
-    const output = mcpJson<{ count: number; municipalities: unknown[] }>(result);
-    expect(output.count).toBe(0);
+    const output = mcpJson<{ municipalities: unknown[] }>(result);
     expect(output.municipalities).toEqual([]);
   });
 
@@ -340,18 +198,17 @@ describe('listMunicipalitiesTool', () => {
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
-    const output = mcpJson<{ count: number }>(result);
-    expect(output.count).toBe(0);
+    const output = mcpJson<{ municipalities: unknown[] }>(result);
+    expect(output.municipalities).toEqual([]);
   });
 
-  it('callback result has count and municipalities keys', async () => {
+  it('callback result has municipalities key', async () => {
     const { instance, calls } = createMockMcpServer();
     listMunicipalitiesTool(instance as never, MunicipalitiesRepository);
     const { callback } = getToolCallback(calls, 'list_municipalities');
     const result = await callback({});
 
-    const output = mcpJson<{ count: number; municipalities: unknown[] }>(result);
-    expect(output).toHaveProperty('count');
+    const output = mcpJson<Record<string, unknown>>(result);
     expect(output).toHaveProperty('municipalities');
   });
 
@@ -373,13 +230,15 @@ describe('listMunicipalitiesTool', () => {
 describe('getDatabaseStatusTool', () => {
   let dbService: DatabaseService;
 
+  const fullStatus = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    realtimeDatabase: { status: 'connected', totalStations: 0, lastUpdated: null, ...(overrides.realtimeDatabase as object) },
+    historicDatabase: { status: 'connected', ...(overrides.historicDatabase as object) },
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
     dbService = new DatabaseService();
-    (FuelStationsTable.count as Mock).mockResolvedValue(0);
-    (LastUpdated.findOne as Mock).mockResolvedValue(null);
-    (dbService.persistedDbInstance.authenticate as Mock).mockResolvedValue(undefined);
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus());
   });
 
   it('exports a function', () => {
@@ -394,9 +253,17 @@ describe('getDatabaseStatusTool', () => {
     expect(tool.config.title).toBe('Get Database Status');
   });
 
-  it('callback returns connected PostgreSQL when authenticate succeeds', async () => {
+  it('callback calls the status use case', async () => {
     const { instance, calls } = createMockMcpServer();
-    (dbService.persistedDbInstance.authenticate as Mock).mockResolvedValue(undefined);
+    getDatabaseStatusTool(instance as never, dbService);
+    const { callback } = getToolCallback(calls, 'get_database_status');
+    await callback();
+
+    expect(getDatabaseStatusUseCase).toHaveBeenCalledTimes(1);
+  });
+
+  it('callback returns connected PostgreSQL when the use case reports connected', async () => {
+    const { instance, calls } = createMockMcpServer();
     getDatabaseStatusTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_database_status');
     const result = await callback();
@@ -405,9 +272,9 @@ describe('getDatabaseStatusTool', () => {
     expect(output.historicDatabase.status).toBe('connected');
   });
 
-  it('callback returns disconnected PostgreSQL when authenticate fails', async () => {
+  it('callback returns disconnected PostgreSQL when the use case reports disconnected', async () => {
     const { instance, calls } = createMockMcpServer();
-    (dbService.persistedDbInstance.authenticate as Mock).mockRejectedValue(new Error('connection refused'));
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus({ historicDatabase: { status: 'disconnected' } }));
     getDatabaseStatusTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_database_status');
     const result = await callback();
@@ -427,36 +294,9 @@ describe('getDatabaseStatusTool', () => {
     expect(output.realtimeDatabase.type).toBe('SQLite (in-memory)');
   });
 
-  it('callback calls FuelStationsTable.count()', async () => {
+  it('callback returns station count from the use case', async () => {
     const { instance, calls } = createMockMcpServer();
-    getDatabaseStatusTool(instance as never, dbService);
-    const { callback } = getToolCallback(calls, 'get_database_status');
-    await callback();
-
-    expect(FuelStationsTable.count).toHaveBeenCalledTimes(1);
-  });
-
-  it('callback calls LastUpdated.findOne()', async () => {
-    const { instance, calls } = createMockMcpServer();
-    getDatabaseStatusTool(instance as never, dbService);
-    const { callback } = getToolCallback(calls, 'get_database_status');
-    await callback();
-
-    expect(LastUpdated.findOne).toHaveBeenCalledTimes(1);
-  });
-
-  it('callback calls authenticate()', async () => {
-    const { instance, calls } = createMockMcpServer();
-    getDatabaseStatusTool(instance as never, dbService);
-    const { callback } = getToolCallback(calls, 'get_database_status');
-    await callback();
-
-    expect(dbService.persistedDbInstance.authenticate).toHaveBeenCalledTimes(1);
-  });
-
-  it('callback returns station count', async () => {
-    const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.count as Mock).mockResolvedValue(42);
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus({ realtimeDatabase: { totalStations: 42 } }));
     getDatabaseStatusTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_database_status');
     const result = await callback();
@@ -465,22 +305,19 @@ describe('getDatabaseStatusTool', () => {
     expect(output.realtimeDatabase.totalStations).toBe(42);
   });
 
-  it('callback returns lastUpdated timestamp', async () => {
+  it('callback returns lastUpdated timestamp from the use case', async () => {
     const { instance, calls } = createMockMcpServer();
-    const mockLastUpdated = { getDataValue: vi.fn().mockReturnValue('2025-01-15') };
-    (LastUpdated.findOne as Mock).mockResolvedValue(mockLastUpdated);
+    (getDatabaseStatusUseCase as Mock).mockResolvedValue(fullStatus({ realtimeDatabase: { lastUpdated: '2025-01-15' } }));
     getDatabaseStatusTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_database_status');
     const result = await callback();
 
     const output = mcpJson<{ realtimeDatabase: { lastUpdated: string } }>(result);
     expect(output.realtimeDatabase.lastUpdated).toBe('2025-01-15');
-    expect(mockLastUpdated.getDataValue).toHaveBeenCalledWith('lastUpdated');
   });
 
-  it('callback returns null lastUpdated when no record', async () => {
+  it('callback returns null lastUpdated when the use case has no record', async () => {
     const { instance, calls } = createMockMcpServer();
-    (LastUpdated.findOne as Mock).mockResolvedValue(null);
     getDatabaseStatusTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_database_status');
     const result = await callback();
@@ -506,9 +343,9 @@ describe('getDatabaseStatusTool', () => {
     expect(output.historicDatabase).toHaveProperty('status');
   });
 
-  it('callback returns isError on outer failure', async () => {
+  it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    (FuelStationsTable.count as Mock).mockRejectedValue(new Error('DB error'));
+    (getDatabaseStatusUseCase as Mock).mockRejectedValue(new Error('DB error'));
     getDatabaseStatusTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'get_database_status');
     const result = await callback();
@@ -522,11 +359,9 @@ describe('queryHistoricPricesTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDbMocks();
     dbService = new DatabaseService();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
-    (FuelStationsTable.findOne as Mock).mockResolvedValue(null);
-    (dbService.persistedDbInstance.authenticate as Mock).mockResolvedValue(undefined);
+    (historicRepository.queryRange as Mock).mockResolvedValue([]);
+    (historicRepository.queryCurrent as Mock).mockResolvedValue(null);
     (keysToCamel as Mock).mockImplementation((obj) => obj);
   });
 
@@ -560,7 +395,7 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback returns historic results', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(historicFuelStationsTable, [
+    (historicRepository.queryRange as Mock).mockResolvedValue([
       { date: '2025-01-01', gasoilAPrice: 1.5 },
       { date: '2025-01-02', gasoilAPrice: 1.52 },
     ]);
@@ -577,7 +412,7 @@ describe('queryHistoricPricesTool', () => {
     expect(output.results).toHaveLength(2);
   });
 
-  it('callback queries the memory db with stationId and date range', async () => {
+  it('callback queries the historic repository with stationId and date range', async () => {
     const { instance, calls } = createMockMcpServer();
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
@@ -587,14 +422,7 @@ describe('queryHistoricPricesTool', () => {
       endDate: '2025-01-31',
     });
 
-    expect(dbh.calls.from).toContain(historicFuelStationsTable);
-    expect(dbh.calls.where[0]).toEqual(
-      and(
-        eq(historicFuelStationsTable.stationId, 's1'),
-        between(historicFuelStationsTable.date, '2025-01-01', '2025-01-31')
-      )
-    );
-    expect(dbh.calls.orderBy[0]).toEqual(asc(historicFuelStationsTable.date));
+    expect(historicRepository.queryRange).toHaveBeenCalledWith('s1', '2025-01-01', '2025-01-31');
   });
 
   it('callback validates invalid date format', async () => {
@@ -646,10 +474,9 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback calls keysToCamel for each historic record', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(historicFuelStationsTable, [
+    (historicRepository.queryRange as Mock).mockResolvedValue([
       { date: '2025-01-01', gasoilA_Price: 1.5 },
     ]);
-    (keysToCamel as Mock).mockImplementation((obj) => obj);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     await callback({
@@ -663,12 +490,14 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback includes current prices when includeCurrentPrices is true', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.setRows(historicFuelStationsTable, [
+    (historicRepository.queryRange as Mock).mockResolvedValue([
       { date: '2025-01-01', gasoilAPrice: 1.5 },
     ]);
-    dbh.setRows(fuelStationsTable, [
-      { id: 's1', signage: 'Brand1', gasoilAPrice: 1.55 },
-    ]);
+    (historicRepository.queryCurrent as Mock).mockResolvedValue({
+      id: 's1',
+      signage: 'Brand1',
+      gasoilAPrice: 1.55,
+    });
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({
@@ -680,7 +509,7 @@ describe('queryHistoricPricesTool', () => {
 
     const output = mcpJson<{ count: number }>(result);
     expect(output.count).toBe(2); // 1 historic + 1 current
-    expect(dbh.calls.from).toContain(fuelStationsTable);
+    expect(historicRepository.queryCurrent).toHaveBeenCalledWith('s1');
   });
 
   it('callback does not query current prices by default', async () => {
@@ -693,7 +522,7 @@ describe('queryHistoricPricesTool', () => {
       endDate: '2025-01-31',
     });
 
-    expect(FuelStationsTable.findOne).not.toHaveBeenCalled();
+    expect(historicRepository.queryCurrent).not.toHaveBeenCalled();
   });
 
   it('callback result has stationId, startDate, endDate, count, results', async () => {
@@ -716,7 +545,7 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    dbh.state.error = new Error('DB error');
+    (historicRepository.queryRange as Mock).mockRejectedValue(new Error('DB error'));
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({

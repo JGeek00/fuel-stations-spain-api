@@ -1,9 +1,7 @@
 import { z } from 'zod';
-import { and, between, type SQL } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
+import { searchByLocationUseCase } from '@/application/usecases/StationQueries.usecase';
 import { logger } from '@/utils/logger';
 
 const MIN_DISTANCE = 10;
@@ -24,37 +22,9 @@ export function searchByLocationTool(server: McpServer, _databaseService: Databa
     },
     async (args) => {
       try {
-        const { latitude, longitude, distanceKm } = args;
-        const distance = distanceKm ?? 30;
-
-        const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(latitude, longitude, distance);
-
-        const stations = await getMemoryDb()
-          .select()
-          .from(fuelStationsTable)
-          .where(and(
-            between(fuelStationsTable.latitude, minLat, maxLat),
-            between(fuelStationsTable.longitude, minLon, maxLon)
-          ));
-
-        const results = stations;
-
+        const result = await searchByLocationUseCase(args.latitude, args.longitude, args.distanceKm ?? 30);
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  center: { latitude, longitude },
-                  radiusKm: distance,
-                  count: results.length,
-                  results,
-                },
-                null,
-                2
-              ),
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
       } catch (error) {
         logger.error('Error searching by location', { error: error instanceof Error ? error.message : String(error) });
