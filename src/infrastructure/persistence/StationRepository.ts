@@ -8,6 +8,12 @@ import type { CompareQuery, CheapestQuery, IStationRepository, StationFilters } 
  * allowed to import drizzle-orm or getMemoryDb for station reads/writes.
  * Behavior moved verbatim from service-stations.controller + MCP tools.
  */
+
+// Single-statement bulk inserts of the full station census (~13k rows x 43
+// cols) overflow drizzle's recursive query builder, so all bulk writes go in
+// chunks (same semantics, more statements).
+const INSERT_CHUNK_SIZE = 500;
+
 class StationRepository implements IStationRepository {
   private buildWhere(f: StationFilters): SQL | undefined {
     const t = fuelStationsTable;
@@ -113,10 +119,16 @@ class StationRepository implements IStationRepository {
     await db.delete(fuelStationsTable);
     await db.delete(lastUpdatedTable);
     try {
-      if (stations.length > 0) await db.insert(fuelStationsTable).values(stations);
+      // Chunked inserts: a single ~13k-row statement overflows drizzle's
+      // recursive query builder (RangeError at boot, pre-existing on master).
+      for (let i = 0; i < stations.length; i += INSERT_CHUNK_SIZE) {
+        await db.insert(fuelStationsTable).values(stations.slice(i, i + INSERT_CHUNK_SIZE));
+      }
       await db.insert(lastUpdatedTable).values({ lastUpdated: lastUpdatedISO });
     } catch (error) {
-      if (previousStations.length > 0) await db.insert(fuelStationsTable).values(previousStations);
+      for (let i = 0; i < previousStations.length; i += INSERT_CHUNK_SIZE) {
+        await db.insert(fuelStationsTable).values(previousStations.slice(i, i + INSERT_CHUNK_SIZE));
+      }
       if (previousLastUpdated.length > 0) await db.insert(lastUpdatedTable).values(previousLastUpdated[0]);
       throw error;
     }
