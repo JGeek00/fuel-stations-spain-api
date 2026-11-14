@@ -1,5 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Sequelize, type CreationAttributes } from 'sequelize';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 
 vi.mock('@/utils/logger', () => ({
@@ -13,19 +12,17 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { healthcheckController } from '@/controllers/healthcheck.controller';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
-
-const sequelize = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 const next: NextFunction = () => {};
 
-// FuelStation's interface does not declare `id`, so the seeded primary key needs a cast.
-const seedRow = (): CreationAttributes<FuelStationsTable> =>
-  ({
-    id: crypto.randomUUID(),
-    stationId: 'ES0001',
-    locality: 'Madrid',
-  }) as unknown as CreationAttributes<FuelStationsTable>;
+// FuelStation's interface does not declare `id`, so the seeded primary key is
+// set directly (the adapter accepts a plain row object).
+const seedRow = () => ({
+  id: crypto.randomUUID(),
+  stationId: 'ES0001',
+  locality: 'Madrid',
+});
 
 const createMockRes = (): Response => {
   const res = {} as Response;
@@ -38,12 +35,7 @@ const seed = () => FuelStationsTable.bulkCreate([seedRow()]);
 
 describe('healthcheckController (integration, real in-memory sqlite)', () => {
   beforeAll(async () => {
-    FuelStationsTable.init(FuelStationModel, {
-      sequelize,
-      modelName: 'FuelStation',
-      timestamps: false,
-    });
-    await sequelize.sync({ force: true });
+    FuelStationsTable.init();
   });
 
   beforeEach(async () => {
@@ -67,9 +59,5 @@ describe('healthcheckController (integration, real in-memory sqlite)', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.send).toHaveBeenCalled();
-  });
-
-  afterAll(async () => {
-    await sequelize.close();
   });
 });

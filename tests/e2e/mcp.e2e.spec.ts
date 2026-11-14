@@ -1,7 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { Sequelize, type CreationAttributes } from 'sequelize';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
@@ -17,10 +16,9 @@ vi.mock('@/utils/logger', () => ({
 
 import { initExpress } from '@/express';
 import { McpServerManager } from '@/mcp/manager';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { getMemoryDb } from '@/models/db/memory-db';
 import type { DatabaseService } from '@/services/database.service';
-
-const sequelize = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
 
 let server: Server;
 let baseUrl: string;
@@ -31,21 +29,21 @@ const CHEAPEST_ID = 'cheapest-station';
 const MID_ID = 'mid-station';
 const EXPENSIVE_ID = 'expensive-station';
 
-// FuelStation's interface does not declare `id`, so the seeded primary key needs a cast.
-const seedRow = (id: string, price: number): CreationAttributes<FuelStationsTable> =>
-  ({
-    id,
-    stationId: id,
-    referral: `ref-${id}`,
-    signage: 'Repsol',
-    address: `Calle Mayor 1 (${id})`,
-    municipality: 'Madrid',
-    province: 'Madrid',
-    latitude: 40.4168,
-    longitude: -3.7038,
-    locality: 'Madrid',
-    gasoline95E5Price: price,
-  }) as unknown as CreationAttributes<FuelStationsTable>;
+// FuelStation's interface does not declare `id`, so the seeded primary key is
+// set directly (the adapter accepts a plain row object).
+const seedRow = (id: string, price: number) => ({
+  id,
+  stationId: id,
+  referral: `ref-${id}`,
+  signage: 'Repsol',
+  address: `Calle Mayor 1 (${id})`,
+  municipality: 'Madrid',
+  province: 'Madrid',
+  latitude: 40.4168,
+  longitude: -3.7038,
+  locality: 'Madrid',
+  gasoline95E5Price: price,
+});
 
 /**
  * Real MCP SDK client connected over Streamable HTTP. `connect()` performs the
@@ -74,12 +72,7 @@ beforeAll(async () => {
   originalApiResponseLogging = process.env.API_RESPONSE_LOGGING;
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init(FuelStationModel, {
-    sequelize,
-    modelName: 'FuelStation',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
+  FuelStationsTable.init();
   await FuelStationsTable.bulkCreate([
     seedRow(CHEAPEST_ID, 1.43),
     seedRow(MID_ID, 1.61),
@@ -90,7 +83,7 @@ beforeAll(async () => {
   // DatabaseService; the stub only satisfies the constructor's type and any
   // tool touching memoryDbInstance.
   manager = new McpServerManager(
-    { memoryDbInstance: sequelize } as unknown as DatabaseService,
+    { memoryDbInstance: getMemoryDb() } as unknown as DatabaseService,
     { sessionTimeoutMs: 5000, cleanupIntervalMs: 1000, maxSessions: 5 },
   );
 
@@ -200,7 +193,6 @@ describe('MCP streamable HTTP endpoints (e2e over real HTTP)', () => {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
-    await sequelize.close();
     process.env.API_RESPONSE_LOGGING = originalApiResponseLogging;
   });
 });

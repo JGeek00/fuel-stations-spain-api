@@ -43,6 +43,7 @@
     "tests/**/*",
     "**/*.spec.ts",
     "**/*.test.ts",
+    "drizzle.config.ts",
   ],
   "exclude": [
     "node_modules",

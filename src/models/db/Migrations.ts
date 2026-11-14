@@ -1,4 +1,4 @@
-import { DataTypes, Model } from 'sequelize';
+import { pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 export interface MigrationsAttributes {
   version: string;
@@ -6,19 +6,13 @@ export interface MigrationsAttributes {
   appliedAt: Date;
 }
 
-export class Migrations extends Model<MigrationsAttributes> {}
-
-export const MigrationsModel = {
-  version: {
-    type: DataTypes.STRING,
-    primaryKey: true,
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  appliedAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-};
+/**
+ * Drizzle-pg definition of the production `migrations` table (names and
+ * columns identical to the Sequelize-generated schema: version pk, name,
+ * appliedAt timestamptz default now).
+ */
+export const pgMigrations = pgTable('migrations', {
+  version: varchar('version', { length: 255 }).primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  appliedAt: timestamp('appliedAt', { mode: 'date' }).notNull().defaultNow(),
+});

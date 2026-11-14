@@ -1,11 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
-import { Op } from "sequelize";
 import * as Sentry from '@sentry/node'
-import { FuelStationsTable } from "@/models/db/FuelStations";
+import { and, between, count, eq, inArray, type SQL } from "drizzle-orm";
 import config from '@/config/config.json'
 import { logger } from '@/utils/logger';
-import { LastUpdated } from "@/models/db/LastUpdated";
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from "@/models/db/memory-db";
 import { GetFuelStationsQueryParams } from "@/models/in/GetFuelStationsQueryParams.model";
 import {
   createValidationError,
@@ -43,12 +42,10 @@ export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuel
       limit = limit - offset > config.maximums.query.amount ? offset + config.maximums.query.amount : limit
     }
 
-    let where = {}
+    let where: SQL | undefined
 
     if (req.query.municipalityId) {
-      where = {
-        municipalityId: req.query.municipalityId
-      }
+      where = eq(fuelStationsTable.municipalityId, req.query.municipalityId)
     }
 
     // If coordinates and distance are defined search by them
@@ -60,44 +57,43 @@ export const serviceStationsController = async (req: Request<{}, {}, {}, GetFuel
       distance = distance < config.minimums.query.distance ? config.minimums.query.distance : distance
 
       const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(parseFloat(latitude), parseFloat(longitude), distance)
-      where = {
-        latitude: {
-          [Op.between]: [minLat, maxLat]
-        },
-        longitude: {
-          [Op.between]: [minLon, maxLon]
-        },
-      }
+      where = and(
+        between(fuelStationsTable.latitude, minLat, maxLat),
+        between(fuelStationsTable.longitude, minLon, maxLon)
+      )
     }
 
     // If ids are defined that should be the only filter on where
     if (req.query.id) {
       const ids = Array.isArray(req.query.id) ? req.query.id : [req.query.id];
-      where = {
-        stationId: {
-          [Op.in]: ids
-        }
-      }
+      where = inArray(fuelStationsTable.stationId, ids)
     }
 
-    const { rows: results, count } = await FuelStationsTable.findAndCountAll({
-      limit,
-      offset,
-      where
-    })
+    const db = getMemoryDb()
+    let query = db.select().from(fuelStationsTable).where(where)
+    if (limit !== undefined) {
+      // Query params arrive as strings; sqlite rejects a text bind in LIMIT/OFFSET.
+      query = query.limit(Number(limit))
+    }
+    if (offset !== undefined) {
+      query = query.offset(Number(offset))
+    }
+    const results = await query
+
+    const [countRow] = await db.select({ value: count() }).from(fuelStationsTable).where(where)
 
     // Set return stationId value as id
-    const mappedResults = results.map(r => ({
-      ...r.dataValues,
+    const mappedResults = results.map((r: Record<string, unknown>) => ({
+      ...r,
       stationId: undefined,
-      id: r.dataValues.stationId
+      id: r.stationId
     }))
 
-    const lastUpdated = await LastUpdated.findAll()
+    const lastUpdatedRows = await db.select().from(lastUpdatedTable)
 
     res.json({
-      lastUpdated: lastUpdated[0].getDataValue("lastUpdated"),
-      count,
+      lastUpdated: lastUpdatedRows[0].lastUpdated,
+      count: countRow.value,
       results: mappedResults,
     })
   } catch (error) {

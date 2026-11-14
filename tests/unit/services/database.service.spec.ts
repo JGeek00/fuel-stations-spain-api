@@ -6,7 +6,7 @@ vi.mock('@sentry/node', () => ({
 }));
 
 // Mock logger
-vi.mock('@/utils', () => ({
+vi.mock('@/utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -21,27 +21,38 @@ vi.mock('@/utils/postgres-db/postgres-db', () => ({
   validatePostgresDbData: mockValidatePostgresDbData,
 }));
 
-// Mock Sequelize constructor
-const createMockSequelize = () => {
+// Mock pg Pool constructor (Drizzle-pg seam connection)
+const createMockPool = () => {
   const instances: Map<string, Record<string, unknown>> = new Map();
-  const MockSequelize = vi.fn().mockImplementation(function (config) {
+  const MockPool = vi.fn().mockImplementation(function (config) {
     const key = JSON.stringify(config);
     const instance = {
       config,
-      authenticate: vi.fn().mockResolvedValue(undefined),
-      sync: vi.fn().mockResolvedValue(undefined),
-      query: vi.fn().mockResolvedValue([[{ has_tables: false }]]),
-      close: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }),
+      end: vi.fn().mockResolvedValue(undefined),
     };
     instances.set(key, instance);
     return instance;
   });
-  return { MockSequelize, instances };
+  return { MockPool, instances };
 };
 
-const { MockSequelize, instances: mockSequelizeInstances } = createMockSequelize();
-vi.mock('sequelize', () => ({
-  Sequelize: MockSequelize,
+const { MockPool, instances: mockPoolInstances } = createMockPool();
+vi.mock('pg', () => ({
+  Pool: MockPool,
+}));
+
+// Mock Drizzle node-postgres: returns a shared NodePgDatabase-like object
+const mockDb = {
+  execute: vi.fn(async () => ({ rows: [{ has_tables: false }] })),
+  insert: vi.fn(() => ({
+    values: vi.fn().mockResolvedValue(undefined),
+  })),
+};
+
+const drizzle = vi.fn(() => mockDb);
+vi.mock('drizzle-orm/node-postgres', () => ({
+  drizzle,
 }));
 
 // Mock FuelStationModel and FuelStationsTable
@@ -66,9 +77,7 @@ vi.mock('@/models/db/LastUpdated', () => ({
 
 // Mock HistoricFuelStation
 const mockHistoricFuelStationModel = {};
-const mockHistoricFuelStation = {
-  init: vi.fn(),
-};
+const mockHistoricFuelStation = {};
 vi.mock('@/models/db/HistoricFuelStation', () => ({
   HistoricFuelStation: mockHistoricFuelStation,
   HistoricFuelStationModel: mockHistoricFuelStationModel,
@@ -76,24 +85,10 @@ vi.mock('@/models/db/HistoricFuelStation', () => ({
 
 // Mock HistoricNoData
 const mockHistoricNoDataModel = {};
-const mockHistoricNoDataTable = {
-  init: vi.fn(),
-};
+const mockHistoricNoDataTable = {};
 vi.mock('@/models/db/HistoricNoData', () => ({
   HistoricNoDataModel: mockHistoricNoDataModel,
   HistoricNoDataTable: mockHistoricNoDataTable,
-}));
-
-// Mock Migrations
-const mockMigrationsModel = {};
-const mockMigrations = {
-  init: vi.fn(),
-  sync: vi.fn().mockResolvedValue(undefined),
-  bulkCreate: vi.fn().mockResolvedValue([]),
-};
-vi.mock('@/models/db/Migrations', () => ({
-  Migrations: mockMigrations,
-  MigrationsModel: mockMigrationsModel,
 }));
 
 // Mock migrationService
@@ -136,8 +131,7 @@ describe('DatabaseService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    MockSequelize.mockClear();
-    mockSequelizeInstances.clear();
+    mockPoolInstances.clear();
   });
 
   afterEach(() => {
@@ -167,18 +161,12 @@ describe('DatabaseService', () => {
   });
 
   describe('initMemoryDb', () => {
-    it('creates an in-memory SQLite database', async () => {
+    it('initializes the shared better-sqlite3 memory database tables', async () => {
       const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
-      expect(MockSequelize).toHaveBeenCalledWith(
-        expect.objectContaining({
-          dialect: 'sqlite',
-          storage: ':memory:',
-          logging: false,
-        })
-      );
+      expect(mockFuelStationsTable.init).toHaveBeenCalled();
     });
 
     it('initializes FuelStationsTable and LastUpdated models', async () => {
@@ -202,17 +190,13 @@ describe('DatabaseService', () => {
       );
     });
 
-    it('syncs tables with alter option', async () => {
+    it('exposes the shared memory Drizzle instance', async () => {
       const { DatabaseService } = await import('@/services/database.service');
+      const { getMemoryDb } = await import('@/models/db/memory-db');
       const service = new DatabaseService();
       await service.init();
 
-      const sqliteCall = MockSequelize.mock.calls.find(
-        (call) => call[0]?.dialect === 'sqlite'
-      );
-      expect(sqliteCall).toBeDefined();
-      const instance = mockSequelizeInstances.get(JSON.stringify(sqliteCall?.[0]));
-      expect(instance).toBeDefined();
+      expect(service.memoryDbInstance).toBe(getMemoryDb());
     });
 
     it('loads realtime data and registers cron task', async () => {
@@ -225,14 +209,12 @@ describe('DatabaseService', () => {
       expect(mockRealtimeDataService.registerProgrammedTask).toHaveBeenCalled();
     });
 
-    it('returns initialized memoryDbInstance after init', async () => {
+    it('returns a defined memoryDbInstance after init', async () => {
       const { DatabaseService } = await import('@/services/database.service');
       const service = new DatabaseService();
       await service.init();
 
-      const instance = service.memoryDbInstance;
-      expect(instance).toBeDefined();
-      expect((instance.config as any).dialect).toBe('sqlite');
+      expect(service.memoryDbInstance).toBeDefined();
     });
   });
 
@@ -242,11 +224,8 @@ describe('DatabaseService', () => {
       const service = new DatabaseService();
       await service.init();
 
-      // Should not have created a PostgreSQL Sequelize instance
-      const pgCall = MockSequelize.mock.calls.find(
-        (call) => call[0]?.dialect === 'postgres'
-      );
-      expect(pgCall).toBeUndefined();
+      // Should not have created a PostgreSQL pool
+      expect(MockPool).not.toHaveBeenCalled();
     });
   });
 
@@ -257,10 +236,7 @@ describe('DatabaseService', () => {
       await service.init();
 
       // Memory DB should be initialized
-      const sqliteCall = MockSequelize.mock.calls.find(
-        (call) => call[0]?.dialect === 'sqlite'
-      );
-      expect(sqliteCall).toBeDefined();
+      expect(mockFuelStationsTable.init).toHaveBeenCalled();
     });
   });
 
@@ -283,32 +259,42 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
     vi.resetModules();
   });
 
-  it('creates a PostgreSQL connection when validatePostgresDbData returns true', async () => {
-    // Set up environment
+  const configureEnv = () => {
     process.env.POSTGRES_HOST = 'localhost';
     process.env.POSTGRES_PORT = '5432';
     process.env.POSTGRES_DATABASE = 'testdb';
     process.env.POSTGRES_USER = 'testuser';
     process.env.POSTGRES_PASSWORD = 'testpass';
+  };
 
-    // Reset and set up fresh mocks
+  const bootstrap = async (options: { poolQuery?: (...args: unknown[]) => Promise<unknown>; validate?: boolean; isDbEmpty?: boolean } = {}) => {
+    configureEnv();
     vi.resetModules();
 
-    const freshSequelize = vi.fn().mockImplementation(function (config) {
+    const freshPool = vi.fn().mockImplementation(function (config) {
       return {
         config,
-        authenticate: vi.fn().mockResolvedValue(undefined),
-        sync: vi.fn().mockResolvedValue(undefined),
-        query: vi.fn().mockResolvedValue([[{ has_tables: false }]]),
-        close: vi.fn().mockResolvedValue(undefined),
+        query: options.poolQuery
+          ? vi.fn(options.poolQuery)
+          : vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }),
+        end: vi.fn().mockResolvedValue(undefined),
       };
     });
+    const freshValidate = options.validate ?? true;
+    const freshIsDbEmpty = options.isDbEmpty ?? true;
 
-    vi.doMock('sequelize', () => ({ Sequelize: freshSequelize }));
+    const freshDb = {
+      execute: vi.fn(async () => ({ rows: [{ has_tables: freshIsDbEmpty }] })),
+      insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue(undefined) })),
+    };
+    const freshDrizzle = vi.fn(() => freshDb);
+
+    vi.doMock('pg', () => ({ Pool: freshPool }));
+    vi.doMock('drizzle-orm/node-postgres', () => ({ drizzle: freshDrizzle }));
     vi.doMock('@/utils/postgres-db/postgres-db', () => ({
-      validatePostgresDbData: vi.fn(() => true),
+      validatePostgresDbData: vi.fn(() => freshValidate),
     }));
-    vi.doMock('@/utils', () => ({
+    vi.doMock('@/utils/logger', () => ({
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }));
     vi.doMock('@/models/db/FuelStations', () => ({
@@ -320,28 +306,25 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
       LastUpdatedModel: {},
     }));
     vi.doMock('@/models/db/HistoricFuelStation', () => ({
-      HistoricFuelStation: { init: vi.fn() },
+      HistoricFuelStation: {},
       HistoricFuelStationModel: {},
     }));
     vi.doMock('@/models/db/HistoricNoData', () => ({
-      HistoricNoDataTable: { init: vi.fn() },
+      HistoricNoDataTable: {},
       HistoricNoDataModel: {},
-    }));
-    vi.doMock('@/models/db/Migrations', () => ({
-      Migrations: {
-        init: vi.fn(),
-        sync: vi.fn().mockResolvedValue(undefined),
-        bulkCreate: vi.fn().mockResolvedValue([]),
-      },
-      MigrationsModel: {},
     }));
     vi.doMock('@/services/migration.service', () => ({
       migrationService: {
-        isDbEmpty: vi.fn().mockResolvedValue(true),
+        isDbEmpty: vi.fn().mockResolvedValue(freshIsDbEmpty),
         run: vi.fn().mockResolvedValue(undefined),
       },
     }));
-    vi.doMock('@/migrations', () => ({ MIGRATIONS: [] }));
+    vi.doMock('@/migrations', () => ({
+      MIGRATIONS: [
+        { version: '001', name: 'baseline' },
+        { version: '002', name: 'unique_station_date' },
+      ],
+    }));
     vi.doMock('@/services/realtime-data.service', () => ({
       realtimeDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
     }));
@@ -353,74 +336,67 @@ describe('DatabaseService (PostgreSQL isolated)', () => {
     const { DatabaseService } = await import('@/services/database.service');
     const service = new DatabaseService();
     await service.init();
+    const migrationModuleRef = (await import('@/services/migration.service')).migrationService;
 
-    // PostgreSQL uses: new Sequelize(database, user, password, { dialect: 'postgres', ... })
-    // So dialect is in call[3], not call[0]
-    const pgCall = freshSequelize.mock.calls.find(
-      (call) => call[3]?.dialect === 'postgres'
+    return { freshPool, freshDrizzle, freshDb, service, migrationModuleRef };
+  };
+
+  it('creates a PostgreSQL connection when validatePostgresDbData returns true', async () => {
+    const { freshPool, freshDrizzle } = await bootstrap();
+
+    // Drizzle-pg uses: new Pool({ host, port, user, password, database })
+    expect(freshPool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: 'localhost',
+        port: 5432,
+        user: 'testuser',
+        password: 'testpass',
+        database: 'testdb',
+      })
     );
-    expect(pgCall).toBeDefined();
+    expect(freshDrizzle).toHaveBeenCalledWith(expect.anything());
+  });
+
+  it('authenticates with `select 1` over the pool', async () => {
+    const { freshPool } = await bootstrap();
+    const poolInstance = freshPool.mock.results[0].value;
+
+    expect(poolInstance.query).toHaveBeenCalledWith('select 1');
+  });
+
+  it('marks all migrations as applied on a fresh install (insert replaces bulkCreate)', async () => {
+    const { freshDb } = await bootstrap({ isDbEmpty: true });
+
+    expect(freshDb.insert).toHaveBeenCalledTimes(1);
+    const rows = (freshDb.insert.mock.results[0].value as any).values.mock.calls[0][0];
+    expect(rows).toEqual([
+      expect.objectContaining({ version: '001', name: 'baseline' }),
+      expect.objectContaining({ version: '002', name: 'unique_station_date' }),
+    ]);
+    expect(rows[0].appliedAt).toBeInstanceOf(Date);
+  });
+
+  it('runs pending migrations when the database is not fresh', async () => {
+    const { migrationModuleRef } = await bootstrap({ isDbEmpty: false });
+
+    expect(migrationModuleRef.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates the persisted tables after the migrations (sync alter equivalent)', async () => {
+    const { freshDb } = await bootstrap();
+
+    // CREATE TABLE migrations, CREATE TABLE historic_data, CREATE UNIQUE INDEX,
+    // CREATE TABLE historic_no_data
+    expect(freshDb.execute.mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 
   it('sets persistedDbInstance to null on authentication failure', async () => {
-    process.env.POSTGRES_HOST = 'localhost';
-    process.env.POSTGRES_PORT = '5432';
-    process.env.POSTGRES_DATABASE = 'testdb';
-    process.env.POSTGRES_USER = 'testuser';
-    process.env.POSTGRES_PASSWORD = 'testpass';
-
-    vi.resetModules();
-
-    const failingSequelize = vi.fn().mockImplementation(function (config) {
-      return {
-        config,
-        authenticate: vi.fn().mockRejectedValue(new Error('Connection refused')),
-        sync: vi.fn(),
-      };
+    const { freshPool, service } = await bootstrap({
+      poolQuery: () => Promise.reject(new Error('Connection refused')),
     });
 
-    vi.doMock('sequelize', () => ({ Sequelize: failingSequelize }));
-    vi.doMock('@/utils/postgres-db/postgres-db', () => ({
-      validatePostgresDbData: vi.fn(() => true),
-    }));
-    vi.doMock('@/utils', () => ({
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-    vi.doMock('@/models/db/FuelStations', () => ({
-      FuelStationModel: {},
-      FuelStationsTable: { init: vi.fn() },
-    }));
-    vi.doMock('@/models/db/LastUpdated', () => ({
-      LastUpdated: { init: vi.fn() },
-      LastUpdatedModel: {},
-    }));
-    vi.doMock('@/models/db/HistoricFuelStation', () => ({
-      HistoricFuelStation: { init: vi.fn() },
-      HistoricFuelStationModel: {},
-    }));
-    vi.doMock('@/models/db/HistoricNoData', () => ({
-      HistoricNoDataTable: { init: vi.fn() },
-      HistoricNoDataModel: {},
-    }));
-    vi.doMock('@/models/db/Migrations', () => ({
-      Migrations: { init: vi.fn(), sync: vi.fn(), bulkCreate: vi.fn() },
-      MigrationsModel: {},
-    }));
-    vi.doMock('@/services/migration.service', () => ({
-      migrationService: { isDbEmpty: vi.fn().mockResolvedValue(true), run: vi.fn() },
-    }));
-    vi.doMock('@/migrations', () => ({ MIGRATIONS: [] }));
-    vi.doMock('@/services/realtime-data.service', () => ({
-      realtimeDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
-    }));
-    vi.doMock('@/services/persisted-data.service', () => ({
-      persistedDataService: { loadAll: vi.fn(), registerProgrammedTask: vi.fn() },
-    }));
-    vi.doMock('@sentry/node', () => ({ captureException: vi.fn() }));
-
-    const { DatabaseService } = await import('@/services/database.service');
-    const service = new DatabaseService();
-    await service.init();
+    const poolInstance = freshPool.mock.results[0].value;
+    expect(poolInstance.query).toHaveBeenCalledWith('select 1');
 
     // persistedDbInstance should throw since it was set to null on failure
     expect(() => service.persistedDbInstance).toThrow('Persisted database not available.');

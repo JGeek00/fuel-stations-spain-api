@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Op } from 'sequelize';
+import { and, between, eq, inArray } from 'drizzle-orm';
 
 // ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
 import '@tests/test-utils/controller-mocks';
@@ -7,9 +7,15 @@ import {
   createMockResponse,
   createMockNext,
   createMockRequest,
-  createMockRow,
-  createMockLastUpdated,
 } from '@tests/test-utils/controller-mocks';
+
+vi.mock('@/models/db/memory-db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
+  return {
+    ...actual,
+    getMemoryDb: vi.fn(),
+  };
+});
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
@@ -18,28 +24,110 @@ import { validationResult } from 'express-validator';
 import { serviceStationsController } from '@/controllers/service-stations.controller';
 import { logger } from '@/utils/logger';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { LastUpdated } from '@/models/db/LastUpdated';
+import { fuelStationsTable, getMemoryDb, lastUpdatedTable } from '@/models/db/memory-db';
 import { sendApiError } from '@/utils/error-handler';
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);
 const mockCalculateBoundingBox = vi.mocked(calculateBoundingBox);
-const mockFindAndCountAll = FuelStationsTable.findAndCountAll as unknown as ReturnType<typeof vi.fn<() => Promise<{ rows: unknown[]; count: number }>>>;
-const mockLastUpdatedFindAll = vi.mocked(LastUpdated.findAll);
+const mockGetMemoryDb = vi.mocked(getMemoryDb);
 const mockValidationResult = vi.mocked(validationResult);
-const mockSendApiError = vi.mocked(sendApiError);
+
+// ── Drizzle query-builder harness ──────────────────────────────────────────
+// Emulates the chainable Drizzle builder: `select(...)` decides between a row
+// select and a `{ value: count() }` select, `from(table)` picks which mocked
+// row set resolves, and every chained call is recorded for assertions.
+interface DbHarness {
+  db: () => unknown;
+  setRows: (table: unknown, rows: unknown[]) => void;
+  state: { count: number; error: unknown };
+  calls: {
+    select: unknown[];
+    from: unknown[];
+    where: unknown[];
+    orderBy: unknown[];
+    limit: unknown[];
+    offset: unknown[];
+  };
+}
+
+function makeDbHarness(): DbHarness {
+  const tables = new Map<unknown, unknown[]>();
+  const state = { count: 0, error: undefined as unknown };
+  const calls = {
+    select: [] as unknown[],
+    from: [] as unknown[],
+    where: [] as unknown[],
+    orderBy: [] as unknown[],
+    limit: [] as unknown[],
+    offset: [] as unknown[],
+  };
+
+  const db = () => {
+    const makeBuilder = (mode: 'rows' | 'count', projection: unknown) => {
+      calls.select.push(projection);
+      let fromTable: unknown;
+      const b: Record<string, any> = {
+        from: vi.fn((t: unknown) => {
+          calls.from.push(t);
+          fromTable = t;
+          return b;
+        }),
+        where: vi.fn((c: unknown) => {
+          calls.where.push(c);
+          return b;
+        }),
+        orderBy: vi.fn((...o: unknown[]) => {
+          calls.orderBy.push(...o);
+          return b;
+        }),
+        limit: vi.fn((n: unknown) => {
+          calls.limit.push(n);
+          return b;
+        }),
+        offset: vi.fn((n: unknown) => {
+          calls.offset.push(n);
+          return b;
+        }),
+      };
+      b.then = (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
+        const value =
+          mode === 'count' ? [{ value: state.count }] : (tables.get(fromTable) ?? []);
+        const pending = state.error !== undefined ? Promise.reject(state.error) : Promise.resolve(value);
+        return pending.then(onFulfilled, onRejected);
+      };
+      return b;
+    };
+    return {
+      select: vi.fn((projection?: Record<string, unknown>) =>
+        makeBuilder(projection && 'value' in projection ? 'count' : 'rows', projection)
+      ),
+    };
+  };
+
+  return {
+    db,
+    setRows: (table: unknown, rows: unknown[]) => {
+      tables.set(table, rows);
+    },
+    state,
+    calls,
+  };
+}
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('serviceStationsController', () => {
   const originalEnv = { ...process.env };
+  let harness: DbHarness;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
-    mockFindAndCountAll.mockResolvedValue({ rows: [], count: 0 });
-    mockLastUpdatedFindAll.mockResolvedValue([createMockLastUpdated(new Date('2024-01-01'))]);
+    harness = makeDbHarness();
+    mockGetMemoryDb.mockImplementation(() => harness.db());
+    harness.setRows(fuelStationsTable, []);
+    harness.setRows(lastUpdatedTable, [{ lastUpdated: new Date('2024-01-01') }]);
     mockCalculateBoundingBox.mockReturnValue({
       minLat: 40.3,
       maxLat: 40.5,
@@ -102,7 +190,7 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalled();
+      expect(mockGetMemoryDb).toHaveBeenCalled();
     });
 
     it('does not error when only coordinates are provided', async () => {
@@ -114,7 +202,7 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalled();
+      expect(mockGetMemoryDb).toHaveBeenCalled();
     });
   });
 
@@ -126,12 +214,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: 30,
-          offset: 0,
-        })
-      );
+      expect(harness.calls.limit[0]).toBe(30);
+      expect(harness.calls.offset[0]).toBe(0);
     });
 
     it('uses custom limit and offset when provided', async () => {
@@ -141,12 +225,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: 50,
-          offset: 10,
-        })
-      );
+      expect(harness.calls.limit[0]).toBe(50);
+      expect(harness.calls.offset[0]).toBe(10);
     });
 
     it('returns 400 when offset >= limit', async () => {
@@ -167,12 +247,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: 210,
-          offset: 10,
-        })
-      );
+      expect(harness.calls.limit[0]).toBe(210);
+      expect(harness.calls.offset[0]).toBe(10);
     });
 
     it('does not apply pagination when id filter is present', async () => {
@@ -182,12 +258,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: undefined,
-          offset: undefined,
-        })
-      );
+      expect(harness.calls.limit).toEqual([]);
+      expect(harness.calls.offset).toEqual([]);
     });
 
     it('does not apply pagination when coordinates filter is present', async () => {
@@ -197,12 +269,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: undefined,
-          offset: undefined,
-        })
-      );
+      expect(harness.calls.limit).toEqual([]);
+      expect(harness.calls.offset).toEqual([]);
     });
 
     it('does not apply pagination when municipalityId filter is present', async () => {
@@ -212,12 +280,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: undefined,
-          offset: undefined,
-        })
-      );
+      expect(harness.calls.limit).toEqual([]);
+      expect(harness.calls.offset).toEqual([]);
     });
 
     it('does not apply pagination when distance filter is present with coordinates', async () => {
@@ -227,12 +291,8 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: undefined,
-          offset: undefined,
-        })
-      );
+      expect(harness.calls.limit).toEqual([]);
+      expect(harness.calls.offset).toEqual([]);
     });
 
     it('falls back to default limit when limit=0 (falsy)', async () => {
@@ -244,12 +304,8 @@ describe('serviceStationsController', () => {
 
       // limit=0 is falsy (req.query.limit ? req.query.limit : default)
       // → falls back to config.defaults.query.limit (30)
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: 30,
-          offset: 0,
-        })
-      );
+      expect(harness.calls.limit[0]).toBe(30);
+      expect(harness.calls.offset[0]).toBe(0);
     });
   });
 
@@ -261,11 +317,7 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { municipalityId: 28079 },
-        })
-      );
+      expect(harness.calls.where[0]).toEqual(eq(fuelStationsTable.municipalityId, 28079));
     });
 
     it('uses empty where clause when municipalityId is falsy', async () => {
@@ -275,14 +327,11 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      // municipalityId: 0 is falsy, so the where clause stays {}
+      // municipalityId: 0 is falsy, so no where condition is built
       // Pagination applies since no filters
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          limit: 30,
-          offset: 0,
-        })
-      );
+      expect(harness.calls.where[0]).toBeUndefined();
+      expect(harness.calls.limit[0]).toBe(30);
+      expect(harness.calls.offset[0]).toBe(0);
     });
   });
 
@@ -302,13 +351,11 @@ describe('serviceStationsController', () => {
       await serviceStationsController(req, res, next);
 
       expect(mockCalculateBoundingBox).toHaveBeenCalledWith(40.4, -3.7, 30);
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            latitude: { [Op.between]: [40.3, 40.5] },
-            longitude: { [Op.between]: [-3.8, -3.6] },
-          },
-        })
+      expect(harness.calls.where[0]).toEqual(
+        and(
+          between(fuelStationsTable.latitude, 40.3, 40.5),
+          between(fuelStationsTable.longitude, -3.8, -3.6)
+        )
       );
     });
 
@@ -391,11 +438,7 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { stationId: { [Op.in]: ['ES0001'] } },
-        })
-      );
+      expect(harness.calls.where[0]).toEqual(inArray(fuelStationsTable.stationId, ['ES0001']));
     });
 
     it('filters by array of ids', async () => {
@@ -405,22 +448,19 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { stationId: { [Op.in]: ['ES0001', 'ES0002', 'ES0003'] } },
-        })
+      expect(harness.calls.where[0]).toEqual(
+        inArray(fuelStationsTable.stationId, ['ES0001', 'ES0002', 'ES0003'])
       );
     });
 
-    it('wraps single id in array for Op.in', async () => {
+    it('wraps single id in array for inArray', async () => {
       const req = createMockRequest({ query: { id: 'ES0001' } });
       const res = createMockResponse();
       const next = createMockNext();
 
       await serviceStationsController(req, res, next);
 
-      const callArgs = (mockFindAndCountAll.mock.calls as unknown as Array<[any]>)[0][0];
-      expect(Array.isArray(callArgs.where.stationId[Op.in])).toBe(true);
+      expect(harness.calls.where[0]).toEqual(inArray(fuelStationsTable.stationId, ['ES0001']));
     });
 
     it('filters by array with a single id', async () => {
@@ -430,29 +470,23 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { stationId: { [Op.in]: ['ES0001'] } },
-        })
-      );
+      expect(harness.calls.where[0]).toEqual(inArray(fuelStationsTable.stationId, ['ES0001']));
     });
   });
 
   describe('response format', () => {
     it('returns lastUpdated, count, and results', async () => {
       const lastUpdatedDate = new Date('2024-06-15T10:30:00Z');
-      mockLastUpdatedFindAll.mockResolvedValue([createMockLastUpdated(lastUpdatedDate)]);
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [
-          createMockRow({
-            stationId: 'ES0001',
-            name: 'Shell Madrid',
-            latitude: 40.4168,
-            longitude: -3.7038,
-          }),
-        ],
-        count: 1,
-      });
+      harness.setRows(lastUpdatedTable, [{ lastUpdated: lastUpdatedDate }]);
+      harness.setRows(fuelStationsTable, [
+        {
+          stationId: 'ES0001',
+          name: 'Shell Madrid',
+          latitude: 40.4168,
+          longitude: -3.7038,
+        },
+      ]);
+      harness.state.count = 1;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -469,19 +503,11 @@ describe('serviceStationsController', () => {
     });
 
     it('maps stationId to id in results', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [
-          createMockRow({
-            stationId: 'ES0001',
-            name: 'Shell',
-          }),
-          createMockRow({
-            stationId: 'ES0002',
-            name: 'Repsol',
-          }),
-        ],
-        count: 2,
-      });
+      harness.setRows(fuelStationsTable, [
+        { stationId: 'ES0001', name: 'Shell' },
+        { stationId: 'ES0002', name: 'Repsol' },
+      ]);
+      harness.state.count = 2;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -498,7 +524,8 @@ describe('serviceStationsController', () => {
     });
 
     it('returns empty results when no stations match', async () => {
-      mockFindAndCountAll.mockResolvedValue({ rows: [], count: 0 });
+      harness.setRows(fuelStationsTable, []);
+      harness.state.count = 0;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -511,19 +538,17 @@ describe('serviceStationsController', () => {
       expect(responseData.results).toEqual([]);
     });
 
-    it('preserves other dataValues in mapped results', async () => {
-      mockFindAndCountAll.mockResolvedValue({
-        rows: [
-          createMockRow({
-            stationId: 'ES0001',
-            name: 'Shell',
-            latitude: 40.4168,
-            longitude: -3.7038,
-            province: 'Madrid',
-          }),
-        ],
-        count: 1,
-      });
+    it('preserves other fields in mapped results', async () => {
+      harness.setRows(fuelStationsTable, [
+        {
+          stationId: 'ES0001',
+          name: 'Shell',
+          latitude: 40.4168,
+          longitude: -3.7038,
+          province: 'Madrid',
+        },
+      ]);
+      harness.state.count = 1;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -542,7 +567,7 @@ describe('serviceStationsController', () => {
 
     it('includes lastUpdated in response', async () => {
       const lastUpdatedDate = new Date('2025-03-01T12:00:00Z');
-      mockLastUpdatedFindAll.mockResolvedValue([createMockLastUpdated(lastUpdatedDate)]);
+      harness.setRows(lastUpdatedTable, [{ lastUpdated: lastUpdatedDate }]);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -567,9 +592,7 @@ describe('serviceStationsController', () => {
     });
 
     it('sends NOT_FOUND (404) for NOT_FOUND errors', async () => {
-      mockFindAndCountAll.mockRejectedValue({
-        error: { message: 'Station not found', code: 'NOT_FOUND' },
-      });
+      harness.state.error = { error: { message: 'Station not found', code: 'NOT_FOUND' } };
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -581,7 +604,7 @@ describe('serviceStationsController', () => {
     });
 
     it('captures unexpected errors with Sentry', async () => {
-      mockFindAndCountAll.mockRejectedValue(new Error('Database connection lost'));
+      harness.state.error = new Error('Database connection lost');
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -595,7 +618,7 @@ describe('serviceStationsController', () => {
     });
 
     it('logs unexpected errors with logger.error', async () => {
-      mockFindAndCountAll.mockRejectedValue(new Error('Database connection lost'));
+      harness.state.error = new Error('Database connection lost');
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -610,7 +633,7 @@ describe('serviceStationsController', () => {
     });
 
     it('passes internal server error to next middleware', async () => {
-      mockFindAndCountAll.mockRejectedValue(new Error('Database connection lost'));
+      harness.state.error = new Error('Database connection lost');
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -626,7 +649,7 @@ describe('serviceStationsController', () => {
     });
 
     it('handles non-Error unexpected exceptions (string)', async () => {
-      mockFindAndCountAll.mockRejectedValue('String error');
+      harness.state.error = 'String error';
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -642,7 +665,7 @@ describe('serviceStationsController', () => {
     });
 
     it('handles null unexpected exceptions', async () => {
-      mockFindAndCountAll.mockRejectedValue(null);
+      harness.state.error = null;
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -654,7 +677,14 @@ describe('serviceStationsController', () => {
     });
 
     it('handles undefined unexpected exceptions', async () => {
-      mockFindAndCountAll.mockRejectedValue(undefined);
+      // undefined leaves the reject branch disabled; force a rejection by
+      // removing the rows so the query fails in a different way is not
+      // possible here — reproduce the original case with a rejected promise
+      // by making the harness error an Error with undefined-like behavior.
+      harness.state.error = undefined;
+      mockGetMemoryDb.mockImplementation(() => {
+        throw undefined;
+      });
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -662,13 +692,13 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockSentryCaptureException).toHaveBeenCalled();
+      expect(mockSentryCaptureException).toHaveBeenCalledWith(undefined);
     });
 
     it('does not call Sentry for VALIDATION_ERROR', async () => {
-      mockFindAndCountAll.mockRejectedValue({
+      harness.state.error = {
         error: { message: 'Validation failed', code: 'VALIDATION_ERROR', details: [] },
-      });
+      };
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -681,9 +711,7 @@ describe('serviceStationsController', () => {
     });
 
     it('does not call Sentry for BAD_REQUEST', async () => {
-      mockFindAndCountAll.mockRejectedValue({
-        error: { message: 'Bad request', code: 'BAD_REQUEST' },
-      });
+      harness.state.error = { error: { message: 'Bad request', code: 'BAD_REQUEST' } };
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -696,9 +724,7 @@ describe('serviceStationsController', () => {
     });
 
     it('sends 500 for unknown error codes with ApiError shape', async () => {
-      mockFindAndCountAll.mockRejectedValue({
-        error: { message: 'Unknown issue', code: 'UNKNOWN_CODE' },
-      });
+      harness.state.error = { error: { message: 'Unknown issue', code: 'UNKNOWN_CODE' } };
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -720,11 +746,7 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { stationId: { [Op.in]: ['ES0001'] } },
-        })
-      );
+      expect(harness.calls.where[0]).toEqual(inArray(fuelStationsTable.stationId, ['ES0001']));
     });
 
     it('coordinates filter overrides municipalityId', async () => {
@@ -736,13 +758,11 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            latitude: expect.any(Object),
-            longitude: expect.any(Object),
-          }),
-        })
+      expect(harness.calls.where[0]).toEqual(
+        and(
+          between(fuelStationsTable.latitude, expect.any(Number), expect.any(Number)),
+          between(fuelStationsTable.longitude, expect.any(Number), expect.any(Number))
+        )
       );
     });
 
@@ -755,17 +775,13 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { stationId: { [Op.in]: ['ES0001'] } },
-        })
-      );
+      expect(harness.calls.where[0]).toEqual(inArray(fuelStationsTable.stationId, ['ES0001']));
     });
   });
 
   describe('edge cases', () => {
     it('throws when lastUpdated array is empty', async () => {
-      mockLastUpdatedFindAll.mockResolvedValue([]);
+      harness.setRows(lastUpdatedTable, []);
 
       const req = createMockRequest();
       const res = createMockResponse();
@@ -773,7 +789,7 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      // lastUpdated[0] is undefined => getDataValue throws => caught
+      // lastUpdated[0] is undefined => reading lastUpdated throws => caught
       expect(mockSentryCaptureException).toHaveBeenCalled();
       expect(next).toHaveBeenCalled();
     });
@@ -785,20 +801,19 @@ describe('serviceStationsController', () => {
 
       await serviceStationsController(req, res, next);
 
-      expect(mockFindAndCountAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { municipalityId: '28079' },
-        })
+      // The controller passes the raw query-param string through to eq()
+      expect(harness.calls.where[0]).toEqual(
+        eq(fuelStationsTable.municipalityId, '28079' as unknown as number)
       );
     });
 
     it('handles multiple results correctly', async () => {
-      const stations = [
-        createMockRow({ stationId: 'ES0001', name: 'Shell', latitude: 40.4, longitude: -3.7 }),
-        createMockRow({ stationId: 'ES0002', name: 'Repsol', latitude: 41.3, longitude: 2.1 }),
-        createMockRow({ stationId: 'ES0003', name: 'BP', latitude: 39.5, longitude: -0.4 }),
-      ];
-      mockFindAndCountAll.mockResolvedValue({ rows: stations, count: 3 });
+      harness.setRows(fuelStationsTable, [
+        { stationId: 'ES0001', name: 'Shell', latitude: 40.4, longitude: -3.7 },
+        { stationId: 'ES0002', name: 'Repsol', latitude: 41.3, longitude: 2.1 },
+        { stationId: 'ES0003', name: 'BP', latitude: 39.5, longitude: -0.4 },
+      ]);
+      harness.state.count = 3;
 
       const req = createMockRequest();
       const res = createMockResponse();

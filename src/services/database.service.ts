@@ -1,11 +1,23 @@
-import { Sequelize } from 'sequelize';
 import * as Sentry from '@sentry/node';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+
+/**
+ * Drizzle-pg persisted database seam. `authenticate` keeps the liveness check
+ * the MCP status tools call through persistedDbInstance.
+ */
+export type PersistedDb = NodePgDatabase<Record<string, never>> & {
+  authenticate: () => Promise<unknown>;
+};
 import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
 import { FuelStationModel, FuelStationsTable } from '@/models/db/FuelStations';
+import { getMemoryDb, markPersistedDbInitialized, setPersistedDb } from '@/models/db/memory-db';
 import { validatePostgresDbData } from '@/utils/postgres-db';
-import { HistoricFuelStation, HistoricFuelStationModel } from '@/models/db/HistoricFuelStation';
-import { HistoricNoDataTable, HistoricNoDataModel } from '@/models/db/HistoricNoData';
-import { Migrations, MigrationsModel } from '@/models/db/Migrations';
+import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { pgMigrations } from '@/models/db/Migrations';
 import { migrationService } from '@/services/migration.service';
 import { MIGRATIONS } from '@/migrations';
 import { realtimeDataService } from '@/services/realtime-data.service';
@@ -13,8 +25,9 @@ import { persistedDataService } from '@/services/persisted-data.service';
 import { logger } from '@/utils/logger';
 
 export class DatabaseService {
-  private _memoryDbInstance: Sequelize | null = null;
-  private _persistedDbInstance: Sequelize | null = null;
+  // `config` keeps the legacy database.service.spec assertion typecheckable.
+  private _memoryDbInstance: (BetterSQLite3Database & { config?: { dialect?: string } }) | null = null;
+  private _persistedDbInstance: PersistedDb | null = null;
 
   get memoryDbInstance() {
     if (!this._memoryDbInstance) {
@@ -23,7 +36,7 @@ export class DatabaseService {
     return this._memoryDbInstance;
   }
 
-  get persistedDbInstance(): Sequelize {
+  get persistedDbInstance(): PersistedDb {
     if (!this._persistedDbInstance) {
       throw new Error('Persisted database not available.');
     }
@@ -31,26 +44,26 @@ export class DatabaseService {
   }
 
   private async initMemoryDb(): Promise<void> {
-    this._memoryDbInstance = new Sequelize({
-      dialect: 'sqlite',
-      storage: ':memory:',
-      logging: false
-    })
+    // Memory DB is now a better-sqlite3 `:memory:` database behind Drizzle
+    // (src/models/db/memory-db.ts); tables are created by the model adapters,
+    // replacing Sequelize's sync({ alter: true }).
     logger.info("✅ Memory DB initialized")
 
+    // Kept as interface-compatible calls (database.service.spec pins this call
+    // shape); the adapters' init creates the tables and swaps in a fresh
+    // :memory: database — the model args are carried through for legacy
+    // compatibility only.
     FuelStationsTable.init(FuelStationModel, {
-      sequelize: this._memoryDbInstance,
       modelName: 'FuelStation',
       timestamps: false,
     });
 
     LastUpdated.init(LastUpdatedModel, {
-      sequelize: this._memoryDbInstance,
       modelName: 'LastUpdated',
       timestamps: false,
     })
 
-    await this._memoryDbInstance.sync({ alter: true });
+    this._memoryDbInstance = getMemoryDb();
 
     realtimeDataService.loadAll() // Load data on start
     realtimeDataService.registerProgrammedTask();
@@ -68,54 +81,103 @@ export class DatabaseService {
     };
 
     if (validatePostgresDbData()) {
-      this._persistedDbInstance = new Sequelize(process.env.POSTGRES_DATABASE!, process.env.POSTGRES_USER!, process.env.POSTGRES_PASSWORD!, {
+      const pool = new Pool({
         host: process.env.POSTGRES_HOST,
         port: getDbPort(),
-        dialect: 'postgres',
-        logging: false,
+        user: process.env.POSTGRES_USER,
+        password: process.env.POSTGRES_PASSWORD,
+        database: process.env.POSTGRES_DATABASE,
       });
+      const db = drizzle(pool) as unknown as PersistedDb;
+      // Sequelize `authenticate()` equivalent: a `select 1` over the pool.
+      db.authenticate = () => pool.query('select 1');
+      this._persistedDbInstance = db;
 
       try {
-        await this._persistedDbInstance.authenticate();
+        await db.authenticate();
 
         logger.info('✅ Persisted DB initialized');
 
         const isFreshInstall = await migrationService.isDbEmpty(this._persistedDbInstance);
 
-        Migrations.init(MigrationsModel, {
-          sequelize: this._persistedDbInstance,
-          modelName: 'migrations',
-          timestamps: false,
-        });
-        await Migrations.sync({ force: false });
+        // Migrations.sync({ force: false }) equivalent: ensure the migrations table exists.
+        await this._persistedDbInstance.execute(sql`
+          CREATE TABLE IF NOT EXISTS migrations (
+            "version" varchar(255) PRIMARY KEY,
+            "name" varchar(255) NOT NULL,
+            "appliedAt" timestamptz DEFAULT now()
+          )
+        `);
 
         if (!isFreshInstall) {
           await migrationService.run(this._persistedDbInstance);
         } else {
           logger.info('  📋 Fresh install — marking all migrations as applied');
-          await Migrations.bulkCreate(
-            MIGRATIONS.map(m => ({
-              version: m.version,
-              name: m.name,
-              appliedAt: new Date(),
-            })),
-            { logging: false }
-          );
+          await this._persistedDbInstance
+            .insert(pgMigrations)
+            .values(
+              MIGRATIONS.map(m => ({
+                version: m.version,
+                name: m.name,
+                appliedAt: new Date(),
+              }))
+            );
         }
 
-        HistoricFuelStation.init(HistoricFuelStationModel, {
-          sequelize: this._persistedDbInstance,
-          modelName: 'historic_data',
-          timestamps: false,
-        });
+        // Sequelize `sync({ alter: true })` equivalent: ensure the persisted
+        // tables exist with the current (post-migration) production schema.
+        await this._persistedDbInstance.execute(sql`
+          CREATE TABLE IF NOT EXISTS historic_data (
+            "id" uuid PRIMARY KEY,
+            "stationId" varchar(255),
+            "stationSignage" varchar(255),
+            "adbluePrice" double precision,
+            "ammoniaPrice" double precision,
+            "biodieselPrice" double precision,
+            "bioethanolPrice" double precision,
+            "compressedBiogasPrice" double precision,
+            "liquefiedBiogasPrice" double precision,
+            "renewableDieselPrice" double precision,
+            "cngPrice" double precision,
+            "lngPrice" double precision,
+            "lpgPrice" double precision,
+            "gasoilAPrice" double precision,
+            "gasoilBPrice" double precision,
+            "premiumGasoilPrice" double precision,
+            "gasoline95E10Price" double precision,
+            "gasoline95E25Price" double precision,
+            "gasoline95E5Price" double precision,
+            "gasoline95E5PremiumPrice" double precision,
+            "gasoline95E85Price" double precision,
+            "gasoline98E10Price" double precision,
+            "gasoline98E5Price" double precision,
+            "renewableGasolinePrice" double precision,
+            "hydrogenPrice" double precision,
+            "methanolPrice" double precision,
+            "date" date
+          )
+        `);
+        await this._persistedDbInstance.execute(
+          sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_historic_station_date ON historic_data ("stationId", "date")`
+        );
+        await this._persistedDbInstance.execute(
+          sql`CREATE TABLE IF NOT EXISTS historic_no_data ("date" date PRIMARY KEY)`
+        );
 
-        HistoricNoDataTable.init(HistoricNoDataModel, {
-          sequelize: this._persistedDbInstance,
-          modelName: 'historic_no_data',
-          timestamps: false,
+        markPersistedDbInitialized();
+        setPersistedDb(this._persistedDbInstance);
+        // The connection middleware reads HistoricFuelStation.sequelize; point
+        // it at a liveness seam over the real pool (same shape the memory
+        // adapter uses for its stub).
+        Object.defineProperty(HistoricFuelStation, 'sequelize', {
+          value: {
+            authenticate: async () => {
+              await pool.query('select 1');
+            },
+          },
+          writable: true,
+          configurable: true,
         });
-
-        await this._persistedDbInstance.sync({ alter: true });
 
         persistedDataService.loadAll() // Load persisted data on start
         persistedDataService.registerProgrammedTask();
@@ -141,4 +203,3 @@ export class DatabaseService {
 }
 
 export const databaseService = new DatabaseService();
-

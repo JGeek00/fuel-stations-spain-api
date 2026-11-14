@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { Op } from 'sequelize';
+import { and, between, type SQL } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
 import { logger } from '@/utils/logger';
 
 const MIN_DISTANCE = 10;
@@ -29,14 +29,15 @@ export function searchByLocationTool(server: McpServer, _databaseService: Databa
 
         const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(latitude, longitude, distance);
 
-        const stations = await FuelStationsTable.findAll({
-          where: {
-            latitude: { [Op.between]: [minLat, maxLat] },
-            longitude: { [Op.between]: [minLon, maxLon] },
-          },
-        });
+        const stations = await getMemoryDb()
+          .select()
+          .from(fuelStationsTable)
+          .where(and(
+            between(fuelStationsTable.latitude, minLat, maxLat),
+            between(fuelStationsTable.longitude, minLon, maxLon)
+          ));
 
-        const results = stations.map((s) => s.get({ plain: true }));
+        const results = stations;
 
         return {
           content: [

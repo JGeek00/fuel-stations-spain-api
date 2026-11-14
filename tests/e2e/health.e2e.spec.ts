@@ -1,6 +1,5 @@
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Sequelize, type CreationAttributes } from 'sequelize';
 import type { Server } from 'node:http';
 
 vi.mock('@/utils/logger', () => ({
@@ -14,30 +13,23 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
-
-const sequelize = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
+import { FuelStationsTable } from '@/models/db/FuelStations';
 
 let server: Server;
 let baseUrl: string;
 
-// FuelStation's interface does not declare `id`, so the seeded primary key needs a cast.
-const seedRow = (): CreationAttributes<FuelStationsTable> =>
-  ({
-    id: crypto.randomUUID(),
-    stationId: 'ES0001',
-    locality: 'Madrid',
-  }) as unknown as CreationAttributes<FuelStationsTable>;
+// FuelStation's interface does not declare `id`, so the seeded primary key is
+// set directly (the adapter accepts a plain row object).
+const seedRow = () => ({
+  id: crypto.randomUUID(),
+  stationId: 'ES0001',
+  locality: 'Madrid',
+});
 
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init(FuelStationModel, {
-    sequelize,
-    modelName: 'FuelStation',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
+  FuelStationsTable.init();
 
   const app = initExpress();
   await new Promise<void>((resolve) => {
@@ -79,6 +71,5 @@ describe('health endpoints (e2e over real HTTP)', () => {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
-    await sequelize.close();
   });
 });

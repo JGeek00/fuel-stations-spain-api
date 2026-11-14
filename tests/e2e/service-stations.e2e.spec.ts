@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CreationAttributes } from 'sequelize';
 
 vi.mock('@/utils/logger', () => ({
   logger: {
@@ -12,24 +11,22 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 import { initExpress } from '@/express';
-import { FuelStationsTable, FuelStationModel } from '@/models/db/FuelStations';
-import { LastUpdated, LastUpdatedModel } from '@/models/db/LastUpdated';
-import { createSqlite, listenApp, closeTestServer, type TestServer } from './setup';
-
-const sequelize = createSqlite();
+import { FuelStationsTable } from '@/models/db/FuelStations';
+import { LastUpdated } from '@/models/db/LastUpdated';
+import { listenApp, closeTestServer, type TestServer } from './setup';
 
 let testServer: TestServer;
 
-// FuelStation's interface does not declare `id`, so the seeded primary key needs a cast.
-const seedRow = (stationId: string, latitude: number, longitude: number, municipalityId: number): CreationAttributes<FuelStationsTable> =>
-  ({
-    id: crypto.randomUUID(),
-    stationId,
-    latitude,
-    longitude,
-    municipalityId,
-    locality: 'Madrid',
-  }) as unknown as CreationAttributes<FuelStationsTable>;
+// FuelStation's interface does not declare `id`, so the seeded primary key is
+// set directly (the adapter accepts a plain row object).
+const seedRow = (stationId: string, latitude: number, longitude: number, municipalityId: number) => ({
+  id: crypto.randomUUID(),
+  stationId,
+  latitude,
+  longitude,
+  municipalityId,
+  locality: 'Madrid',
+});
 
 const seedStations = () => FuelStationsTable.bulkCreate([
   seedRow('ES0001', 40.4268, -3.6038, 28079),
@@ -37,20 +34,27 @@ const seedStations = () => FuelStationsTable.bulkCreate([
   seedRow('ES0003', 41.5, -3.7038, 28079),
 ]);
 
+// GetFuelStationsResponse.results: FuelStation[] — every contract field, with
+// the raw stationId replaced by the mapped id key.
+const contractResultKeys = [
+  'id',
+  'postalCode', 'address', 'openingHours', 'latitude', 'longitude', 'locality',
+  'margin', 'municipality', 'province', 'referral', 'signage', 'saleType',
+  'percBioEthanol', 'percMethylEster', 'municipalityId', 'provinceId', 'regionId',
+  'ammoniaPrice', 'biodieselPrice', 'bioethanolPrice', 'compressedBiogasPrice',
+  'liquefiedBiogasPrice', 'renewableDieselPrice', 'cngPrice', 'lngPrice',
+  'lpgPrice', 'gasoilAPrice', 'gasoilBPrice', 'premiumGasoilPrice',
+  'gasoline95E10Price', 'gasoline95E25Price', 'gasoline95E5Price',
+  'gasoline95E5PremiumPrice', 'gasoline95E85Price', 'gasoline98E10Price',
+  'gasoline98E5Price', 'renewableGasolinePrice', 'hydrogenPrice',
+  'methanolPrice', 'adbluePrice',
+];
+
 beforeAll(async () => {
   process.env.API_RESPONSE_LOGGING = 'false';
 
-  FuelStationsTable.init(FuelStationModel, {
-    sequelize,
-    modelName: 'FuelStation',
-    timestamps: false,
-  });
-  LastUpdated.init(LastUpdatedModel, {
-    sequelize,
-    modelName: 'LastUpdated',
-    timestamps: false,
-  });
-  await sequelize.sync({ force: true });
+  FuelStationsTable.init();
+  LastUpdated.init();
 
   testServer = await listenApp(initExpress());
 });
@@ -79,6 +83,9 @@ describe('GET /service-stations (e2e over real HTTP)', () => {
     }
     const ids = body.results.map((r: { id: string }) => r.id).sort();
     expect(ids).toEqual(['ES0001', 'ES0002', 'ES0003']);
+    // Full contract shape: every GetFuelStationsResponse/FuelStation key is
+    // present (null for unseeded columns), with stationId mapped to id.
+    expect([...Object.keys(body.results[0])].sort()).toEqual([...contractResultKeys].sort());
   });
 
   it('200 with limit and offset', async () => {
@@ -208,5 +215,5 @@ describe('GET /service-stations (e2e over real HTTP)', () => {
 });
 
 afterAll(async () => {
-  await closeTestServer(testServer, sequelize);
+  await closeTestServer(testServer);
 });

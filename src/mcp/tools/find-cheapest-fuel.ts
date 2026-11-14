@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { Op } from 'sequelize';
+import { and, asc, between, type SQL } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
 import { calculateBoundingBox } from '@/utils/calculate-distance';
-import { FuelStationsTable } from '@/models/db/FuelStations';
-import { FuelStation } from '@/models/entities/FuelStation.model';
+import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
 import { logger } from '@/utils/logger';
 
 const FUEL_FIELD_NAMES = [
@@ -53,49 +52,51 @@ export function findCheapestFuelTool(server: McpServer, _databaseService: Databa
     async (args) => {
       try {
         const { fuelType, latitude, longitude, distanceKm, limit } = args;
+        const t = fuelStationsTable;
+        const fuelColumn = (t as unknown as Record<string, typeof t.gasoilAPrice>)[fuelType];
 
-        const where: Record<string, unknown> = {};
+        let where: SQL | undefined;
 
         if (latitude !== undefined && longitude !== undefined) {
           const distance = distanceKm ?? 30;
           const { minLat, maxLat, minLon, maxLon } = calculateBoundingBox(latitude, longitude, distance);
-          where.latitude = { [Op.between]: [minLat, maxLat] };
-          where.longitude = { [Op.between]: [minLon, maxLon] };
+          where = and(
+            between(t.latitude, minLat, maxLat),
+            between(t.longitude, minLon, maxLon)
+          );
         }
 
-        const attributes: (keyof FuelStation)[] = [
-          'id',
-          'referral',
-          'signage',
-          'address',
-          'municipality',
-          'province',
-          'latitude',
-          'longitude',
-          fuelType as FuelField,
-        ] as (keyof FuelStation)[];
+        // Only select relevant fields to reduce payload
+        const stations = await getMemoryDb()
+          .select({
+            id: t.id,
+            referral: t.referral,
+            signage: t.signage,
+            address: t.address,
+            municipality: t.municipality,
+            province: t.province,
+            latitude: t.latitude,
+            longitude: t.longitude,
+            [fuelType]: fuelColumn,
+          })
+          .from(t)
+          .where(where)
+          .orderBy(asc(fuelColumn))
+          .limit(limit ?? 10);
 
-        const stations = await FuelStationsTable.findAll({
-          where,
-          attributes,
-          order: [[fuelType, 'ASC']],
-          limit: limit ?? 10,
-        });
-
-        const results = stations.map((s) => {
-          const data = s.get({ plain: true }) as unknown as Record<string, unknown>;
-          return {
-            id: data.id,
-            referral: data.referral,
-            signage: data.signage,
-            address: data.address,
-            municipality: data.municipality,
-            province: data.province,
-            coordinates:
-              data.latitude && data.longitude ? { latitude: data.latitude, longitude: data.longitude } : null,
-            price: data[fuelType],
-          };
-        });
+        const results = stations.map((station: Record<string, unknown>) => ({
+          id: station.id,
+          referral: station.referral,
+          signage: station.signage,
+          address: station.address,
+          municipality: station.municipality,
+          province: station.province,
+          coordinates:
+            station.latitude && station.longitude
+              ? { latitude: station.latitude, longitude: station.longitude }
+              : null,
+          price: station[fuelType],
+        }));
 
         const locationInfo =
           latitude !== undefined && longitude !== undefined
