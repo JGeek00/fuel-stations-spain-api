@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request } from 'express';
-import { Op } from 'sequelize';
+import { and, asc, between, eq } from 'drizzle-orm';
 
 // ── Shared mocks (hoisted by Vitest) ────────────────────────────────────────
 import '@tests/test-utils/controller-mocks';
@@ -8,16 +8,22 @@ import {
   createMockResponse,
   createMockNext,
   createMockRequest as _createMockRequest,
-  createMockRow,
 } from '@tests/test-utils/controller-mocks';
+
+vi.mock('@/models/db/memory-db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
+  return {
+    ...actual,
+    getMemoryDb: vi.fn(),
+  };
+});
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
 import * as Sentry from '@sentry/node';
 import { historicPricesController } from '@/controllers/historic-prices.controller';
 import { logger } from '@/utils/logger';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/models/db/memory-db';
 import { getHistoricDataMaxRangeMonths, formatRange } from '@/utils/historic-data-limit';
 import { GetHistoricPricesQueryParams } from '@/models/in/GetHistoricPricesQueryParams.model';
 
@@ -28,15 +34,93 @@ function createMockRequest(overrides: Record<string, unknown> = {}): Request<{},
 
 const mockSentryCaptureException = vi.mocked(Sentry.captureException);
 const mockLoggerError = vi.mocked(logger.error);
-const mockFindAll = vi.mocked(HistoricFuelStation.findAll);
-const mockFuelStationsFindOne = FuelStationsTable.findOne as ReturnType<typeof vi.fn>;
+const mockGetMemoryDb = vi.mocked(getMemoryDb);
 const mockGetHistoricDataMaxRangeMonths = vi.mocked(getHistoricDataMaxRangeMonths);
 const mockFormatRange = vi.mocked(formatRange);
+
+// ── Drizzle query-builder harness ──────────────────────────────────────────
+// Emulates the chainable Drizzle builder used by the controller: rows are
+// dispatched per table, `{ value: count() }` selects resolve the count, and
+// every chained call is recorded for assertions.
+interface DbHarness {
+  db: () => unknown;
+  setRows: (table: unknown, rows: unknown[]) => void;
+  state: { error: unknown };
+  calls: {
+    select: unknown[];
+    from: unknown[];
+    where: unknown[];
+    orderBy: unknown[];
+    limit: unknown[];
+  };
+}
+
+function makeDbHarness(): DbHarness {
+  const tables = new Map<unknown, unknown[]>();
+  const state = { error: undefined as unknown };
+  const calls = {
+    select: [] as unknown[],
+    from: [] as unknown[],
+    where: [] as unknown[],
+    orderBy: [] as unknown[],
+    limit: [] as unknown[],
+  };
+
+  const db = () => {
+    const makeBuilder = (mode: 'rows' | 'count', projection: unknown) => {
+      calls.select.push(projection);
+      let fromTable: unknown;
+      const b: Record<string, any> = {
+        from: vi.fn((t: unknown) => {
+          calls.from.push(t);
+          fromTable = t;
+          return b;
+        }),
+        where: vi.fn((c: unknown) => {
+          calls.where.push(c);
+          return b;
+        }),
+        orderBy: vi.fn((...o: unknown[]) => {
+          calls.orderBy.push(...o);
+          return b;
+        }),
+        limit: vi.fn((n: unknown) => {
+          calls.limit.push(n);
+          return b;
+        }),
+        offset: vi.fn(() => b),
+      };
+      b.then = (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
+        const value =
+          mode === 'count' ? [{ value: 0 }] : (tables.get(fromTable) ?? []);
+        const pending = state.error !== undefined ? Promise.reject(state.error) : Promise.resolve(value);
+        return pending.then(onFulfilled, onRejected);
+      };
+      return b;
+    };
+    return {
+      select: vi.fn((projection?: Record<string, unknown>) =>
+        makeBuilder(projection && 'value' in projection ? 'count' : 'rows', projection)
+      ),
+    };
+  };
+
+  return {
+    db,
+    setRows: (table: unknown, rows: unknown[]) => {
+      tables.set(table, rows);
+    },
+    state,
+    calls,
+  };
+}
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('historicPricesController', () => {
   const originalEnv = { ...process.env };
+  let harness: DbHarness;
+  const h = historicFuelStationsTable;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,8 +128,10 @@ describe('historicPricesController', () => {
     process.env = { ...originalEnv };
     delete process.env.HISTORIC_DATA_MAX_RANGE;
     // Reset mocks to default behavior
-    mockFindAll.mockResolvedValue([]);
-    mockFuelStationsFindOne.mockResolvedValue(null);
+    harness = makeDbHarness();
+    mockGetMemoryDb.mockImplementation(() => harness.db());
+    harness.setRows(historicFuelStationsTable, []);
+    harness.setRows(fuelStationsTable, []);
     mockGetHistoricDataMaxRangeMonths.mockReturnValue(null);
   });
 
@@ -140,7 +226,7 @@ describe('historicPricesController', () => {
       await historicPricesController(req, res, next);
 
       // Query proceeds with reversed range — database returns no results
-      expect(mockFindAll).toHaveBeenCalled();
+      expect(mockGetMemoryDb).toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith([]);
     });
   });
@@ -177,7 +263,7 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFindAll).toHaveBeenCalled();
+      expect(mockGetMemoryDb).toHaveBeenCalled();
     });
 
     it('does not check range when max range is null (no limit)', async () => {
@@ -191,12 +277,12 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFindAll).toHaveBeenCalled();
+      expect(mockGetMemoryDb).toHaveBeenCalled();
     });
   });
 
   describe('historic data query', () => {
-    it('queries HistoricFuelStation with correct stationId and date range', async () => {
+    it('queries historic prices with correct stationId and date range', async () => {
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
       });
@@ -205,18 +291,26 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFindAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            stationId: 'ES0001',
-            date: {
-              [Op.between]: [expect.any(String), expect.any(String)],
-            },
-          },
-          order: [['date', 'ASC']],
-          attributes: { exclude: ['id'] },
-        })
+      expect(harness.calls.where[0]).toEqual(
+        and(
+          eq(h.stationId, 'ES0001'),
+          between(h.date, '2024-01-01', '2024-12-31')
+        )
       );
+      expect(harness.calls.orderBy[0]).toEqual(asc(h.date));
+    });
+
+    it('selects explicitly without the id column', async () => {
+      const req = createMockRequest({
+        query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
+      });
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await historicPricesController(req, res, next);
+
+      const projection = harness.calls.select[0] as Record<string, unknown>;
+      expect(Object.keys(projection)).not.toContain('id');
     });
 
     it('handles id as array (takes first element)', async () => {
@@ -228,26 +322,26 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      // Verify findAll was called and used first element of array as stationId
-      expect(mockFindAll).toHaveBeenCalled();
-      const callArgs = (mockFindAll as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(callArgs.where.stationId).toBe('ES0001');
+      // Verify the query was built with the first element of the array as stationId
+      expect(harness.calls.where[0]).toEqual(
+        and(eq(h.stationId, 'ES0001'), between(h.date, '2024-01-01', '2024-12-31'))
+      );
     });
 
     it('returns formatted historic data ordered by date ASC', async () => {
-      mockFindAll.mockResolvedValue([
-        createMockRow({
+      harness.setRows(historicFuelStationsTable, [
+        {
           stationId: 'ES0001',
           date: '2024-01-15',
           gasoilAPrice: 1.5,
           gasoline95E5Price: 1.6,
-        }),
-        createMockRow({
+        },
+        {
           stationId: 'ES0001',
           date: '2024-02-15',
           gasoilAPrice: 1.52,
           gasoline95E5Price: 1.62,
-        }),
+        },
       ]);
 
       const req = createMockRequest({
@@ -266,7 +360,7 @@ describe('historicPricesController', () => {
     });
 
     it('returns empty array when no historic data matches', async () => {
-      mockFindAll.mockResolvedValue([]);
+      harness.setRows(historicFuelStationsTable, []);
 
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
@@ -281,7 +375,7 @@ describe('historicPricesController', () => {
   });
 
   describe('includeCurrentPrices', () => {
-    it('does not query FuelStationsTable when includeCurrentPrices is false', async () => {
+    it('does not query the fuel stations table when includeCurrentPrices is false', async () => {
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31', includeCurrentPrices: false },
       });
@@ -290,10 +384,10 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFuelStationsFindOne).not.toHaveBeenCalled();
+      expect(harness.calls.from).not.toContain(fuelStationsTable);
     });
 
-    it('does not query FuelStationsTable when includeCurrentPrices is omitted', async () => {
+    it('does not query the fuel stations table when includeCurrentPrices is omitted', async () => {
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
       });
@@ -302,10 +396,10 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFuelStationsFindOne).not.toHaveBeenCalled();
+      expect(harness.calls.from).not.toContain(fuelStationsTable);
     });
 
-    it('queries FuelStationsTable when includeCurrentPrices is true', async () => {
+    it('queries the fuel stations table when includeCurrentPrices is true', async () => {
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31', includeCurrentPrices: true },
       });
@@ -314,29 +408,26 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFuelStationsFindOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { stationId: 'ES0001' },
-        })
-      );
+      expect(harness.calls.from).toContain(fuelStationsTable);
+      expect(harness.calls.where[1]).toEqual(eq(fuelStationsTable.stationId, 'ES0001'));
     });
 
     it('appends current prices to historic results when includeCurrentPrices is true', async () => {
-      mockFindAll.mockResolvedValue([
-        createMockRow({
+      harness.setRows(historicFuelStationsTable, [
+        {
           stationId: 'ES0001',
           date: '2024-01-15',
           gasoilAPrice: 1.5,
-        }),
+        },
       ]);
-      mockFuelStationsFindOne.mockResolvedValue(
-        createMockRow({
+      harness.setRows(fuelStationsTable, [
+        {
           id: 'ES0001',
           stationId: 'ES0001',
           signage: 'Shell',
           gasoilAPrice: 1.55,
-        })
-      );
+        },
+      ]);
 
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31', includeCurrentPrices: true },
@@ -352,7 +443,7 @@ describe('historicPricesController', () => {
     });
 
     it('handles null current prices gracefully', async () => {
-      mockFuelStationsFindOne.mockResolvedValue(null);
+      harness.setRows(fuelStationsTable, []);
 
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31', includeCurrentPrices: true },
@@ -368,14 +459,14 @@ describe('historicPricesController', () => {
 
   describe('response format', () => {
     it('returns array of HistoricPrice objects', async () => {
-      mockFindAll.mockResolvedValue([
-        createMockRow({
+      harness.setRows(historicFuelStationsTable, [
+        {
           stationId: 'ES0001',
           stationSignage: 'Shell',
           date: '2024-01-15',
           gasoilAPrice: 1.5,
           gasoline95E5Price: 1.6,
-        }),
+        },
       ]);
 
       const req = createMockRequest({
@@ -392,13 +483,13 @@ describe('historicPricesController', () => {
     });
 
     it('maps snake_case keys to camelCase in response', async () => {
-      mockFindAll.mockResolvedValue([
-        createMockRow({
+      harness.setRows(historicFuelStationsTable, [
+        {
           stationId: 'ES0001',
           station_signage: 'Shell',
           date: '2024-01-15',
           gasoil_a_price: 1.5,
-        }),
+        },
       ]);
 
       const req = createMockRequest({
@@ -466,24 +557,23 @@ describe('historicPricesController', () => {
 
   describe('edge cases', () => {
     it('handles multiple historic results correctly', async () => {
-      const historicData = [
-        createMockRow({
+      harness.setRows(historicFuelStationsTable, [
+        {
           stationId: 'ES0001',
           date: '2024-01-01',
           gasoilAPrice: 1.5,
-        }),
-        createMockRow({
+        },
+        {
           stationId: 'ES0001',
           date: '2024-02-01',
           gasoilAPrice: 1.52,
-        }),
-        createMockRow({
+        },
+        {
           stationId: 'ES0001',
           date: '2024-03-01',
           gasoilAPrice: 1.48,
-        }),
-      ];
-      mockFindAll.mockResolvedValue(historicData);
+        },
+      ]);
 
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },
@@ -506,18 +596,18 @@ describe('historicPricesController', () => {
 
       await historicPricesController(req, res, next);
 
-      expect(mockFindAll).toHaveBeenCalled();
+      expect(mockGetMemoryDb).toHaveBeenCalled();
     });
 
     it('handles current prices with id field instead of stationId', async () => {
-      mockFindAll.mockResolvedValue([]);
-      mockFuelStationsFindOne.mockResolvedValue(
-        createMockRow({
+      harness.setRows(historicFuelStationsTable, []);
+      harness.setRows(fuelStationsTable, [
+        {
           id: 'ES0001',
           signage: 'Repsol',
           gasoilAPrice: 1.55,
-        })
-      );
+        },
+      ]);
 
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31', includeCurrentPrices: true },
@@ -532,8 +622,8 @@ describe('historicPricesController', () => {
       expect(responseData[0]).toHaveProperty('stationId');
     });
 
-    it('handles findAll rejection as unexpected error', async () => {
-      mockFindAll.mockRejectedValue(new Error('Query timeout'));
+    it('handles query rejection as unexpected error', async () => {
+      harness.state.error = new Error('Query timeout');
 
       const req = createMockRequest({
         query: { id: 'ES0001', startDate: '2024-01-01', endDate: '2024-12-31' },

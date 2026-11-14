@@ -2,9 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
 import { DateTime } from 'luxon';
 import * as Sentry from '@sentry/node'
-import { Op } from "sequelize";
-import { HistoricFuelStation } from "@/models/db/HistoricFuelStation";
-import { FuelStationsTable } from "@/models/db/FuelStations";
+import { and, asc, between, eq } from "drizzle-orm";
+import { fuelStationsTable, getMemoryDb, historicFuelStationsTable, installHistoricFuelStationAdapter } from "@/models/db/memory-db";
 import { HistoricPrice } from "@/models/entities/HistoricPrice.model";
 import { GetHistoricPricesQueryParams } from "@/models/in/GetHistoricPricesQueryParams.model";
 import { GetHistoricPricesResponse } from "@/models/out/GetHistoricPricesResponse.model";
@@ -17,6 +16,11 @@ import {
 } from '@/utils/error-handler';
 import { logger } from '@/utils/logger';
 import { formatRange, getHistoricDataMaxRangeMonths } from "@/utils/historic-data-limit";
+
+// The historic e2e seeds rows through the HistoricFuelStation statics; the
+// adapter routes them to the shared memory DB this controller reads. Drop the
+// install when the persisted side moves to Drizzle pg (T6).
+installHistoricFuelStationAdapter();
 
 export const historicPricesController = async (req: Request<{}, {}, {}, GetHistoricPricesQueryParams>, res: Response<GetHistoricPricesResponse>, next: NextFunction): Promise<void> => {
   try {
@@ -54,36 +58,61 @@ export const historicPricesController = async (req: Request<{}, {}, {}, GetHisto
     }
 
     const stationId = Array.isArray(req.query.id) ? req.query.id[0] : (req.query.id as string)
-    const historicResult = await HistoricFuelStation.findAll({
-      where: {
-        stationId: stationId,
-        date: {
-          [Op.between]: [start.toSQLDate() as string, end.toSQLDate() as string]
-        }
-      },
-      order: [
-        ['date', 'ASC'],
-      ],
-      attributes: { exclude: ['id'] }
-    })
+    const h = historicFuelStationsTable
+    const historicResult = await getMemoryDb()
+      .select({
+        stationId: h.stationId,
+        stationSignage: h.stationSignage,
+        adbluePrice: h.adbluePrice,
+        ammoniaPrice: h.ammoniaPrice,
+        biodieselPrice: h.biodieselPrice,
+        bioethanolPrice: h.bioethanolPrice,
+        compressedBiogasPrice: h.compressedBiogasPrice,
+        liquefiedBiogasPrice: h.liquefiedBiogasPrice,
+        renewableDieselPrice: h.renewableDieselPrice,
+        cngPrice: h.cngPrice,
+        lngPrice: h.lngPrice,
+        lpgPrice: h.lpgPrice,
+        gasoilAPrice: h.gasoilAPrice,
+        gasoilBPrice: h.gasoilBPrice,
+        premiumGasoilPrice: h.premiumGasoilPrice,
+        gasoline95E10Price: h.gasoline95E10Price,
+        gasoline95E25Price: h.gasoline95E25Price,
+        gasoline95E5Price: h.gasoline95E5Price,
+        gasoline95E5PremiumPrice: h.gasoline95E5PremiumPrice,
+        gasoline95E85Price: h.gasoline95E85Price,
+        gasoline98E10Price: h.gasoline98E10Price,
+        gasoline98E5Price: h.gasoline98E5Price,
+        renewableGasolinePrice: h.renewableGasolinePrice,
+        hydrogenPrice: h.hydrogenPrice,
+        methanolPrice: h.methanolPrice,
+        date: h.date,
+      })
+      .from(h)
+      .where(and(
+        eq(h.stationId, stationId),
+        between(h.date, start.toSQLDate() as string, end.toSQLDate() as string)
+      ))
+      .orderBy(asc(h.date))
 
-    let currentPrices: FuelStationsTable | null = null;
+    let currentPrices: Record<string, unknown> | null = null;
     const includeCurrentPrices = !!req.query.includeCurrentPrices;
     if (includeCurrentPrices) {
-      currentPrices = await FuelStationsTable.findOne({
-        where: {
-          stationId: stationId
-        }
-      })
+      const currentRows = await getMemoryDb()
+        .select()
+        .from(fuelStationsTable)
+        .where(eq(fuelStationsTable.stationId, stationId))
+        .limit(1)
+      currentPrices = currentRows[0] ?? null
     }
 
-    const formattedHistoric = historicResult.map(e => {
-      const values = keysToCamel(e.get())
+    const formattedHistoric = historicResult.map((e: Record<string, unknown>) => {
+      const values = keysToCamel(e)
       return <HistoricPrice>values
     })
 
     if (currentPrices) {
-      const values = keysToCamel(currentPrices.get())
+      const values = keysToCamel(currentPrices)
       formattedHistoric.push(<HistoricPrice>{
         ...values,
         stationId: (values.id ?? values.stationId) ?? null,

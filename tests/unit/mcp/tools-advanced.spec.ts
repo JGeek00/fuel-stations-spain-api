@@ -26,6 +26,14 @@ vi.mock('@/models/db/HistoricFuelStation', () => ({
   },
 }));
 
+vi.mock('@/models/db/memory-db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/models/db/memory-db')>();
+  return {
+    ...actual,
+    getMemoryDb: vi.fn(),
+  };
+});
+
 vi.mock('@/models/db/LastUpdated', () => ({
   LastUpdated: {
     get: vi.fn(),
@@ -114,6 +122,85 @@ import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
 import { LastUpdated } from '@/models/db/LastUpdated';
 import MunicipalitiesRepository from '@/repository/Municipalities.repository';
 import { keysToCamel } from '@/utils/case-keys';
+import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/models/db/memory-db';
+import { and, asc, between, eq } from 'drizzle-orm';
+
+const mockGetMemoryDb = vi.mocked(getMemoryDb);
+
+// ── Drizzle query-builder harness (tools rewritten to query Drizzle) ────────
+interface DbHarness {
+  db: () => unknown;
+  setRows: (table: unknown, rows: unknown[]) => void;
+  state: { count: number; error: unknown };
+  calls: {
+    select: unknown[];
+    from: unknown[];
+    where: unknown[];
+    orderBy: unknown[];
+    limit: unknown[];
+  };
+}
+
+function makeDbHarness(): DbHarness {
+  const tables = new Map<unknown, unknown[]>();
+  const state = { count: 0, error: undefined as unknown };
+  const calls = {
+    select: [] as unknown[],
+    from: [] as unknown[],
+    where: [] as unknown[],
+    orderBy: [] as unknown[],
+    limit: [] as unknown[],
+  };
+
+  const db = () => {
+    const makeBuilder = (mode: 'rows' | 'count', projection: unknown) => {
+      calls.select.push(projection);
+      let fromTable: unknown;
+      const b: Record<string, any> = {
+        from: vi.fn((t: unknown) => {
+          calls.from.push(t);
+          fromTable = t;
+          return b;
+        }),
+        where: vi.fn((c: unknown) => {
+          calls.where.push(c);
+          return b;
+        }),
+        orderBy: vi.fn((...o: unknown[]) => {
+          calls.orderBy.push(...o);
+          return b;
+        }),
+        limit: vi.fn((n: unknown) => {
+          calls.limit.push(n);
+          return b;
+        }),
+      };
+      b.then = (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
+        const value =
+          mode === 'count' ? [{ value: state.count }] : (tables.get(fromTable) ?? []);
+        const pending = state.error !== undefined ? Promise.reject(state.error) : Promise.resolve(value);
+        return pending.then(onFulfilled, onRejected);
+      };
+      return b;
+    };
+    return {
+      select: vi.fn((projection?: Record<string, unknown>) =>
+        makeBuilder(projection && 'value' in projection ? 'count' : 'rows', projection)
+      ),
+    };
+  };
+
+  return {
+    db,
+    setRows: (table: unknown, rows: unknown[]) => {
+      tables.set(table, rows);
+    },
+    state,
+    calls,
+  };
+}
+
+let dbh: DbHarness;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 type McpResponse = { content: Array<{ type: string; text: string }>; isError?: boolean };
@@ -126,6 +213,8 @@ function resetDbMocks() {
   (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
   (HistoricFuelStation.findAndCountAll as Mock).mockResolvedValue({ rows: [], count: 0 });
   (LastUpdated.findOne as Mock).mockResolvedValue(null);
+  dbh = makeDbHarness();
+  mockGetMemoryDb.mockImplementation(() => dbh.db());
 }
 
 function mcpText(result: unknown): string {
@@ -455,7 +544,6 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback returns empty results when no historic data', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({
@@ -472,11 +560,10 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback returns historic results', async () => {
     const { instance, calls } = createMockMcpServer();
-    const historicData = [
-      createMockRecord({ date: '2025-01-01', gasoilAPrice: 1.5 }),
-      createMockRecord({ date: '2025-01-02', gasoilAPrice: 1.52 }),
-    ];
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue(historicData);
+    dbh.setRows(historicFuelStationsTable, [
+      { date: '2025-01-01', gasoilAPrice: 1.5 },
+      { date: '2025-01-02', gasoilAPrice: 1.52 },
+    ]);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({
@@ -490,9 +577,8 @@ describe('queryHistoricPricesTool', () => {
     expect(output.results).toHaveLength(2);
   });
 
-  it('callback calls HistoricFuelStation.findAll with correct params', async () => {
+  it('callback queries the memory db with stationId and date range', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     await callback({
@@ -501,7 +587,14 @@ describe('queryHistoricPricesTool', () => {
       endDate: '2025-01-31',
     });
 
-    expect(HistoricFuelStation.findAll).toHaveBeenCalledTimes(1);
+    expect(dbh.calls.from).toContain(historicFuelStationsTable);
+    expect(dbh.calls.where[0]).toEqual(
+      and(
+        eq(historicFuelStationsTable.stationId, 's1'),
+        between(historicFuelStationsTable.date, '2025-01-01', '2025-01-31')
+      )
+    );
+    expect(dbh.calls.orderBy[0]).toEqual(asc(historicFuelStationsTable.date));
   });
 
   it('callback validates invalid date format', async () => {
@@ -553,8 +646,8 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback calls keysToCamel for each historic record', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([
-      createMockRecord({ date: '2025-01-01', gasoilA_Price: 1.5 }),
+    dbh.setRows(historicFuelStationsTable, [
+      { date: '2025-01-01', gasoilA_Price: 1.5 },
     ]);
     (keysToCamel as Mock).mockImplementation((obj) => obj);
     queryHistoricPricesTool(instance as never, dbService);
@@ -570,12 +663,12 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback includes current prices when includeCurrentPrices is true', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([
-      createMockRecord({ date: '2025-01-01', gasoilAPrice: 1.5 }),
+    dbh.setRows(historicFuelStationsTable, [
+      { date: '2025-01-01', gasoilAPrice: 1.5 },
     ]);
-    (FuelStationsTable.findOne as Mock).mockResolvedValue(
-      createMockRecord({ id: 's1', signage: 'Brand1', gasoilAPrice: 1.55 })
-    );
+    dbh.setRows(fuelStationsTable, [
+      { id: 's1', signage: 'Brand1', gasoilAPrice: 1.55 },
+    ]);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({
@@ -587,12 +680,11 @@ describe('queryHistoricPricesTool', () => {
 
     const output = mcpJson<{ count: number }>(result);
     expect(output.count).toBe(2); // 1 historic + 1 current
-    expect(FuelStationsTable.findOne).toHaveBeenCalledTimes(1);
+    expect(dbh.calls.from).toContain(fuelStationsTable);
   });
 
   it('callback does not query current prices by default', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     await callback({
@@ -606,7 +698,6 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback result has stationId, startDate, endDate, count, results', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockResolvedValue([]);
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({
@@ -625,7 +716,7 @@ describe('queryHistoricPricesTool', () => {
 
   it('callback returns isError on failure', async () => {
     const { instance, calls } = createMockMcpServer();
-    (HistoricFuelStation.findAll as Mock).mockRejectedValue(new Error('DB error'));
+    dbh.state.error = new Error('DB error');
     queryHistoricPricesTool(instance as never, dbService);
     const { callback } = getToolCallback(calls, 'query_historic_prices');
     const result = await callback({

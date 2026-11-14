@@ -1,8 +1,8 @@
 import { z } from 'zod';
+import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { FuelStation } from '@/models/entities/FuelStation.model';
-import { FuelStationsTable } from '@/models/db/FuelStations';
+import { fuelStationsTable, getMemoryDb } from '@/models/db/memory-db';
 import { logger } from '@/utils/logger';
 
 const FUEL_FIELD_NAMES = [
@@ -50,45 +50,45 @@ export function compareFuelPricesTool(server: McpServer, _databaseService: Datab
     async (args) => {
       try {
         const { fuelType, ids, municipalityId, limit } = args;
+        const t = fuelStationsTable;
+        const fuelColumn = (t as unknown as Record<string, typeof t.gasoilAPrice>)[fuelType];
 
-        const where: Record<string, unknown> = {};
-        if (ids) where.id = ids;
-        if (municipalityId) where.municipalityId = municipalityId;
+        const conditions: SQL[] = [];
+        if (ids) conditions.push(inArray(t.id, ids));
+        if (municipalityId) conditions.push(eq(t.municipalityId, municipalityId));
+        const where = conditions.length === 1 ? conditions[0] : conditions.length > 1 ? and(...conditions) : undefined;
 
         // Only select relevant fields to reduce payload
-        const attributes: (keyof FuelStation)[] = [
-          'id',
-          'referral',
-          'signage',
-          'address',
-          'municipality',
-          'province',
-          'latitude',
-          'longitude',
-          fuelType as FuelField,
-        ] as unknown as (keyof FuelStation)[];
+        const stations = await getMemoryDb()
+          .select({
+            id: t.id,
+            referral: t.referral,
+            signage: t.signage,
+            address: t.address,
+            municipality: t.municipality,
+            province: t.province,
+            latitude: t.latitude,
+            longitude: t.longitude,
+            [fuelType]: fuelColumn,
+          })
+          .from(t)
+          .where(where)
+          .orderBy(asc(fuelColumn))
+          .limit(limit ?? 50);
 
-        const stations = await FuelStationsTable.findAll({
-          where,
-          attributes,
-          order: [[fuelType, 'ASC']],
-          limit: limit ?? 50,
-        });
-
-        const results = stations.map((s) => {
-          const data = s.get({ plain: true }) as unknown as Record<string, unknown>;
-          return {
-            id: data.id,
-            referral: data.referral,
-            signage: data.signage,
-            address: data.address,
-            municipality: data.municipality,
-            province: data.province,
-            coordinates:
-              data.latitude && data.longitude ? { latitude: data.latitude, longitude: data.longitude } : null,
-            price: data[fuelType],
-          };
-        });
+        const results = stations.map((station: Record<string, unknown>) => ({
+          id: station.id,
+          referral: station.referral,
+          signage: station.signage,
+          address: station.address,
+          municipality: station.municipality,
+          province: station.province,
+          coordinates:
+            station.latitude && station.longitude
+              ? { latitude: station.latitude, longitude: station.longitude }
+              : null,
+          price: station[fuelType],
+        }));
 
         return {
           content: [

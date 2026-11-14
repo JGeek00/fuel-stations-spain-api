@@ -1,11 +1,10 @@
 import { z } from 'zod';
-import { Op } from 'sequelize';
 import { DateTime } from 'luxon';
+import { and, asc, between, eq } from 'drizzle-orm';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DatabaseService } from '@/services/database.service';
-import { HistoricFuelStation } from '@/models/db/HistoricFuelStation';
+import { fuelStationsTable, getMemoryDb, historicFuelStationsTable } from '@/models/db/memory-db';
 import { keysToCamel } from '@/utils/case-keys';
-import { FuelStationsTable } from '@/models/db/FuelStations';
 import { logger } from '@/utils/logger';
 
 export function queryHistoricPricesTool(server: McpServer, databaseService: DatabaseService): void {
@@ -64,22 +63,54 @@ export function queryHistoricPricesTool(server: McpServer, databaseService: Data
           };
         }
 
-        const historicResult = await HistoricFuelStation.findAll({
-          where: {
-            stationId: stationId,
-            date: { [Op.between]: [start.toSQLDate() as string, end.toSQLDate() as string] },
-          },
-          order: [['date', 'ASC']],
-          attributes: { exclude: ['id'] },
-        });
+        const h = historicFuelStationsTable;
+        const historicResult = await getMemoryDb()
+          .select({
+            stationId: h.stationId,
+            stationSignage: h.stationSignage,
+            adbluePrice: h.adbluePrice,
+            ammoniaPrice: h.ammoniaPrice,
+            biodieselPrice: h.biodieselPrice,
+            bioethanolPrice: h.bioethanolPrice,
+            compressedBiogasPrice: h.compressedBiogasPrice,
+            liquefiedBiogasPrice: h.liquefiedBiogasPrice,
+            renewableDieselPrice: h.renewableDieselPrice,
+            cngPrice: h.cngPrice,
+            lngPrice: h.lngPrice,
+            lpgPrice: h.lpgPrice,
+            gasoilAPrice: h.gasoilAPrice,
+            gasoilBPrice: h.gasoilBPrice,
+            premiumGasoilPrice: h.premiumGasoilPrice,
+            gasoline95E10Price: h.gasoline95E10Price,
+            gasoline95E25Price: h.gasoline95E25Price,
+            gasoline95E5Price: h.gasoline95E5Price,
+            gasoline95E5PremiumPrice: h.gasoline95E5PremiumPrice,
+            gasoline95E85Price: h.gasoline95E85Price,
+            gasoline98E10Price: h.gasoline98E10Price,
+            gasoline98E5Price: h.gasoline98E5Price,
+            renewableGasolinePrice: h.renewableGasolinePrice,
+            hydrogenPrice: h.hydrogenPrice,
+            methanolPrice: h.methanolPrice,
+            date: h.date,
+          })
+          .from(h)
+          .where(and(
+            eq(h.stationId, stationId),
+            between(h.date, start.toSQLDate() as string, end.toSQLDate() as string)
+          ))
+          .orderBy(asc(h.date));
 
-        const formattedHistoric = historicResult.map((e) => keysToCamel(e.get({ plain: true })));
+        const formattedHistoric = historicResult.map((e: Record<string, unknown>) => keysToCamel(e));
 
         let currentPrices: Record<string, unknown> | null = null;
         if (includeCurrentPrices) {
-          const station = await FuelStationsTable.findOne({ where: { stationId: stationId } });
-          if (station) {
-            const values = keysToCamel(station.get({ plain: true }));
+          const currentRows = await getMemoryDb()
+            .select()
+            .from(fuelStationsTable)
+            .where(eq(fuelStationsTable.stationId, stationId))
+            .limit(1);
+          if (currentRows[0]) {
+            const values = keysToCamel(currentRows[0]);
             currentPrices = {
               ...values,
               stationId: values.id ?? null,
